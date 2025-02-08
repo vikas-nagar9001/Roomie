@@ -130,7 +130,13 @@ export default function EntriesPage() {
                           size="sm"
                           onClick={() => {
                             fetch(`/api/entries/${entry._id}/approved`, { method: 'POST' })
-                              .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                              .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                toast({
+                                  title: "Entry Approved",
+                                  description: `Entry "${entry.name}" has been approved successfully.`
+                                });
+                              })
                               .catch(console.error);
                           }}
                         >
@@ -141,7 +147,14 @@ export default function EntriesPage() {
                           size="sm"
                           onClick={() => {
                             fetch(`/api/entries/${entry._id}/rejected`, { method: 'POST' })
-                              .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                              .then(() => {
+                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                toast({
+                                  title: "Entry Rejected",
+                                  description: `Entry "${entry.name}" has been rejected.`,
+                                  variant: "destructive"
+                                });
+                              })
                               .catch(console.error);
                           }}
                         >
@@ -171,7 +184,13 @@ export default function EntriesPage() {
                                   amount: parseFloat(formData.get('amount') as string),
                                 })
                               })
-                                .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                                .then(() => {
+                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                  toast({
+                                    title: "Entry Updated",
+                                    description: `Entry "${entry.name}" has been updated successfully.`
+                                  });
+                                })
                                 .catch(console.error);
                             }} 
                             className="space-y-4"
