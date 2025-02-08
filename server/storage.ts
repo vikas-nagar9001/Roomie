@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema({
 
 const activitySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['LOGIN', 'UPDATE_PROFILE', 'CHANGE_PASSWORD', 'FLAT_MANAGEMENT'], required: true },
+  type: { type: String, enum: ['LOGIN', 'UPDATE_PROFILE', 'CHANGE_PASSWORD', 'FLAT_MANAGEMENT', 'ENTRY_ADDED', 'ENTRY_UPDATED', 'ENTRY_DELETED', 'ENTRY_RESTORED'], required: true },
   description: { type: String, required: true },
   timestamp: { type: Date, default: Date.now }
 });
