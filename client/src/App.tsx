@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import ManageUsers from "@/pages/manage-users";
 import SetPasswordPage from "@/pages/set-password";
 import ResetPasswordPage from "@/pages/reset-password";
+import ProfilePage from "@/pages/profile";
 import { ProtectedRoute } from "./lib/protected-route";
 
 function Router() {
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/reset-password" component={ResetPasswordPage} />
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/manage-users" component={ManageUsers} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );

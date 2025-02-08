@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export type Role = "ADMIN" | "CO_ADMIN" | "USER";
 export type UserStatus = "PENDING" | "ACTIVE" | "DEACTIVATED";
+export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT";
 
 // Define Zod schemas for validation
 export const insertFlatSchema = z.object({
@@ -16,11 +17,19 @@ export const insertUserSchema = z.object({
   flatUsername: z.string().min(3).max(50),
 });
 
+export const insertActivitySchema = z.object({
+  userId: z.string(),
+  type: z.enum(["LOGIN", "UPDATE_PROFILE", "CHANGE_PASSWORD", "FLAT_MANAGEMENT"]),
+  description: z.string(),
+  timestamp: z.date().default(() => new Date()),
+});
+
 // Types for TypeScript
 export interface Flat {
   _id: string;
   name: string;
   flatUsername: string;
+  minApprovalAmount: number;
 }
 
 export interface User {
@@ -31,6 +40,8 @@ export interface User {
   role: Role;
   status: UserStatus;
   flatId: string;
+  flatUsername?: string;
+  profilePicture?: string;
   inviteToken: string | null;
   inviteExpiry: Date | null;
   resetToken: string | null;
@@ -38,5 +49,14 @@ export interface User {
   createdAt: Date;
 }
 
+export interface Activity {
+  _id: string;
+  userId: string;
+  type: ActivityType;
+  description: string;
+  timestamp: Date;
+}
+
 export type InsertFlat = z.infer<typeof insertFlatSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertActivity = z.infer<typeof insertActivitySchema>;

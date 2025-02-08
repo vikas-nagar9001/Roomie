@@ -4,10 +4,43 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { sendInviteEmail, sendPasswordResetEmail } from "./email";
-import { hashPassword } from "./auth"; // Assuming hashPassword function exists
+import { hashPassword } from "./auth";
+import multer from "multer";
+import path from "path";
+import express from 'express';
+import { mkdir, existsSync } from 'fs';
+import { promisify } from 'util';
+
+const mkdirAsync = promisify(mkdir);
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: './uploads/profiles',
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB
+  }
+});
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
+
+  // Create uploads directory if it doesn't exist
+  const uploadsDir = './uploads/profiles';
+  if (!existsSync(uploadsDir)) {
+    mkdirAsync(uploadsDir, { recursive: true }).catch(console.error);
+  }
 
   // Get all users in the flat
   app.get("/api/users", async (req, res) => {
@@ -15,6 +48,62 @@ export function registerRoutes(app: Express): Server {
     const users = await storage.getUsersByFlatId(req.user.flatId);
     res.json(users);
   });
+
+  // Get user activities
+  app.get("/api/user/activities", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    const activities = await storage.getUserActivities(req.user._id);
+    res.json(activities);
+  });
+
+  // Update user profile
+  app.patch("/api/user/profile", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+
+    try {
+      const { name, email } = req.body;
+      const updatedUser = await storage.updateUser(req.user._id, { name, email });
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "UPDATE_PROFILE",
+        description: "Updated profile information",
+        timestamp: new Date()
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  // Upload profile picture
+  app.post("/api/user/profile-picture", upload.single('profilePicture'), async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    try {
+      const profilePicture = `/uploads/profiles/${req.file.filename}`;
+      const updatedUser = await storage.updateUser(req.user._id, { profilePicture });
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "UPDATE_PROFILE",
+        description: "Updated profile picture",
+        timestamp: new Date()
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Failed to upload profile picture:', error);
+      res.status(500).json({ message: "Failed to upload profile picture" });
+    }
+  });
+
+  // Serve profile pictures
+  app.use('/uploads/profiles', express.static('uploads/profiles'));
+
 
   // Invite a new user
   app.post("/api/users/invite", async (req, res) => {
