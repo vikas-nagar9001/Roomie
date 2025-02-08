@@ -51,6 +51,7 @@ const EntryModel = mongoose.model('Entry', entrySchema);
 
 export interface IStorage {
   connect(): Promise<void>;
+  getEntriesByFlatId(flatId: string): Promise<any[]>;
   getUser(id: string): Promise<UserSchema | undefined>;
   getUserByEmail(email: string): Promise<UserSchema | undefined>;
   getUserByInviteToken(token: string): Promise<UserSchema | undefined>;
@@ -153,6 +154,13 @@ export class MongoStorage implements IStorage {
   async getUserEntriesTotal(userId: string): Promise<number> {
     const entries = await EntryModel.find({ userId, isDeleted: false });
     return entries.reduce((total, entry) => total + entry.amount, 0);
+  }
+
+  async getEntriesByFlatId(flatId: string) {
+    const entries = await EntryModel.find({ flatId, isDeleted: false })
+      .sort({ dateTime: -1 })
+      .populate('userId', 'name');
+    return entries.map(entry => this.convertId(entry.toObject()));
   }
 }
 
