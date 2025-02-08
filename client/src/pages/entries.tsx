@@ -100,12 +100,21 @@ export default function EntriesPage() {
             <CardContent className="space-y-2">
               <div className="flex justify-between">
                 <span>Total Entries:</span>
-                <span className="font-bold">{entries?.length || 0}</span>
+                <span className="font-bold">{entries?.filter(e => e.status === "APPROVED").length || 0}</span>
               </div>
               <div className="flex justify-between">
                 <span>Total Amount:</span>
                 <span className="font-bold">
-                  ₹{entries?.reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  ₹{entries?.filter(e => e.status === "APPROVED")
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Pending Entries:</span>
+                <span className="font-bold">
+                  {entries?.filter(e => e.status === "PENDING").length || 0}
+                  (₹{entries?.filter(e => e.status === "PENDING")
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0})
                 </span>
               </div>
             </CardContent>
@@ -116,33 +125,25 @@ export default function EntriesPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between">
-                <span>Your Total Amount:</span>
+                <span>Your Entries Amount:</span>
                 <span className="font-bold">
-                  ₹
-                  {entries
-                    ?.filter(
-                      (e) => e.userId.toString() === user?._id.toString(),
-                    )
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  ₹{entries?.filter(e => 
+                      e.userId.toString() === user?._id.toString() && 
+                      e.status === "APPROVED"
+                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Pending Entries:</span>
+                <span>Your Pending:</span>
                 <span className="font-bold">
-                  {entries?.filter(
-                    (e) =>
-                      e.userId.toString() === user?._id.toString() &&
-                      e.status === "PENDING",
+                  {entries?.filter(e =>
+                    e.userId.toString() === user?._id.toString() &&
+                    e.status === "PENDING"
                   ).length || 0}
-                  (₹
-                  {entries
-                    ?.filter(
-                      (e) =>
-                        e.userId.toString() === user?._id.toString() &&
-                        e.status === "PENDING",
-                    )
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  )
+                  (₹{entries?.filter(e =>
+                    e.userId.toString() === user?._id.toString() &&
+                    e.status === "PENDING"
+                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0})
                 </span>
               </div>
             </CardContent>
