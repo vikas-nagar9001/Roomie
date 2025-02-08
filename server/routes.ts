@@ -121,11 +121,11 @@ export function registerRoutes(app: Express): Server {
   // Add entry
   app.post("/api/entries", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
-    
+
     try {
       const { name, amount } = req.body;
       const flat = await storage.getFlat(req.user.flatId);
-      
+
       const entry = await storage.createEntry({
         name,
         amount,
@@ -305,6 +305,40 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update entry
+  app.patch("/api/entries/:id", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const { id } = req.params;
+      const entry = await storage.updateEntry(id, req.body);
+      res.json(entry);
+    } catch (error) {
+      console.error('Failed to update entry:', error);
+      res.status(500).json({ message: "Failed to update entry" });
+    }
+  });
+
+  // Approve/Decline entry
+  app.post("/api/entries/:id/:action", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+
+    try {
+      const { id, action } = req.params;
+      const entry = await storage.updateEntry(id, { 
+        status: action.toUpperCase() 
+      });
+      res.json(entry);
+    } catch (error) {
+      console.error('Failed to update entry status:', error);
+      res.status(500).json({ message: "Failed to update entry status" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
+
+export const storage = new MongoStorage();

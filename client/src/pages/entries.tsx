@@ -123,9 +123,77 @@ export default function EntriesPage() {
                 <TableCell>{entry.status}</TableCell>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell>
-                    <Button variant="outline" size="sm">
-                      {entry.status === "PENDING" ? "Approve" : "Edit"}
-                    </Button>
+                    {entry.status === "PENDING" ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            fetch(`/api/entries/${entry._id}/approved`, { method: 'POST' })
+                              .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                              .catch(console.error);
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            fetch(`/api/entries/${entry._id}/rejected`, { method: 'POST' })
+                              .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                              .catch(console.error);
+                          }}
+                        >
+                          Decline
+                        </Button>
+                      </div>
+                    ) : (
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            Edit
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Edit Entry</DialogTitle>
+                          </DialogHeader>
+                          <form 
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              const formData = new FormData(e.currentTarget);
+                              fetch(`/api/entries/${entry._id}`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  name: formData.get('name'),
+                                  amount: parseFloat(formData.get('amount') as string),
+                                })
+                              })
+                                .then(() => queryClient.invalidateQueries({ queryKey: ["/api/entries"] }))
+                                .catch(console.error);
+                            }} 
+                            className="space-y-4"
+                          >
+                            <Input
+                              name="name"
+                              defaultValue={entry.name}
+                              placeholder="Entry Name"
+                            />
+                            <Input
+                              name="amount"
+                              type="number"
+                              defaultValue={entry.amount}
+                              placeholder="Amount"
+                            />
+                            <Button type="submit">
+                              Update Entry
+                            </Button>
+                          </form>
+                        </DialogContent>
+                      </Dialog>
+                    )}
                   </TableCell>
                 )}
               </TableRow>

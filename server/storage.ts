@@ -175,6 +175,11 @@ export class MongoStorage implements IStorage {
     await entry.save();
     return this.convertId(entry.toObject());
   }
+
+  async updateEntry(id: string, data: Partial<Entry>): Promise<Entry | undefined> {
+    const entry = await EntryModel.findByIdAndUpdate(id, data, { new: true });
+    return this.convertId(entry?.toObject());
+  }
 }
 
 export const storage = new MongoStorage();
