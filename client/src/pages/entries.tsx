@@ -86,26 +86,39 @@ export default function EntriesPage() {
         <div className="grid gap-6 md:grid-cols-2 mb-8">
           <Card>
             <CardHeader>
-              <CardTitle>Total Entries</CardTitle>
+              <CardTitle>Overall Statistics</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{entries?.length || 0}</p>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span>Total Entries:</span>
+                <span className="font-bold">{entries?.length || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Total Amount:</span>
+                <span className="font-bold">₹{entries?.reduce((sum, entry) => sum + entry.amount, 0) || 0}</span>
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Your Approved Amount</CardTitle>
+              <CardTitle>Your Statistics</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">₹{totals?.userTotal || 0}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Flat Approved Amount</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">₹{totals?.flatTotal || 0}</p>
+            <CardContent className="space-y-2">
+              <div className="flex justify-between">
+                <span>Your Total Amount:</span>
+                <span className="font-bold">
+                  ₹{entries?.filter(e => e.userId.toString() === user?._id.toString())
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Pending Entries:</span>
+                <span className="font-bold">
+                  {entries?.filter(e => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} 
+                  (₹{entries?.filter(e => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0})
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
