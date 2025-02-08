@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import ManageUsers from "@/pages/manage-users";
+import EntriesPage from "@/pages/entries";
 import SetPasswordPage from "@/pages/set-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import ProfilePage from "@/pages/profile";

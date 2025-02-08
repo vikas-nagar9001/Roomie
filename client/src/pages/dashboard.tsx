@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { LuUsers, LuLogOut, LuUser } from "react-icons/lu";
+import { LuUsers,LuList, LuLogOut, LuUser } from "react-icons/lu";
 import { Link } from "wouter";
 
 export default function Dashboard() {
