@@ -7,12 +7,14 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import ManageUsers from "@/pages/manage-users";
+import SetPasswordPage from "@/pages/set-password";
 import { ProtectedRoute } from "./lib/protected-route";
 
 function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/set-password" component={SetPasswordPage} />
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/manage-users" component={ManageUsers} />
       <Route component={NotFound} />
