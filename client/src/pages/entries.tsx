@@ -100,21 +100,28 @@ export default function EntriesPage() {
             <CardContent className="space-y-2">
               <div className="flex justify-between">
                 <span>Total Entries:</span>
-                <span className="font-bold">{entries?.filter(e => e.status === "APPROVED").length || 0}</span>
+                <span className="font-bold">
+                  {entries?.filter((e) => e.status === "APPROVED").length || 0}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Total Amount:</span>
                 <span className="font-bold">
-                  ₹{entries?.filter(e => e.status === "APPROVED")
+                  ₹
+                  {entries
+                    ?.filter((e) => e.status === "APPROVED")
                     .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Pending Entries:</span>
                 <span className="font-bold">
-                  {entries?.filter(e => e.status === "PENDING").length || 0}
-                  (₹{entries?.filter(e => e.status === "PENDING")
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0})
+                  {entries?.filter((e) => e.status === "PENDING").length || 0}
+                  (₹
+                  {entries
+                    ?.filter((e) => e.status === "PENDING")
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  )
                 </span>
               </div>
             </CardContent>
@@ -127,33 +134,44 @@ export default function EntriesPage() {
               <div className="flex justify-between">
                 <span>Total Entries:</span>
                 <span className="font-bold">
-                  {entries?.filter(e => 
-                    e.userId.toString() === user?._id.toString() && 
-                    (e.status === "APPROVED" || e.status === "PENDING")
+                  {entries?.filter(
+                    (e) =>
+                      e.userId.toString() === user?._id.toString() &&
+                      (e.status === "APPROVED" || e.status === "PENDING"),
                   ).length || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Your Approved Amount:</span>
                 <span className="font-bold text-green-600">
-                  ₹{entries?.filter(e => 
-                    e.userId.toString() === user?._id.toString() && 
-                    e.status === "APPROVED"
-                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  ₹
+                  {entries
+                    ?.filter(
+                      (e) =>
+                        e.userId.toString() === user?._id.toString() &&
+                        e.status === "APPROVED",
+                    )
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Your Pending Amount:</span>
                 <span className="font-bold text-yellow-600">
-                  ₹{entries?.filter(e =>
-                    e.userId.toString() === user?._id.toString() &&
-                    e.status === "PENDING"
-                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  {" "}
-                  ({entries?.filter(e =>
-                    e.userId.toString() === user?._id.toString() &&
-                    e.status === "PENDING"
-                  ).length || 0} entries)
+                  ₹
+                  {entries
+                    ?.filter(
+                      (e) =>
+                        e.userId.toString() === user?._id.toString() &&
+                        e.status === "PENDING",
+                    )
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}{" "}
+                  (
+                  {entries?.filter(
+                    (e) =>
+                      e.userId.toString() === user?._id.toString() &&
+                      e.status === "PENDING",
+                  ).length || 0}{" "}
+                  entries)
                 </span>
               </div>
             </CardContent>
