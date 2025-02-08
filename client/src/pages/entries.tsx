@@ -128,13 +128,14 @@ export default function EntriesPage() {
                 <span>Total Entries:</span>
                 <span className="font-bold">
                   {entries?.filter(e => 
-                    e.userId.toString() === user?._id.toString()
+                    e.userId.toString() === user?._id.toString() && 
+                    (e.status === "APPROVED" || e.status === "PENDING")
                   ).length || 0}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Your Entries Amount:</span>
-                <span className="font-bold">
+                <span>Your Approved Amount:</span>
+                <span className="font-bold text-green-600">
                   ₹{entries?.filter(e => 
                     e.userId.toString() === user?._id.toString() && 
                     e.status === "APPROVED"
@@ -142,16 +143,17 @@ export default function EntriesPage() {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Your Pending:</span>
-                <span className="font-bold">
-                  {entries?.filter(e =>
+                <span>Your Pending Amount:</span>
+                <span className="font-bold text-yellow-600">
+                  ₹{entries?.filter(e =>
                     e.userId.toString() === user?._id.toString() &&
                     e.status === "PENDING"
-                  ).length || 0}
-                  {" "}entries (₹{entries?.filter(e =>
+                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  {" "}
+                  ({entries?.filter(e =>
                     e.userId.toString() === user?._id.toString() &&
                     e.status === "PENDING"
-                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0})
+                  ).length || 0} entries)
                 </span>
               </div>
             </CardContent>
