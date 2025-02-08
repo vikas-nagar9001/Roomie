@@ -125,12 +125,20 @@ export default function EntriesPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between">
+                <span>Total Entries:</span>
+                <span className="font-bold">
+                  {entries?.filter(e => 
+                    e.userId.toString() === user?._id.toString()
+                  ).length || 0}
+                </span>
+              </div>
+              <div className="flex justify-between">
                 <span>Your Entries Amount:</span>
                 <span className="font-bold">
                   ₹{entries?.filter(e => 
-                      e.userId.toString() === user?._id.toString() && 
-                      e.status === "APPROVED"
-                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                    e.userId.toString() === user?._id.toString() && 
+                    e.status === "APPROVED"
+                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -140,7 +148,7 @@ export default function EntriesPage() {
                     e.userId.toString() === user?._id.toString() &&
                     e.status === "PENDING"
                   ).length || 0}
-                  (₹{entries?.filter(e =>
+                  {" "}entries (₹{entries?.filter(e =>
                     e.userId.toString() === user?._id.toString() &&
                     e.status === "PENDING"
                   ).reduce((sum, entry) => sum + entry.amount, 0) || 0})
