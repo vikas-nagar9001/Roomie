@@ -32,10 +32,22 @@ const activitySchema = new mongoose.Schema({
   timestamp: { type: Date, default: Date.now }
 });
 
+const entrySchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  amount: { type: Number, required: true },
+  dateTime: { type: Date, default: Date.now },
+  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Flat', required: true },
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date }
+});
+
 // MongoDB Models
 const FlatModel = mongoose.model('Flat', flatSchema);
 const UserModel = mongoose.model('User', userSchema);
 const ActivityModel = mongoose.model('Activity', activitySchema);
+const EntryModel = mongoose.model('Entry', entrySchema);
 
 export interface IStorage {
   connect(): Promise<void>;
@@ -136,6 +148,11 @@ export class MongoStorage implements IStorage {
   async getUserActivities(userId: string): Promise<ActivitySchema[]> {
     const activities = await ActivityModel.find({ userId }).sort({ timestamp: -1 });
     return activities.map(activity => this.convertId(activity.toObject()));
+  }
+
+  async getUserEntriesTotal(userId: string): Promise<number> {
+    const entries = await EntryModel.find({ userId, isDeleted: false });
+    return entries.reduce((total, entry) => total + entry.amount, 0);
   }
 }
 
