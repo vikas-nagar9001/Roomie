@@ -219,14 +219,14 @@ export default function EntriesPage() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <img
-                      src={entry.user.profilePicture}
-                      alt={entry.user.name}
+                      src={entry.user?.profilePicture || "/default-avatar.png"}
+                      alt={entry.user?.name || "User"}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
-                      <div className="font-medium">{entry.user?.name}</div>
+                      <div className="font-medium">{entry.user?.name || "Unknown User"}</div>
                       <div className="text-sm text-muted-foreground">
-                        {entry.user?.email}
+                        {entry.user?.email || "No email"}
                       </div>
                     </div>
                   </div>
