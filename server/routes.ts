@@ -108,7 +108,14 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/entries", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const entries = await storage.getEntriesByFlatId(req.user.flatId);
-    res.json(entries);
+    const users = await storage.getUsersByFlatId(req.user.flatId);
+    
+    const entriesWithUsers = entries.map(entry => ({
+      ...entry,
+      user: users.find(user => user._id.toString() === entry.userId.toString())
+    }));
+    
+    res.json(entriesWithUsers);
   });
 
   // Get total amount for user

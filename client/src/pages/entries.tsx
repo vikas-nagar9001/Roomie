@@ -185,6 +185,7 @@ export default function EntriesPage() {
               <TableHead>Amount</TableHead>
               <TableHead>Date & Time</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>User</TableHead>
               {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                 <TableHead>Actions</TableHead>
               )}
@@ -193,7 +194,19 @@ export default function EntriesPage() {
           <TableBody>
             {entries?.map((entry) => (
               <TableRow key={entry._id}>
-                <TableCell>{entry.name}</TableCell>
+                <TableCell className="flex items-center gap-2">
+                  <img
+                    src={entry.user?.profilePicture || "/default-avatar.png"}
+                    alt={entry.user?.name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                  <div>
+                    <div>{entry.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {entry.user?.name}
+                    </div>
+                  </div>
+                </TableCell>
                 <TableCell>₹{entry.amount}</TableCell>
                 <TableCell>
                   {new Date(entry.dateTime).toLocaleString()}
@@ -204,13 +217,14 @@ export default function EntriesPage() {
                       entry.status === "APPROVED"
                         ? "bg-green-100 text-green-800"
                         : entry.status === "PENDING"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
                     }`}
                   >
                     {entry.status}
                   </span>
                 </TableCell>
+                <TableCell>{entry.user?.name}</TableCell>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell>
                     {entry.status === "PENDING" ? (
