@@ -135,14 +135,18 @@ export default function EntriesPage() {
                 <span>Your Total Entries:</span>
                 <div className="text-right">
                   <div className="font-bold bg-secondary px-2 py-1 rounded">
-                    {entries?.filter(e => 
-                      e.userId.toString() === user?._id.toString()
-                    ).length || 0} entries
+                    {entries?.filter(
+                      (e) => e.userId.toString() === user?._id.toString(),
+                    ).length || 0}{" "}
+                    entries
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Total Amount: ₹{entries?.filter(e => 
-                      e.userId.toString() === user?._id.toString()
-                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                    Total Amount: ₹
+                    {entries
+                      ?.filter(
+                        (e) => e.userId.toString() === user?._id.toString(),
+                      )
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
                 </div>
               </div>
@@ -150,16 +154,22 @@ export default function EntriesPage() {
                 <span>Your Approved:</span>
                 <div className="text-right">
                   <div className="font-bold text-green-600">
-                    ₹{entries?.filter(e => 
-                      e.userId.toString() === user?._id.toString() && 
-                      e.status === "APPROVED"
-                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                    ₹
+                    {entries
+                      ?.filter(
+                        (e) =>
+                          e.userId.toString() === user?._id.toString() &&
+                          e.status === "APPROVED",
+                      )
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {entries?.filter(e =>
-                      e.userId.toString() === user?._id.toString() &&
-                      e.status === "APPROVED"
-                    ).length || 0} entries
+                    {entries?.filter(
+                      (e) =>
+                        e.userId.toString() === user?._id.toString() &&
+                        e.status === "APPROVED",
+                    ).length || 0}{" "}
+                    entries
                   </div>
                 </div>
               </div>
@@ -167,16 +177,22 @@ export default function EntriesPage() {
                 <span>Your Pending:</span>
                 <div className="text-right">
                   <div className="font-bold text-yellow-600">
-                    ₹{entries?.filter(e =>
-                      e.userId.toString() === user?._id.toString() &&
-                      e.status === "PENDING"
-                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                    ₹
+                    {entries
+                      ?.filter(
+                        (e) =>
+                          e.userId.toString() === user?._id.toString() &&
+                          e.status === "PENDING",
+                      )
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    {entries?.filter(e =>
-                      e.userId.toString() === user?._id.toString() &&
-                      e.status === "PENDING"
-                    ).length || 0} entries
+                    {entries?.filter(
+                      (e) =>
+                        e.userId.toString() === user?._id.toString() &&
+                        e.status === "PENDING",
+                    ).length || 0}{" "}
+                    entries
                   </div>
                 </div>
               </div>
@@ -203,8 +219,8 @@ export default function EntriesPage() {
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <img
-                      src={entry.user?.profilePicture || "/default-avatar.png"}
-                      alt={entry.user?.name}
+                      src={entry.user.profilePicture}
+                      alt={entry.user.name}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
@@ -226,8 +242,8 @@ export default function EntriesPage() {
                       entry.status === "APPROVED"
                         ? "bg-green-100 text-green-800"
                         : entry.status === "PENDING"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
                     }`}
                   >
                     {entry.status}
