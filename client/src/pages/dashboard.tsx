@@ -31,6 +31,21 @@ export default function Dashboard() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Link href="/entries">
+            <Card className="hover:bg-accent cursor-pointer transition-colors">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <LuList className="h-5 w-5" />
+                  Entries
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  View and manage your flat's entries
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
           {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
             <Link href="/manage-users">
               <Card className="hover:bg-accent cursor-pointer transition-colors">

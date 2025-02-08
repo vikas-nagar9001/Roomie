@@ -104,6 +104,52 @@ export function registerRoutes(app: Express): Server {
   // Serve profile pictures
   app.use('/uploads/profiles', express.static('uploads/profiles'));
 
+  // Get all entries
+  app.get("/api/entries", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    const entries = await storage.getEntriesByFlatId(req.user.flatId);
+    res.json(entries);
+  });
+
+  // Get total amount for user
+  app.get("/api/entries/total", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    const total = await storage.getUserEntriesTotal(req.user._id);
+    res.json(total);
+  });
+
+  // Add entry
+  app.post("/api/entries", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      const { name, amount } = req.body;
+      const flat = await storage.getFlat(req.user.flatId);
+      
+      const entry = await storage.createEntry({
+        name,
+        amount,
+        dateTime: new Date(),
+        status: amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
+        userId: req.user._id,
+        flatId: req.user.flatId,
+        isDeleted: false
+      });
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "ENTRY_ADDED",
+        description: `Added entry: ${name} (₹${amount})`,
+        timestamp: new Date()
+      });
+
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error('Failed to create entry:', error);
+      res.status(500).json({ message: "Failed to create entry" });
+    }
+  });
+
 
   // Invite a new user
   app.post("/api/users/invite", async (req, res) => {

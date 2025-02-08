@@ -21,6 +21,7 @@ function Router() {
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/manage-users" component={ManageUsers} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/entries" component={EntriesPage} />
       <Route component={NotFound} />
     </Switch>
   );
