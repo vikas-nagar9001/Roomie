@@ -53,6 +53,7 @@ export interface IStorage {
   connect(): Promise<void>;
   getEntriesByFlatId(flatId: string): Promise<any[]>;
   getFlat(flatId: string): Promise<Flat | undefined>;
+  createEntry(entryData: Partial<Entry>): Promise<Entry>;
   getUser(id: string): Promise<UserSchema | undefined>;
   getUserByEmail(email: string): Promise<UserSchema | undefined>;
   getUserByInviteToken(token: string): Promise<UserSchema | undefined>;
@@ -167,6 +168,12 @@ export class MongoStorage implements IStorage {
   async getFlat(flatId: string): Promise<Flat | undefined> {
     const flat = await FlatModel.findById(flatId);
     return this.convertId(flat?.toObject());
+  }
+
+  async createEntry(entryData: Partial<Entry>): Promise<Entry> {
+    const entry = new EntryModel(entryData);
+    await entry.save();
+    return this.convertId(entry.toObject());
   }
 }
 
