@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -12,7 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
@@ -67,13 +72,17 @@ export default function EntriesPage() {
                 <Input
                   placeholder="Entry Name"
                   value={newEntry.name}
-                  onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
+                  onChange={(e) =>
+                    setNewEntry({ ...newEntry, name: e.target.value })
+                  }
                 />
                 <Input
                   type="number"
                   placeholder="Amount"
                   value={newEntry.amount}
-                  onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                  onChange={(e) =>
+                    setNewEntry({ ...newEntry, amount: e.target.value })
+                  }
                 />
                 <Button type="submit" disabled={addEntryMutation.isPending}>
                   Add Entry
@@ -95,7 +104,9 @@ export default function EntriesPage() {
               </div>
               <div className="flex justify-between">
                 <span>Total Amount:</span>
-                <span className="font-bold">₹{entries?.reduce((sum, entry) => sum + entry.amount, 0) || 0}</span>
+                <span className="font-bold">
+                  ₹{entries?.reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -107,16 +118,31 @@ export default function EntriesPage() {
               <div className="flex justify-between">
                 <span>Your Total Amount:</span>
                 <span className="font-bold">
-                  ₹{entries?.filter(e => e.userId.toString() === user?._id.toString())
+                  ₹
+                  {entries
+                    ?.filter(
+                      (e) => e.userId.toString() === user?._id.toString(),
+                    )
                     .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span>Pending Entries:</span>
                 <span className="font-bold">
-                  {entries?.filter(e => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} 
-                  (₹{entries?.filter(e => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0})
+                  {entries?.filter(
+                    (e) =>
+                      e.userId.toString() === user?._id.toString() &&
+                      e.status === "PENDING",
+                  ).length || 0}
+                  (₹
+                  {entries
+                    ?.filter(
+                      (e) =>
+                        e.userId.toString() === user?._id.toString() &&
+                        e.status === "PENDING",
+                    )
+                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  )
                 </span>
               </div>
             </CardContent>
@@ -140,13 +166,19 @@ export default function EntriesPage() {
               <TableRow key={entry._id}>
                 <TableCell>{entry.name}</TableCell>
                 <TableCell>₹{entry.amount}</TableCell>
-                <TableCell>{new Date(entry.dateTime).toLocaleString()}</TableCell>
                 <TableCell>
-                  <span className={`px-2 py-1 rounded-full text-sm ${
-                    entry.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                    entry.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
+                  {new Date(entry.dateTime).toLocaleString()}
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={`px-2 py-1 rounded-full text-sm ${
+                      entry.status === "APPROVED"
+                        ? "bg-green-100 text-green-800"
+                        : entry.status === "PENDING"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                    }`}
+                  >
                     {entry.status}
                   </span>
                 </TableCell>
@@ -154,16 +186,20 @@ export default function EntriesPage() {
                   <TableCell>
                     {entry.status === "PENDING" ? (
                       <div className="flex gap-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => {
-                            fetch(`/api/entries/${entry._id}/approved`, { method: 'POST' })
+                            fetch(`/api/entries/${entry._id}/approved`, {
+                              method: "POST",
+                            })
                               .then(() => {
-                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                queryClient.invalidateQueries({
+                                  queryKey: ["/api/entries"],
+                                });
                                 toast({
                                   title: "Entry Approved",
-                                  description: `Entry "${entry.name}" has been approved successfully.`
+                                  description: `Entry "${entry.name}" has been approved successfully.`,
                                 });
                               })
                               .catch(console.error);
@@ -171,17 +207,21 @@ export default function EntriesPage() {
                         >
                           Approve
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => {
-                            fetch(`/api/entries/${entry._id}/rejected`, { method: 'POST' })
+                            fetch(`/api/entries/${entry._id}/rejected`, {
+                              method: "POST",
+                            })
                               .then(() => {
-                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                queryClient.invalidateQueries({
+                                  queryKey: ["/api/entries"],
+                                });
                                 toast({
                                   title: "Entry Rejected",
                                   description: `Entry "${entry.name}" has been rejected.`,
-                                  variant: "destructive"
+                                  variant: "destructive",
                                 });
                               })
                               .catch(console.error);
@@ -201,27 +241,31 @@ export default function EntriesPage() {
                           <DialogHeader>
                             <DialogTitle>Edit Entry</DialogTitle>
                           </DialogHeader>
-                          <form 
+                          <form
                             onSubmit={(e) => {
                               e.preventDefault();
                               const formData = new FormData(e.currentTarget);
                               fetch(`/api/entries/${entry._id}`, {
-                                method: 'PATCH',
-                                headers: { 'Content-Type': 'application/json' },
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
-                                  name: formData.get('name'),
-                                  amount: parseFloat(formData.get('amount') as string),
-                                })
+                                  name: formData.get("name"),
+                                  amount: parseFloat(
+                                    formData.get("amount") as string,
+                                  ),
+                                }),
                               })
                                 .then(() => {
-                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                  queryClient.invalidateQueries({
+                                    queryKey: ["/api/entries"],
+                                  });
                                   toast({
                                     title: "Entry Updated",
-                                    description: `Entry "${entry.name}" has been updated successfully.`
+                                    description: `Entry "${entry.name}" has been updated successfully.`,
                                   });
                                 })
                                 .catch(console.error);
-                            }} 
+                            }}
                             className="space-y-4"
                           >
                             <Input
@@ -235,9 +279,7 @@ export default function EntriesPage() {
                               defaultValue={entry.amount}
                               placeholder="Amount"
                             />
-                            <Button type="submit">
-                              Update Entry
-                            </Button>
+                            <Button type="submit">Update Entry</Button>
                           </form>
                         </DialogContent>
                       </Dialog>
