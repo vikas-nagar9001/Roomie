@@ -172,11 +172,11 @@ export default function EntriesPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>User</TableHead>
               <TableHead>Entry Name</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Date & Time</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>User</TableHead>
               {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                 <TableHead>Actions</TableHead>
               )}
@@ -185,19 +185,22 @@ export default function EntriesPage() {
           <TableBody>
             {entries?.map((entry) => (
               <TableRow key={entry._id}>
-                <TableCell className="flex items-center gap-2">
-                  <img
-                    src={entry.user?.profilePicture || "/default-avatar.png"}
-                    alt={entry.user?.name}
-                    className="w-8 h-8 rounded-full"
-                  />
-                  <div>
-                    <div>{entry.name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {entry.user?.name}
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={entry.user?.profilePicture || "/default-avatar.png"}
+                      alt={entry.user?.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                    />
+                    <div>
+                      <div className="font-medium">{entry.user?.name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {entry.user?.email}
+                      </div>
                     </div>
                   </div>
                 </TableCell>
+                <TableCell className="font-medium">{entry.name}</TableCell>
                 <TableCell>₹{entry.amount}</TableCell>
                 <TableCell>
                   {new Date(entry.dateTime).toLocaleString()}
@@ -215,7 +218,6 @@ export default function EntriesPage() {
                     {entry.status}
                   </span>
                 </TableCell>
-                <TableCell>{entry.user?.name}</TableCell>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell>
                     {entry.status === "PENDING" ? (
