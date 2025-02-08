@@ -74,12 +74,14 @@ export function setupAuth(app: Express) {
             return done(null, false, { message: "No password set" });
           }
 
-          if (!(await comparePasswords(password, user.password))) {
+          const isValidPassword = await comparePasswords(password, user.password);
+          if (!isValidPassword) {
             return done(null, false, { message: "Invalid email or password" });
           }
 
           return done(null, user);
         } catch (err) {
+          console.error('Authentication error:', err);
           return done(err);
         }
       }
@@ -92,6 +94,7 @@ export function setupAuth(app: Express) {
       const user = await storage.getUser(id);
       done(null, user);
     } catch (err) {
+      console.error('Deserialization error:', err);
       done(err);
     }
   });
@@ -128,13 +131,17 @@ export function setupAuth(app: Express) {
         res.status(201).json(user);
       });
     } catch (err) {
+      console.error('Registration error:', err);
       next(err);
     }
   });
 
   app.post("/api/login", (req, res, next) => {
     passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
+      if (err) {
+        console.error('Login error:', err);
+        return next(err);
+      }
       if (!user) {
         return res.status(401).json({ message: info?.message || "Authentication failed" });
       }
@@ -191,6 +198,7 @@ export function setupAuth(app: Express) {
         res.json(updatedUser);
       });
     } catch (err) {
+      console.error('Set password error:', err);
       next(err);
     }
   });
