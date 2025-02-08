@@ -9,10 +9,18 @@ import { useForm } from "react-hook-form";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Redirect } from "wouter";
 import { LuBuilding2 } from "react-icons/lu";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  
+  const { toast } = useToast();
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+
   const loginForm = useForm({
     defaultValues: { email: "", password: "" },
   });
@@ -24,6 +32,26 @@ export default function AuthPage() {
       email: "",
       password: "",
       flatUsername: "",
+    },
+  });
+
+  const forgotPasswordMutation = useMutation({
+    mutationFn: async (email: string) => {
+      await apiRequest("POST", "/api/forgot-password", { email });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reset link sent",
+        description: "Check your email for password reset instructions",
+      });
+      setForgotPasswordOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to send reset link",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -62,6 +90,14 @@ export default function AuthPage() {
                       disabled={loginMutation.isPending}
                     >
                       Login
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="w-full"
+                      onClick={() => setForgotPasswordOpen(true)}
+                    >
+                      Forgot Password?
                     </Button>
                   </div>
                 </form>
@@ -115,6 +151,39 @@ export default function AuthPage() {
           </p>
         </div>
       </div>
+
+      <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+          </DialogHeader>
+          <form 
+            onSubmit={(e) => {
+              e.preventDefault();
+              forgotPasswordMutation.mutate(resetEmail);
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="resetEmail">Email</Label>
+              <Input
+                id="resetEmail"
+                type="email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={forgotPasswordMutation.isPending}
+            >
+              Send Reset Link
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

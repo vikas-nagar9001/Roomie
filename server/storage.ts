@@ -1,4 +1,3 @@
-import { users, type User, type InsertUser } from "@shared/schema";
 import mongoose from 'mongoose';
 import { InsertUser as InsertUserSchema, User as UserSchema, InsertFlat, Flat, Role, UserStatus } from '@shared/schema';
 import session from 'express-session';
@@ -19,6 +18,8 @@ const userSchema = new mongoose.Schema({
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Flat', required: true },
   inviteToken: { type: String },
   inviteExpiry: { type: Date },
+  resetToken: { type: String },
+  resetExpiry: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -53,41 +54,50 @@ export class MongoStorage implements IStorage {
     console.log('Connected to MongoDB');
   }
 
+  private convertId(doc: any): any {
+    if (!doc) return undefined;
+    return {
+      ...doc,
+      _id: doc._id.toString(),
+      flatId: doc.flatId.toString()
+    };
+  }
+
   async getUser(id: string): Promise<UserSchema | undefined> {
     const user = await UserModel.findById(id);
-    return user ? user.toObject() : undefined;
+    return this.convertId(user?.toObject());
   }
 
   async getUserByEmail(email: string): Promise<UserSchema | undefined> {
     const user = await UserModel.findOne({ email });
-    return user ? user.toObject() : undefined;
+    return this.convertId(user?.toObject());
   }
 
   async getUserByInviteToken(token: string): Promise<UserSchema | undefined> {
     const user = await UserModel.findOne({ inviteToken: token });
-    return user ? user.toObject() : undefined;
+    return this.convertId(user?.toObject());
   }
 
   async getUsersByFlatId(flatId: string): Promise<UserSchema[]> {
     const users = await UserModel.find({ flatId });
-    return users.map(user => user.toObject());
+    return users.map(user => this.convertId(user.toObject()));
   }
 
   async createUser(userData: Partial<UserSchema>): Promise<UserSchema> {
     const user = new UserModel(userData);
     await user.save();
-    return user.toObject();
+    return this.convertId(user.toObject());
   }
 
   async createFlat(flatData: InsertFlat): Promise<Flat> {
     const flat = new FlatModel(flatData);
     await flat.save();
-    return flat.toObject();
+    return this.convertId(flat.toObject());
   }
 
   async updateUser(id: string, data: Partial<UserSchema>): Promise<UserSchema | undefined> {
     const user = await UserModel.findByIdAndUpdate(id, data, { new: true });
-    return user ? user.toObject() : undefined;
+    return this.convertId(user?.toObject());
   }
 }
 

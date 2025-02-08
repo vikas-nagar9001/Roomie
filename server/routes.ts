@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
-import { sendInviteEmail } from "./email";
+import { sendInviteEmail, sendPasswordResetEmail } from "./email";
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -35,6 +35,7 @@ export function registerRoutes(app: Express): Server {
         inviteToken,
         inviteExpiry,
         status: "PENDING",
+        role: "USER"
       });
 
       // Send invite email
@@ -47,6 +48,33 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Forgot password
+  app.post("/api/forgot-password", async (req, res) => {
+    try {
+      const { email } = req.body;
+      const user = await storage.getUserByEmail(email);
+
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const resetToken = randomBytes(32).toString("hex");
+      const resetExpiry = new Date();
+      resetExpiry.setHours(resetExpiry.getHours() + 1);
+
+      await storage.updateUser(user._id, {
+        resetToken,
+        resetExpiry,
+      });
+
+      await sendPasswordResetEmail(email, user.name, resetToken);
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('Failed to process password reset:', error);
+      res.status(500).json({ message: "Failed to process password reset" });
+    }
+  });
+
   // Update user
   app.patch("/api/users/:id", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
@@ -54,15 +82,20 @@ export function registerRoutes(app: Express): Server {
       return res.sendStatus(403);
     }
 
-    const userId = req.params.id;
-    const user = await storage.getUser(userId);
+    try {
+      const userId = req.params.id;
+      const user = await storage.getUser(userId);
 
-    if (!user || user.flatId !== req.user.flatId) {
-      return res.sendStatus(404);
+      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
+        return res.sendStatus(404);
+      }
+
+      const updatedUser = await storage.updateUser(userId, req.body);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Failed to update user:', error);
+      res.status(500).json({ message: "Failed to update user" });
     }
-
-    const updatedUser = await storage.updateUser(userId, req.body);
-    res.json(updatedUser);
   });
 
   // Resend invite
@@ -76,7 +109,7 @@ export function registerRoutes(app: Express): Server {
       const userId = req.params.id;
       const user = await storage.getUser(userId);
 
-      if (!user || user.flatId !== req.user.flatId) {
+      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
         return res.sendStatus(404);
       }
 
@@ -84,7 +117,15 @@ export function registerRoutes(app: Express): Server {
       const inviteExpiry = new Date();
       inviteExpiry.setHours(inviteExpiry.getHours() + 24);
 
-      await storage.updateUser(userId, { inviteToken, inviteExpiry });
+      const updatedUser = await storage.updateUser(userId, { 
+        inviteToken, 
+        inviteExpiry,
+        status: "PENDING" 
+      });
+
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to update user" });
+      }
 
       // Send invite email
       await sendInviteEmail(user.email, user.name, inviteToken);

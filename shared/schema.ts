@@ -33,6 +33,8 @@ export interface User {
   flatId: string;
   inviteToken: string | null;
   inviteExpiry: Date | null;
+  resetToken: string | null;
+  resetExpiry: Date | null;
   createdAt: Date;
 }
 
