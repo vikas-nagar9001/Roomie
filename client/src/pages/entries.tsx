@@ -132,24 +132,39 @@ export default function EntriesPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between items-center">
-                <span>Total Entries:</span>
-                <span className="font-bold bg-secondary px-2 py-1 rounded">
-                  {entries?.filter(e => 
-                    e.userId.toString() === user?._id.toString()
-                  ).length || 0}
-                </span>
+                <span>Your Total Entries:</span>
+                <div className="text-right">
+                  <div className="font-bold bg-secondary px-2 py-1 rounded">
+                    {entries?.filter(e => 
+                      e.userId.toString() === user?._id.toString()
+                    ).length || 0} entries
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Total Amount: ₹{entries?.filter(e => 
+                      e.userId.toString() === user?._id.toString()
+                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                </div>
               </div>
               <div className="flex justify-between items-center">
-                <span>Approved Amount:</span>
-                <span className="font-bold text-green-600">
-                  ₹{entries?.filter(e => 
-                    e.userId.toString() === user?._id.toString() && 
-                    e.status === "APPROVED"
-                  ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                </span>
+                <span>Your Approved:</span>
+                <div className="text-right">
+                  <div className="font-bold text-green-600">
+                    ₹{entries?.filter(e => 
+                      e.userId.toString() === user?._id.toString() && 
+                      e.status === "APPROVED"
+                    ).reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {entries?.filter(e =>
+                      e.userId.toString() === user?._id.toString() &&
+                      e.status === "APPROVED"
+                    ).length || 0} entries
+                  </div>
+                </div>
               </div>
               <div className="flex justify-between items-center">
-                <span>Pending:</span>
+                <span>Your Pending:</span>
                 <div className="text-right">
                   <div className="font-bold text-yellow-600">
                     ₹{entries?.filter(e =>
