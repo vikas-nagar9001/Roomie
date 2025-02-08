@@ -341,4 +341,3 @@ export function registerRoutes(app: Express): Server {
   return httpServer;
 }
 
-export const storage = new MongoStorage();
