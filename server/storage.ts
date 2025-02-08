@@ -56,11 +56,17 @@ export class MongoStorage implements IStorage {
 
   private convertId(doc: any): any {
     if (!doc) return undefined;
-    return {
+    const converted = {
       ...doc,
-      _id: doc._id.toString(),
-      flatId: doc.flatId.toString()
+      _id: doc._id?.toString() || doc._id,
     };
+
+    // Only convert flatId if it exists
+    if (doc.flatId) {
+      converted.flatId = doc.flatId.toString();
+    }
+
+    return converted;
   }
 
   async getUser(id: string): Promise<UserSchema | undefined> {
