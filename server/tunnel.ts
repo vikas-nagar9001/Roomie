@@ -8,7 +8,8 @@ export async function setupTunnel() {
     // Create a tunnel to our application
     const url = await ngrok.connect({
       addr: 5000,
-      proto: 'http'
+      proto: 'http',
+      hostname: 'locally-secure-chamois.ngrok-free.app'
     });
     
     console.log('Ngrok tunnel established:', url);
