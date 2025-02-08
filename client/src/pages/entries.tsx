@@ -27,7 +27,7 @@ export default function EntriesPage() {
     queryKey: ["/api/entries"],
   });
 
-  const { data: totalAmount } = useQuery<number>({
+  const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/entries/total"],
   });
 
@@ -94,10 +94,18 @@ export default function EntriesPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Your Total Amount</CardTitle>
+              <CardTitle>Your Approved Amount</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-2xl font-bold">₹{totalAmount || 0}</p>
+              <p className="text-2xl font-bold">₹{totals?.userTotal || 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Total Flat Approved Amount</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-2xl font-bold">₹{totals?.flatTotal || 0}</p>
             </CardContent>
           </Card>
         </div>
@@ -120,7 +128,15 @@ export default function EntriesPage() {
                 <TableCell>{entry.name}</TableCell>
                 <TableCell>₹{entry.amount}</TableCell>
                 <TableCell>{new Date(entry.dateTime).toLocaleString()}</TableCell>
-                <TableCell>{entry.status}</TableCell>
+                <TableCell>
+                  <span className={`px-2 py-1 rounded-full text-sm ${
+                    entry.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                    entry.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {entry.status}
+                  </span>
+                </TableCell>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell>
                     {entry.status === "PENDING" ? (

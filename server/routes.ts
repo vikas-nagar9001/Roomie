@@ -114,8 +114,14 @@ export function registerRoutes(app: Express): Server {
   // Get total amount for user
   app.get("/api/entries/total", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
-    const total = await storage.getUserEntriesTotal(req.user._id);
-    res.json(total);
+    const entries = await storage.getEntriesByFlatId(req.user.flatId);
+    const userTotal = entries
+      .filter(entry => entry.userId.toString() === req.user?._id.toString() && entry.status === "APPROVED")
+      .reduce((sum, entry) => sum + entry.amount, 0);
+    const flatTotal = entries
+      .filter(entry => entry.status === "APPROVED")
+      .reduce((sum, entry) => sum + entry.amount, 0);
+    res.json({ userTotal, flatTotal });
   });
 
   // Add entry
