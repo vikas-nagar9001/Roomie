@@ -32,6 +32,7 @@ export interface IStorage {
   getUser(id: string): Promise<UserSchema | undefined>;
   getUserByEmail(email: string): Promise<UserSchema | undefined>;
   getUserByInviteToken(token: string): Promise<UserSchema | undefined>;
+  getUserByResetToken(token: string): Promise<UserSchema | undefined>;
   getUsersByFlatId(flatId: string): Promise<UserSchema[]>;
   createUser(user: Partial<UserSchema>): Promise<UserSchema>;
   createFlat(flat: InsertFlat): Promise<Flat>;
@@ -81,6 +82,11 @@ export class MongoStorage implements IStorage {
 
   async getUserByInviteToken(token: string): Promise<UserSchema | undefined> {
     const user = await UserModel.findOne({ inviteToken: token });
+    return this.convertId(user?.toObject());
+  }
+
+  async getUserByResetToken(token: string): Promise<UserSchema | undefined> {
+    const user = await UserModel.findOne({ resetToken: token });
     return this.convertId(user?.toObject());
   }
 

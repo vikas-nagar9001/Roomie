@@ -8,6 +8,7 @@ import AuthPage from "@/pages/auth-page";
 import Dashboard from "@/pages/dashboard";
 import ManageUsers from "@/pages/manage-users";
 import SetPasswordPage from "@/pages/set-password";
+import ResetPasswordPage from "@/pages/reset-password";
 import { ProtectedRoute } from "./lib/protected-route";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
     <Switch>
       <Route path="/auth" component={AuthPage} />
       <Route path="/set-password" component={SetPasswordPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <ProtectedRoute path="/" component={Dashboard} />
       <ProtectedRoute path="/manage-users" component={ManageUsers} />
       <Route component={NotFound} />

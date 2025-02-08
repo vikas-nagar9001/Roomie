@@ -108,21 +108,23 @@ export function UserTable({ search }: UserTableProps) {
                   >
                     Toggle Role
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      updateUserMutation.mutate({
-                        userId: user._id,
-                        data: {
-                          status:
-                            user.status === "ACTIVE"
-                              ? "DEACTIVATED"
-                              : "ACTIVE",
-                        },
-                      })
-                    }
-                  >
-                    {user.status === "ACTIVE" ? "Deactivate" : "Activate"}
-                  </DropdownMenuItem>
+                  {user.status !== "PENDING" && (
+                    <DropdownMenuItem
+                      onClick={() =>
+                        updateUserMutation.mutate({
+                          userId: user._id,
+                          data: {
+                            status:
+                              user.status === "ACTIVE"
+                                ? "DEACTIVATED"
+                                : "ACTIVE",
+                          },
+                        })
+                      }
+                    >
+                      {user.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </TableCell>

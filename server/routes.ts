@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { sendInviteEmail, sendPasswordResetEmail } from "./email";
+import { hashPassword } from "./auth"; // Assuming hashPassword function exists
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
@@ -45,6 +46,38 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error('Failed to invite user:', error);
       res.status(500).json({ message: "Failed to send invite email" });
+    }
+  });
+
+  // Reset password endpoint
+  app.post("/api/reset-password", async (req, res) => {
+    try {
+      const { token, password } = req.body;
+      const user = await storage.getUserByResetToken(token);
+
+      if (!user) {
+        return res.status(400).json({ message: "Invalid or expired reset token" });
+      }
+
+      if (user.resetExpiry && new Date(user.resetExpiry) < new Date()) {
+        return res.status(400).json({ message: "Reset token has expired" });
+      }
+
+      const hashedPassword = await hashPassword(password);
+      const updatedUser = await storage.updateUser(user._id, {
+        password: hashedPassword,
+        resetToken: null,
+        resetExpiry: null,
+      });
+
+      if (!updatedUser) {
+        return res.status(400).json({ message: "Failed to update user" });
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error('Failed to reset password:', error);
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 
@@ -117,10 +150,10 @@ export function registerRoutes(app: Express): Server {
       const inviteExpiry = new Date();
       inviteExpiry.setHours(inviteExpiry.getHours() + 24);
 
-      const updatedUser = await storage.updateUser(userId, { 
-        inviteToken, 
+      const updatedUser = await storage.updateUser(userId, {
+        inviteToken,
         inviteExpiry,
-        status: "PENDING" 
+        status: "PENDING"
       });
 
       if (!updatedUser) {
