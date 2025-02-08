@@ -110,9 +110,17 @@ export function registerRoutes(app: Express): Server {
     const entries = await storage.getEntriesByFlatId(req.user.flatId);
     const users = await storage.getUsersByFlatId(req.user.flatId);
     
-    const entriesWithUsers = entries.map(entry => ({
-      ...entry,
-      user: users.find(user => user._id.toString() === entry.userId.toString())
+    const entriesWithUsers = await Promise.all(entries.map(async entry => {
+      const user = users.find(u => u._id.toString() === entry.userId.toString());
+      return {
+        ...entry,
+        user: user ? {
+          _id: user._id,
+          name: user.name,
+          email: user.email,
+          profilePicture: user.profilePicture || '/default-avatar.png'
+        } : null
+      };
     }));
     
     res.json(entriesWithUsers);

@@ -221,10 +221,16 @@ export default function EntriesPage() {
                     <img
                       src={entry.user?.profilePicture || "/default-avatar.png"}
                       alt={entry.user?.name || "User"}
-                      className="w-10 h-10 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover bg-secondary"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/default-avatar.png";
+                      }}
                     />
                     <div>
-                      <div className="font-medium">{entry.user?.name || "Unknown User"}</div>
+                      <div className="font-medium">
+                        {entry.user?.name || "Unknown User"}
+                      </div>
                       <div className="text-sm text-muted-foreground">
                         {entry.user?.email || "No email"}
                       </div>
