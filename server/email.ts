@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import ngrok from 'ngrok';
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -9,7 +10,18 @@ const transporter = nodemailer.createTransport({
 });
 
 export async function sendInviteEmail(email: string, name: string, inviteToken: string) {
-  const inviteLink = `${process.env.APP_URL || 'http://localhost:5000'}/set-password?token=${inviteToken}`;
+  // Try to get the active ngrok URL, fallback to localhost if not available
+  let baseUrl = 'http://localhost:5000';
+  try {
+    const tunnelUrl = await ngrok.getUrl();
+    if (tunnelUrl) {
+      baseUrl = tunnelUrl;
+    }
+  } catch (error) {
+    console.warn('Could not get ngrok URL, using localhost');
+  }
+
+  const inviteLink = `${baseUrl}/set-password?token=${inviteToken}`;
 
   try {
     const info = await transporter.sendMail({
