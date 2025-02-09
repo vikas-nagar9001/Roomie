@@ -97,32 +97,38 @@ export default function EntriesPage() {
             <CardHeader>
               <CardTitle>Overall Statistics</CardTitle>
             </CardHeader>
+
             <CardContent className="space-y-2">
-              <div className="flex justify-between">
-                <span>Total Entries:</span>
-                <span className="font-bold">
-                  {entries?.filter((e) => e.status === "APPROVED").length || 0}
-                </span>
-              </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span>Total Amount:</span>
-                <span className="font-bold">
-                  ₹
-                  {entries
-                    ?.filter((e) => e.status === "APPROVED")
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                </span>
+                <div className="text-right">
+                  <div className="font-bold text-green-600">
+                    ₹
+                    {entries
+                      ?.filter((e) => e.status === "APPROVED")
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {entries?.filter((e) => e.status === "APPROVED").length ||
+                      0}{" "}
+                    Entries
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Pending Entries:</span>
-                <span className="font-bold">
-                  {entries?.filter((e) => e.status === "PENDING").length || 0}
-                  (₹
-                  {entries
-                    ?.filter((e) => e.status === "PENDING")
-                    .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  )
-                </span>
+              <div className="flex justify-between items-center">
+                <span>Pending:</span>
+                <div className="text-right">
+                  <div className="font-bold text-yellow-600">
+                    ₹
+                    {entries
+                      ?.filter((e) => e.status === "PENDING")
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {entries?.filter((e) => e.status === "PENDING").length || 0}{" "}
+                    Entries
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -132,26 +138,7 @@ export default function EntriesPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between items-center">
-                <span>Your Total Entries:</span>
-                <div className="text-right">
-                  <div className="font-bold bg-secondary px-2 py-1 rounded">
-                    {entries?.filter(
-                      (e) => e.userId.toString() === user?._id.toString(),
-                    ).length || 0}{" "}
-                    entries
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    Total Amount: ₹
-                    {entries
-                      ?.filter(
-                        (e) => e.userId.toString() === user?._id.toString(),
-                      )
-                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Your Approved:</span>
+                <span>Total Amount:</span>
                 <div className="text-right">
                   <div className="font-bold text-green-600">
                     ₹
@@ -169,12 +156,12 @@ export default function EntriesPage() {
                         e.userId.toString() === user?._id.toString() &&
                         e.status === "APPROVED",
                     ).length || 0}{" "}
-                    entries
+                    Entries
                   </div>
                 </div>
               </div>
               <div className="flex justify-between items-center">
-                <span>Your Pending:</span>
+                <span>Pending:</span>
                 <div className="text-right">
                   <div className="font-bold text-yellow-600">
                     ₹
@@ -192,7 +179,7 @@ export default function EntriesPage() {
                         e.userId.toString() === user?._id.toString() &&
                         e.status === "PENDING",
                     ).length || 0}{" "}
-                    entries
+                    Entries
                   </div>
                 </div>
               </div>
@@ -216,32 +203,42 @@ export default function EntriesPage() {
           <TableBody>
             {entries?.map((entry) => (
               <TableRow key={entry._id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
+                {/* User Info */}
+                <TableCell className="min-w-[180px]">
+                  <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                    {/* Profile Picture */}
                     <img
                       src={entry.user?.profilePicture || "/default-avatar.png"}
                       alt={entry.user?.name || "User"}
-                      className="w-10 h-10 rounded-full object-cover bg-secondary"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-secondary"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/default-avatar.png";
                       }}
                     />
-                    <div>
+                    {/* Name */}
+                    <div className="truncate max-w-[120px] sm:max-w-[160px]">
                       <div className="font-medium">
                         {entry.user?.name || "Unknown User"}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {entry.user?.email || "No email"}
                       </div>
                     </div>
                   </div>
                 </TableCell>
-                <TableCell className="font-medium">{entry.name}</TableCell>
+
+                {/* Entry Name */}
+                <TableCell className="font-medium min-w-[150px] truncate">
+                  {entry.name}
+                </TableCell>
+
+                {/* Amount */}
                 <TableCell>₹{entry.amount}</TableCell>
+
+                {/* Date */}
                 <TableCell>
                   {new Date(entry.dateTime).toLocaleString()}
                 </TableCell>
+
+                {/* Status */}
                 <TableCell>
                   <span
                     className={`px-2 py-1 rounded-full text-sm ${
@@ -255,6 +252,8 @@ export default function EntriesPage() {
                     {entry.status}
                   </span>
                 </TableCell>
+
+                {/* Admin Actions */}
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell>
                     {entry.status === "PENDING" ? (
@@ -280,6 +279,7 @@ export default function EntriesPage() {
                         >
                           Approve
                         </Button>
+
                         <Button
                           variant="outline"
                           size="sm"

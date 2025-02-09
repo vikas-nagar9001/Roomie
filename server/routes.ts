@@ -7,37 +7,37 @@ import { sendInviteEmail, sendPasswordResetEmail } from "./email";
 import { hashPassword } from "./auth";
 import multer from "multer";
 import path from "path";
-import express from 'express';
-import { mkdir, existsSync } from 'fs';
-import { promisify } from 'util';
+import express from "express";
+import { mkdir, existsSync } from "fs";
+import { promisify } from "util";
 
 const mkdirAsync = promisify(mkdir);
 const upload = multer({
   storage: multer.diskStorage({
-    destination: './uploads/profiles',
+    destination: "./uploads/profiles",
     filename: (req, file, cb) => {
-      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
       cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-    }
+    },
   }),
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type'));
+      cb(new Error("Invalid file type"));
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB
-  }
+    fileSize: 5 * 1024 * 1024, // 5MB
+  },
 });
 
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
   // Create uploads directory if it doesn't exist
-  const uploadsDir = './uploads/profiles';
+  const uploadsDir = "./uploads/profiles";
   if (!existsSync(uploadsDir)) {
     mkdirAsync(uploadsDir, { recursive: true }).catch(console.error);
   }
@@ -62,79 +62,113 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { name, email } = req.body;
-      const updatedUser = await storage.updateUser(req.user._id, { name, email });
+      const updatedUser = await storage.updateUser(req.user._id, {
+        name,
+        email,
+      });
 
       await storage.logActivity({
         userId: req.user._id,
         type: "UPDATE_PROFILE",
         description: "Updated profile information",
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       res.json(updatedUser);
     } catch (error) {
-      console.error('Failed to update profile:', error);
+      console.error("Failed to update profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
   });
 
   // Upload profile picture
-  app.post("/api/user/profile-picture", upload.single('profilePicture'), async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+  app.post(
+    "/api/user/profile-picture",
+    upload.single("profilePicture"),
+    async (req, res) => {
+      if (!req.user) return res.sendStatus(401);
+      if (!req.file)
+        return res.status(400).json({ message: "No file uploaded" });
 
-    try {
-      const profilePicture = `/uploads/profiles/${req.file.filename}`;
-      const updatedUser = await storage.updateUser(req.user._id, { profilePicture });
+      try {
+        const profilePicture = `/uploads/profiles/${req.file.filename}`;
+        const updatedUser = await storage.updateUser(req.user._id, {
+          profilePicture,
+        });
 
-      await storage.logActivity({
-        userId: req.user._id,
-        type: "UPDATE_PROFILE",
-        description: "Updated profile picture",
-        timestamp: new Date()
-      });
+        await storage.logActivity({
+          userId: req.user._id,
+          type: "UPDATE_PROFILE",
+          description: "Updated profile picture",
+          timestamp: new Date(),
+        });
 
-      res.json(updatedUser);
-    } catch (error) {
-      console.error('Failed to upload profile picture:', error);
-      res.status(500).json({ message: "Failed to upload profile picture" });
-    }
-  });
+        res.json(updatedUser);
+      } catch (error) {
+        console.error("Failed to upload profile picture:", error);
+        res.status(500).json({ message: "Failed to upload profile picture" });
+      }
+    },
+  );
 
   // Serve profile pictures
-  app.use('/uploads/profiles', express.static('uploads/profiles'));
+  app.use("/uploads/profiles", express.static("uploads/profiles"));
 
   // Get all entries
+  // app.get("/api/entries", async (req, res) => {
+  //     if (!req.user) return res.sendStatus(401);
+
+  //     try {
+  //         const entries = await storage.getEntriesByFlatId(req.user.flatId);
+  //         res.json(entries);  // Directly return the entries
+  //     } catch (error) {
+  //         console.error("Error fetching entries:", error);
+  //         res.status(500).json({ error: "Internal Server Error" });
+  //     }
+  // });
+
+  // code 2
+
   app.get("/api/entries", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const entries = await storage.getEntriesByFlatId(req.user.flatId);
     const users = await storage.getUsersByFlatId(req.user.flatId);
-    
-    const entriesWithUsers = await Promise.all(entries.map(async entry => {
-      const user = users.find(u => u._id.toString() === entry.userId.toString());
-      return {
-        ...entry,
-        user: user ? {
-          _id: user._id,
-          name: user.name,
-          email: user.email,
-          profilePicture: user.profilePicture || '/default-avatar.png'
-        } : null
-      };
-    }));
-    
+
+    const entriesWithUsers = await Promise.all(
+      entries.map(async (entry) => {
+        const user = users.find(
+          (u) => u._id.toString() === entry.userId.toString(),
+        );
+        return {
+          ...entry,
+          user: user
+            ? {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                profilePicture: user.profilePicture || "/default-avatar.png",
+              }
+            : null,
+        };
+      }),
+    );
+
     res.json(entriesWithUsers);
   });
-
+  
   // Get total amount for user
   app.get("/api/entries/total", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const entries = await storage.getEntriesByFlatId(req.user.flatId);
     const userTotal = entries
-      .filter(entry => entry.userId.toString() === req.user?._id.toString() && entry.status === "APPROVED")
+      .filter(
+        (entry) =>
+          entry.userId.toString() === req.user?._id.toString() &&
+          entry.status === "APPROVED",
+      )
       .reduce((sum, entry) => sum + entry.amount, 0);
     const flatTotal = entries
-      .filter(entry => entry.status === "APPROVED")
+      .filter((entry) => entry.status === "APPROVED")
       .reduce((sum, entry) => sum + entry.amount, 0);
     res.json({ userTotal, flatTotal });
   });
@@ -151,26 +185,26 @@ export function registerRoutes(app: Express): Server {
         name,
         amount,
         dateTime: new Date(),
-        status: amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
+        status:
+          amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
         userId: req.user._id,
         flatId: req.user.flatId,
-        isDeleted: false
+        isDeleted: false,
       });
 
       await storage.logActivity({
         userId: req.user._id,
         type: "ENTRY_ADDED",
         description: `Added entry: ${name} (₹${amount})`,
-        timestamp: new Date()
+        timestamp: new Date(),
       });
 
       res.status(201).json(entry);
     } catch (error) {
-      console.error('Failed to create entry:', error);
+      console.error("Failed to create entry:", error);
       res.status(500).json({ message: "Failed to create entry" });
     }
   });
-
 
   // Invite a new user
   app.post("/api/users/invite", async (req, res) => {
@@ -192,7 +226,7 @@ export function registerRoutes(app: Express): Server {
         inviteToken,
         inviteExpiry,
         status: "PENDING",
-        role: "USER"
+        role: "USER",
       });
 
       // Send invite email
@@ -200,7 +234,7 @@ export function registerRoutes(app: Express): Server {
 
       res.status(201).json(user);
     } catch (error) {
-      console.error('Failed to invite user:', error);
+      console.error("Failed to invite user:", error);
       res.status(500).json({ message: "Failed to send invite email" });
     }
   });
@@ -212,7 +246,9 @@ export function registerRoutes(app: Express): Server {
       const user = await storage.getUserByResetToken(token);
 
       if (!user) {
-        return res.status(400).json({ message: "Invalid or expired reset token" });
+        return res
+          .status(400)
+          .json({ message: "Invalid or expired reset token" });
       }
 
       if (user.resetExpiry && new Date(user.resetExpiry) < new Date()) {
@@ -232,7 +268,7 @@ export function registerRoutes(app: Express): Server {
 
       res.sendStatus(200);
     } catch (error) {
-      console.error('Failed to reset password:', error);
+      console.error("Failed to reset password:", error);
       res.status(500).json({ message: "Failed to reset password" });
     }
   });
@@ -259,7 +295,7 @@ export function registerRoutes(app: Express): Server {
       await sendPasswordResetEmail(email, user.name, resetToken);
       res.sendStatus(200);
     } catch (error) {
-      console.error('Failed to process password reset:', error);
+      console.error("Failed to process password reset:", error);
       res.status(500).json({ message: "Failed to process password reset" });
     }
   });
@@ -282,7 +318,7 @@ export function registerRoutes(app: Express): Server {
       const updatedUser = await storage.updateUser(userId, req.body);
       res.json(updatedUser);
     } catch (error) {
-      console.error('Failed to update user:', error);
+      console.error("Failed to update user:", error);
       res.status(500).json({ message: "Failed to update user" });
     }
   });
@@ -309,7 +345,7 @@ export function registerRoutes(app: Express): Server {
       const updatedUser = await storage.updateUser(userId, {
         inviteToken,
         inviteExpiry,
-        status: "PENDING"
+        status: "PENDING",
       });
 
       if (!updatedUser) {
@@ -321,7 +357,7 @@ export function registerRoutes(app: Express): Server {
 
       res.sendStatus(200);
     } catch (error) {
-      console.error('Failed to resend invite:', error);
+      console.error("Failed to resend invite:", error);
       res.status(500).json({ message: "Failed to send invite email" });
     }
   });
@@ -334,7 +370,7 @@ export function registerRoutes(app: Express): Server {
       const entry = await storage.updateEntry(id, req.body);
       res.json(entry);
     } catch (error) {
-      console.error('Failed to update entry:', error);
+      console.error("Failed to update entry:", error);
       res.status(500).json({ message: "Failed to update entry" });
     }
   });
@@ -348,12 +384,12 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { id, action } = req.params;
-      const entry = await storage.updateEntry(id, { 
-        status: action.toUpperCase() 
+      const entry = await storage.updateEntry(id, {
+        status: action.toUpperCase(),
       });
       res.json(entry);
     } catch (error) {
-      console.error('Failed to update entry status:', error);
+      console.error("Failed to update entry status:", error);
       res.status(500).json({ message: "Failed to update entry status" });
     }
   });
@@ -361,4 +397,3 @@ export function registerRoutes(app: Express): Server {
   const httpServer = createServer(app);
   return httpServer;
 }
-

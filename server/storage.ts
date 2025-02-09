@@ -1,53 +1,83 @@
-import mongoose from 'mongoose';
-import { InsertUser as InsertUserSchema, User as UserSchema, InsertFlat, Flat, Role, UserStatus, Activity as ActivitySchema, InsertActivity } from '@shared/schema';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
+import mongoose from "mongoose";
+import {
+  InsertUser as InsertUserSchema,
+  User as UserSchema,
+  InsertFlat,
+  Flat,
+  Role,
+  UserStatus,
+  Activity as ActivitySchema,
+  InsertActivity,
+} from "@shared/schema";
+import session from "express-session";
+import MongoStore from "connect-mongo";
 
 // MongoDB Schemas
 const flatSchema = new mongoose.Schema({
   name: { type: String, required: true },
   flatUsername: { type: String, required: true, unique: true },
-  minApprovalAmount: { type: Number, default: 200 }
+  minApprovalAmount: { type: Number, default: 200 },
 });
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String },
-  role: { type: String, enum: ['ADMIN', 'CO_ADMIN', 'USER'], default: 'USER' },
-  status: { type: String, enum: ['PENDING', 'ACTIVE', 'DEACTIVATED'], default: 'PENDING' },
-  flatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Flat', required: true },
+  role: { type: String, enum: ["ADMIN", "CO_ADMIN", "USER"], default: "USER" },
+  status: {
+    type: String,
+    enum: ["PENDING", "ACTIVE", "DEACTIVATED"],
+    default: "PENDING",
+  },
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
   profilePicture: { type: String },
   inviteToken: { type: String },
   inviteExpiry: { type: Date },
   resetToken: { type: String },
   resetExpiry: { type: Date },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 const activitySchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type: { type: String, enum: ['LOGIN', 'UPDATE_PROFILE', 'CHANGE_PASSWORD', 'FLAT_MANAGEMENT', 'ENTRY_ADDED', 'ENTRY_UPDATED', 'ENTRY_DELETED', 'ENTRY_RESTORED'], required: true },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  type: {
+    type: String,
+    enum: [
+      "LOGIN",
+      "UPDATE_PROFILE",
+      "CHANGE_PASSWORD",
+      "FLAT_MANAGEMENT",
+      "ENTRY_ADDED",
+      "ENTRY_UPDATED",
+      "ENTRY_DELETED",
+      "ENTRY_RESTORED",
+    ],
+    required: true,
+  },
   description: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now }
+  timestamp: { type: Date, default: Date.now },
 });
 
 const entrySchema = new mongoose.Schema({
   name: { type: String, required: true },
   amount: { type: Number, required: true },
   dateTime: { type: Date, default: Date.now },
-  status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  flatId: { type: mongoose.Schema.Types.ObjectId, ref: 'Flat', required: true },
+  status: {
+    type: String,
+    enum: ["PENDING", "APPROVED", "REJECTED"],
+    default: "PENDING",
+  },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
   isDeleted: { type: Boolean, default: false },
-  deletedAt: { type: Date }
+  deletedAt: { type: Date },
 });
 
 // MongoDB Models
-const FlatModel = mongoose.model('Flat', flatSchema);
-const UserModel = mongoose.model('User', userSchema);
-const ActivityModel = mongoose.model('Activity', activitySchema);
-const EntryModel = mongoose.model('Entry', entrySchema);
+const FlatModel = mongoose.model("Flat", flatSchema);
+const UserModel = mongoose.model("User", userSchema);
+const ActivityModel = mongoose.model("Activity", activitySchema);
+const EntryModel = mongoose.model("Entry", entrySchema);
 
 export interface IStorage {
   connect(): Promise<void>;
@@ -61,7 +91,10 @@ export interface IStorage {
   getUsersByFlatId(flatId: string): Promise<UserSchema[]>;
   createUser(user: Partial<UserSchema>): Promise<UserSchema>;
   createFlat(flat: InsertFlat): Promise<Flat>;
-  updateUser(id: string, data: Partial<UserSchema>): Promise<UserSchema | undefined>;
+  updateUser(
+    id: string,
+    data: Partial<UserSchema>,
+  ): Promise<UserSchema | undefined>;
   logActivity(activity: InsertActivity): Promise<ActivitySchema>;
   getUserActivities(userId: string): Promise<ActivitySchema[]>;
   sessionStore: session.Store;
@@ -73,13 +106,13 @@ export class MongoStorage implements IStorage {
   constructor() {
     this.sessionStore = MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 24 * 60 * 60 // 1 day
+      ttl: 24 * 60 * 60, // 1 day
     });
   }
 
   async connect() {
     await mongoose.connect(process.env.MONGODB_URI!);
-    console.log('Connected to MongoDB');
+    console.log("Connected to MongoDB");
   }
 
   private convertId(doc: any): any {
@@ -122,7 +155,7 @@ export class MongoStorage implements IStorage {
 
   async getUsersByFlatId(flatId: string): Promise<UserSchema[]> {
     const users = await UserModel.find({ flatId });
-    return users.map(user => this.convertId(user.toObject()));
+    return users.map((user) => this.convertId(user.toObject()));
   }
 
   async createUser(userData: Partial<UserSchema>): Promise<UserSchema> {
@@ -137,7 +170,10 @@ export class MongoStorage implements IStorage {
     return this.convertId(flat.toObject());
   }
 
-  async updateUser(id: string, data: Partial<UserSchema>): Promise<UserSchema | undefined> {
+  async updateUser(
+    id: string,
+    data: Partial<UserSchema>,
+  ): Promise<UserSchema | undefined> {
     const user = await UserModel.findByIdAndUpdate(id, data, { new: true });
     return this.convertId(user?.toObject());
   }
@@ -149,8 +185,10 @@ export class MongoStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivitySchema[]> {
-    const activities = await ActivityModel.find({ userId }).sort({ timestamp: -1 });
-    return activities.map(activity => this.convertId(activity.toObject()));
+    const activities = await ActivityModel.find({ userId }).sort({
+      timestamp: -1,
+    });
+    return activities.map((activity) => this.convertId(activity.toObject()));
   }
 
   async getUserEntriesTotal(userId: string): Promise<number> {
@@ -158,11 +196,23 @@ export class MongoStorage implements IStorage {
     return entries.reduce((total, entry) => total + entry.amount, 0);
   }
 
+  // async getEntriesByFlatId(flatId: string) {
+  //   const entries = await EntryModel.find({ flatId, isDeleted: false })
+  //     .sort({ dateTime: -1 })
+  //     .populate("userId", "name email profilePicture")
+  //     .lean(); // Converts documents to plain JavaScript objects
+
+  //   console.log("Entries fetched after populate:", entries);
+
+  //   return entries.map((entry) => this.convertId(entry));
+  // }
+
+  // code 2
   async getEntriesByFlatId(flatId: string) {
-    const entries = await EntryModel.find({ flatId, isDeleted: false })
-      .sort({ dateTime: -1 })
-      .populate('userId', 'name');
-    return entries.map(entry => this.convertId(entry.toObject()));
+    const entries = await EntryModel.find({ flatId, isDeleted: false }); 
+    // console.log("Entries fetched after populate:", entries);
+
+    return entries.map((entry) => this.convertId(entry.toObject()));
   }
 
   async getFlat(flatId: string): Promise<Flat | undefined> {
@@ -176,7 +226,10 @@ export class MongoStorage implements IStorage {
     return this.convertId(entry.toObject());
   }
 
-  async updateEntry(id: string, data: Partial<Entry>): Promise<Entry | undefined> {
+  async updateEntry(
+    id: string,
+    data: Partial<Entry>,
+  ): Promise<Entry | undefined> {
     const entry = await EntryModel.findByIdAndUpdate(id, data, { new: true });
     return this.convertId(entry?.toObject());
   }
