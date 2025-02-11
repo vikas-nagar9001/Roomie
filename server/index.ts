@@ -2,7 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
-import { setupTunnel } from "./tunnel";
+// import { setupTunnel } from "./tunnel";
 
 const app = express();
 app.use(express.json());
@@ -62,12 +62,12 @@ app.use((req, res, next) => {
     const PORT = 5000;
     server.listen(PORT, "0.0.0.0", async () => {
       log(`serving on port ${PORT}`);
-      try {
-        const tunnelUrl = await setupTunnel();
-        log(`ngrok tunnel established at ${tunnelUrl}`);
-      } catch (error) {
-        console.error('Failed to establish ngrok tunnel:', error);
-      }
+    //   try {
+    //     const tunnelUrl = await setupTunnel();
+    //     log(`ngrok tunnel established at ${tunnelUrl}`);
+    //   } catch (error) {
+    //     console.error('Failed to establish ngrok tunnel:', error);
+    //   }
     });
   } catch (error) {
     console.error('Failed to start the server:', error);
