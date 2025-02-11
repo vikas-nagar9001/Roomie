@@ -252,7 +252,8 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "Failed to update user" });
       }
 
-      res.sendStatus(200);
+      res.status(200).json({ message: "Password reset successful" });
+
     } catch (error) {
       console.error("Failed to reset password:", error);
       res.status(500).json({ message: "Failed to reset password" });
