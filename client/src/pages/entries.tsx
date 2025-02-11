@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Entry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 export default function EntriesPage() {
@@ -29,16 +30,17 @@ export default function EntriesPage() {
   const [open, setOpen] = useState(false);
   const [openEdit, setOpenEdit] = useState(false);
 
-  const { data: entries } = useQuery({
+
+  const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
   });
 
-  const { data: totals } = useQuery({
+  const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/entries/total"],
   });
 
   const addEntryMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: { name: string; amount: number }) => {
       const res = await apiRequest("POST", "/api/entries", data);
       return res.json();
     },
@@ -48,21 +50,25 @@ export default function EntriesPage() {
     },
   });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
 
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+  
     try {
       await addEntryMutation.mutateAsync({
         name: newEntry.name,
         amount: parseFloat(newEntry.amount),
       });
-
+  
       setNewEntry({ name: "", amount: "" }); // Reset input fields
       setOpen(false); // Close the popup
     } catch (error) {
       console.error("Error adding entry:", error);
     }
   };
+  
+
 
   return (
     <div className="min-h-screen p-8">
@@ -217,7 +223,7 @@ export default function EntriesPage() {
                       alt={entry.user?.name || "User"}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-secondary"
                       onError={(e) => {
-                        const target = e.target;
+                        const target = e.target as HTMLImageElement;
                         target.src = "/default-avatar.png";
                       }}
                     />
@@ -308,9 +314,9 @@ export default function EntriesPage() {
                         </Button>
                       </div>
                     ) : (
-                      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+                      <Dialog openEdit={openEdit} onOpenEditChange={setOpenEdit}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" >
                             Edit
                           </Button>
                         </DialogTrigger>
@@ -328,7 +334,7 @@ export default function EntriesPage() {
                                 body: JSON.stringify({
                                   name: formData.get("name"),
                                   amount: parseFloat(
-                                    formData.get("amount")
+                                    formData.get("amount") as string,
                                   ),
                                 }),
                               })
@@ -340,7 +346,6 @@ export default function EntriesPage() {
                                     title: "Entry Updated",
                                     description: `Entry "${entry.name}" has been updated successfully.`,
                                   });
-                                  setOpenEdit(false); // Close the edit dialog
                                 })
                                 .catch(console.error);
                             }}
