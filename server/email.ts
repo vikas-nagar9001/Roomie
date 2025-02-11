@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
 });
 
 async function getBaseUrl() {
-  let baseUrl = 'http://localhost:5000';
+  let baseUrl = process.env.BASE_URL;
   try {
     const tunnelUrl = await ngrok.getUrl();
     if (tunnelUrl) {
