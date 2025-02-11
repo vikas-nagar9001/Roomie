@@ -27,6 +27,9 @@ export default function EntriesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState({ name: "", amount: "" });
+  const [open, setOpen] = useState(false);
+  const [openEdit, setOpenEdit] = useState(false);
+
 
   const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
@@ -47,22 +50,34 @@ export default function EntriesPage() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addEntryMutation.mutate({
-      name: newEntry.name,
-      amount: parseFloat(newEntry.amount),
-    });
+  
+    try {
+      await addEntryMutation.mutateAsync({
+        name: newEntry.name,
+        amount: parseFloat(newEntry.amount),
+      });
+  
+      setNewEntry({ name: "", amount: "" }); // Reset input fields
+      setOpen(false); // Close the popup
+    } catch (error) {
+      console.error("Error adding entry:", error);
+    }
   };
+  
+
 
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Entries</h1>
-          <Dialog>
+          <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button>Add Entry</Button>
+              <Button onClick={() => setOpen(true)}>Add Entry</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -72,17 +87,13 @@ export default function EntriesPage() {
                 <Input
                   placeholder="Entry Name"
                   value={newEntry.name}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, name: e.target.value })
-                  }
+                  onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
                 />
                 <Input
                   type="number"
                   placeholder="Amount"
                   value={newEntry.amount}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, amount: e.target.value })
-                  }
+                  onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
                 />
                 <Button type="submit" disabled={addEntryMutation.isPending}>
                   Add Entry
@@ -241,13 +252,12 @@ export default function EntriesPage() {
                 {/* Status */}
                 <TableCell>
                   <span
-                    className={`px-2 py-1 rounded-full text-sm ${
-                      entry.status === "APPROVED"
+                    className={`px-2 py-1 rounded-full text-sm ${entry.status === "APPROVED"
                         ? "bg-green-100 text-green-800"
                         : entry.status === "PENDING"
                           ? "bg-yellow-100 text-yellow-800"
                           : "bg-red-100 text-red-800"
-                    }`}
+                      }`}
                   >
                     {entry.status}
                   </span>
@@ -304,9 +314,9 @@ export default function EntriesPage() {
                         </Button>
                       </div>
                     ) : (
-                      <Dialog>
+                      <Dialog openEdit={openEdit} onOpenEditChange={setOpenEdit}>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="sm">
+                          <Button variant="outline" size="sm" >
                             Edit
                           </Button>
                         </DialogTrigger>

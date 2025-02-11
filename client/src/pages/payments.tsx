@@ -100,7 +100,7 @@ export default function PaymentsPage() {
     if (items.length === 0) return;
 
     const totalAmount = items.reduce((sum, item) => sum + Number(item.amount), 0);
-    const splitAmount = totalAmount / (users?.length || 1);
+    const splitAmount = parseFloat((totalAmount / (users?.length || 1)).toFixed(2));
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + (settings.defaultDueDate || 5));
 
