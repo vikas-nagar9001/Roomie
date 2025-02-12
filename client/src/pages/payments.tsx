@@ -132,7 +132,7 @@ export default function PaymentsPage() {
               {/* Create Bill Button */}
               <Button
                 onClick={() => setIsCreateBillOpen(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path>
@@ -236,9 +236,10 @@ export default function PaymentsPage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="p-2 rounded-full text-blue-500 hover:text-blue-700 transition-all duration-200"
+                            className="p-2 rounded-full text-indigo-600 hover:bg-indigo-100  transition-all duration-200"
                             onClick={() => sendReminderMutation.mutate(payment._id)}
                           >
+  
                             <LuMail className="h-5 w-5" />
                           </Button>
                           <Button
@@ -302,94 +303,105 @@ export default function PaymentsPage() {
 
 
         <Dialog open={isCreateBillOpen} onOpenChange={setIsCreateBillOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create Monthly Bill</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              {newBillItems.map((item, index) => (
-                <div key={index} className="flex gap-2">
-                  <Input
-                    placeholder="Item name"
-                    value={item.name}
-                    onChange={(e) => {
-                      const updated = [...newBillItems];
-                      updated[index].name = e.target.value;
-                      setNewBillItems(updated);
-                    }}
-                  />
-                  <Input
-                    type="number"
-                    placeholder="Amount"
-                    value={item.amount}
-                    onChange={(e) => {
-                      const updated = [...newBillItems];
-                      updated[index].amount = e.target.value;
-                      setNewBillItems(updated);
-                    }}
-                  />
-                </div>
-              ))}
-              <Button variant="outline" onClick={addBillItem}>
-                Add Item
-              </Button>
-              <Button
-                className="w-full"
-                onClick={handleCreateBill}
-                disabled={!newBillItems.some(item => item.name && item.amount)}
-              >
-                Create Bill
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+  <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
+    <DialogHeader>
+      <DialogTitle className="text-lg font-semibold text-gray-900">Create Monthly Bill</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      {newBillItems.map((item, index) => (
+        <div key={index} className="flex gap-3 items-center">
+          <Input
+            placeholder="Item name"
+            value={item.name}
+            onChange={(e) => {
+              const updated = [...newBillItems];
+              updated[index].name = e.target.value;
+              setNewBillItems(updated);
+            }}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+          />
+          <Input
+            type="number"
+            placeholder="Amount"
+            value={item.amount}
+            onChange={(e) => {
+              const updated = [...newBillItems];
+              updated[index].amount = e.target.value;
+              setNewBillItems(updated);
+            }}
+            className="w-28 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+          />
+        </div>
+      ))}
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={addBillItem} className=" px-4 py-2 flex-1 border-black bg-gray-200 hover:bg-gray-100 transition">
+          Add Item
+        </Button>
+        <Button
+          className="flex items-center w-28 px-4 gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+          onClick={handleCreateBill}
+          disabled={!newBillItems.some(item => item.name && item.amount)}
+        >
+          Create Bill
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
-        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Payment Settings</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Default Due Date</Label>
-                <Input
-                  type="number"
-                  value={settings.defaultDueDate}
-                  onChange={(e) => setSettings({ ...settings, defaultDueDate: parseInt(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Penalty Amount (₹ per day)</Label>
-                <Input
-                  type="number"
-                  value={settings.penaltyAmount}
-                  onChange={(e) => setSettings({ ...settings, penaltyAmount: parseInt(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Reminder Frequency (days)</Label>
-                <Input
-                  type="number"
-                  value={settings.reminderFrequency}
-                  onChange={(e) => setSettings({ ...settings, reminderFrequency: parseInt(e.target.value) })}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  checked={settings.customSplitEnabled}
-                  onCheckedChange={(checked) => setSettings({ ...settings, customSplitEnabled: checked as boolean })}
-                />
-                <Label>Enable Custom Split</Label>
-              </div>
-              <Button
-                className="w-full"
-                onClick={() => updateSettingsMutation.mutate(settings)}
-              >
-                Save Settings
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+
+<Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+  <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
+    <DialogHeader>
+      <DialogTitle className="text-lg font-semibold text-gray-900">Payment Settings</DialogTitle>
+    </DialogHeader>
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-gray-700 font-medium">Default Due Date</Label>
+        <Input
+          type="number"
+          value={settings.defaultDueDate}
+          onChange={(e) => setSettings({ ...settings, defaultDueDate: parseInt(e.target.value) })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-gray-700 font-medium">Penalty Amount (₹ per day)</Label>
+        <Input
+          type="number"
+          value={settings.penaltyAmount}
+          onChange={(e) => setSettings({ ...settings, penaltyAmount: parseInt(e.target.value) })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-gray-700 font-medium">Reminder Frequency (days)</Label>
+        <Input
+          type="number"
+          value={settings.reminderFrequency}
+          onChange={(e) => setSettings({ ...settings, reminderFrequency: parseInt(e.target.value) })}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          checked={settings.customSplitEnabled}
+          onCheckedChange={(checked) => setSettings({ ...settings, customSplitEnabled: checked as boolean })}
+          className="w-5 h-5 border-gray-400 rounded focus:ring-2 focus:ring-purple-500 transition"
+        />
+        <Label className="text-gray-700 font-medium">Enable Custom Split</Label>
+      </div>
+      <Button
+         className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+        onClick={() => updateSettingsMutation.mutate(settings)}
+      >
+        <Settings className="w-5 h-5 text-white" />
+        Save Settings
+      </Button>
+    </div>
+  </DialogContent>
+</Dialog>
+
       </div>
     </div>
   );

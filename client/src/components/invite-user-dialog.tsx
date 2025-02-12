@@ -29,9 +29,9 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
         <DialogHeader>
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-gray-900">Invite User</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -40,30 +40,32 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
           }}
           className="space-y-4"
         >
-          <div>
-            <Label htmlFor="name">Name</Label>
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-gray-700 font-medium">Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
             />
           </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
             />
           </div>
           <Button
             type="submit"
-            className="w-full"
             disabled={inviteUserMutation.isPending}
-          >
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+            >
             Send Invite
           </Button>
         </form>

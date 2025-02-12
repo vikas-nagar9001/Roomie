@@ -86,7 +86,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           <Button
             type="submit"
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-          ><LuUserPlus className="h-5 w-5" />
+          >
             <span> Update Entry</span>
           </Button>
         </form>
@@ -173,7 +173,6 @@ export default function EntriesPage() {
                   disabled={addEntryMutation.isPending}
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                 >
-                  <LuUserPlus className="h-5 w-5" />
                   <span>Add Entry</span>
                 </Button>
 
