@@ -16,26 +16,36 @@ export default function ManageUsers() {
   }
 
   return (
-    <div className="min-h-screen p-8">
+    <div className="min-h-screen p-6 sm:p-8 bg-gray-100">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between gap-4">
-          <h1 className="text-3xl font-bold">Manage Users</h1>
-          <Button onClick={() => setIsInviteOpen(true)}>
-            <LuUserPlus className="mr-2 h-4 w-4" />
-            Invite User
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+            Manage Users
+          </h1>
+          <Button
+            onClick={() => setIsInviteOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+          >
+            <LuUserPlus className="h-5 w-5" />
+            <span>Invite User</span>
           </Button>
         </div>
 
-        <div className="flex items-center space-x-2">
+        {/* Search Bar */}
+        <div className="flex items-center w-full max-w-lg">
           <Input
             placeholder="Search users..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-sm"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
+        {/* User Table */}
         <UserTable search={search} />
+
+        {/* Invite Dialog */}
         <InviteUserDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
       </div>
     </div>
