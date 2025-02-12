@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LuUserPlus } from "react-icons/lu";
 import {
   Table,
   TableBody,
@@ -31,13 +32,18 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setOpen(true)}
+          className="border-gray-300 text-gray-700 bg-slate-200 hover:bg-gray-100 transition-all"
+        >
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
         <DialogHeader>
-          <DialogTitle>Edit Entry</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -52,9 +58,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
               }),
             })
               .then(() => {
-                queryClient.invalidateQueries({
-                  queryKey: ["/api/entries"],
-                });
+                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                 toast({
                   title: "Entry Updated",
                   description: `Entry "${entry.name}" has been updated successfully.`,
@@ -69,17 +73,26 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
             name="name"
             defaultValue={entry.name}
             placeholder="Entry Name"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
           />
           <Input
             name="amount"
             type="number"
             defaultValue={entry.amount}
             placeholder="Amount"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
           />
-          <Button type="submit">Update Entry</Button>
+
+          <Button
+            type="submit"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+          ><LuUserPlus className="h-5 w-5" />
+            <span> Update Entry</span>
+          </Button>
         </form>
       </DialogContent>
     </Dialog>
+
   );
 }
 
@@ -121,103 +134,118 @@ export default function EntriesPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-  <h1 className="text-2xl sm:text-3xl font-bold">Entries</h1>
-  <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-    <DialogTrigger asChild>
-      <Button onClick={() => setOpenAddDialog(true)}>Add Entry</Button>
-    </DialogTrigger>
-    <DialogContent className="max-w-md w-full p-6">
-      <DialogHeader>
-        <DialogTitle>Add New Entry</DialogTitle>
-      </DialogHeader>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          placeholder="Entry Name"
-          value={newEntry.name}
-          onChange={(e) =>
-            setNewEntry({ ...newEntry, name: e.target.value })
-          }
-        />
-        <Input
-          type="number"
-          placeholder="Amount"
-          value={newEntry.amount}
-          onChange={(e) =>
-            setNewEntry({ ...newEntry, amount: e.target.value })
-          }
-        />
-        <Button type="submit" disabled={addEntryMutation.isPending} className="w-full">
-          Add Entry
-        </Button>
-      </form>
-    </DialogContent>
-  </Dialog>
-</div>
+        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold">Entries</h1>
+          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+            <DialogTrigger asChild>
 
-<div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-  <Card>
-    <CardHeader>
-      <CardTitle>Overall Statistics</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="flex justify-between items-center">
-        <span>Total Amount:</span>
-        <div className="text-end sm:text-right">
-          <div className="font-bold text-green-600">
-            ₹{entries?.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + entry.amount, 0) || 0}
-          </div>
-          <div className="text-sm text-gray-500">
-            {entries?.filter((e) => e.status === "APPROVED").length || 0} Entries
-          </div>
-        </div>
-      </div>
-      <div className="flex justify-between items-center">
-        <span>Pending:</span>
-        <div className="text-end sm:text-right">
-          <div className="font-bold text-yellow-600">
-            ₹{entries?.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0) || 0}
-          </div>
-          <div className="text-sm text-gray-500">
-            {entries?.filter((e) => e.status === "PENDING").length || 0} Entries
-          </div>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
+              <Button
 
-  <Card>
-    <CardHeader>
-      <CardTitle>Your Statistics</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="flex justify-between items-center">
-        <span>Total Amount:</span>
-        <div className="text-end sm:text-right">
-          <div className="font-bold text-green-600">
-            ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED")
-              .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-          </div>
-          <div className="text-sm text-gray-500">
-            {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED").length || 0} Entries
-          </div>
+
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+              >
+                <LuUserPlus className="h-5 w-5" />
+                <span>Add Entry</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-white border border-gray-200">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <Input
+                  placeholder="Entry Name"
+                  value={newEntry.name}
+                  onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                />
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  value={newEntry.amount}
+                  onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                />
+
+
+                <Button
+                  type="submit"
+                  disabled={addEntryMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                >
+                  <LuUserPlus className="h-5 w-5" />
+                  <span>Add Entry</span>
+                </Button>
+
+              </form>
+            </DialogContent>
+          </Dialog>
+
         </div>
-      </div>
-      <div className="flex justify-between items-center">
-        <span>Pending:</span>
-        <div className="text-end sm:text-right">
-          <div className="font-bold text-yellow-600">
-            ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
-              .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-          </div>
-          <div className="text-sm text-gray-500">
-            {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} Entries
-          </div>
+
+        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Overall Statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span>Total Amount:</span>
+                <div className="text-end sm:text-right">
+                  <div className="font-bold text-green-600">
+                    ₹{entries?.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {entries?.filter((e) => e.status === "APPROVED").length || 0} Entries
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Pending:</span>
+                <div className="text-end sm:text-right">
+                  <div className="font-bold text-yellow-600">
+                    ₹{entries?.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {entries?.filter((e) => e.status === "PENDING").length || 0} Entries
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Statistics</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span>Total Amount:</span>
+                <div className="text-end sm:text-right">
+                  <div className="font-bold text-green-600">
+                    ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED")
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED").length || 0} Entries
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-between items-center">
+                <span>Pending:</span>
+                <div className="text-end sm:text-right">
+                  <div className="font-bold text-yellow-600">
+                    ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
+                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} Entries
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-    </CardContent>
-  </Card>
-</div>
 
 
         <Table className="w-full overflow-x-auto">
@@ -234,7 +262,7 @@ export default function EntriesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-          {entries?.slice().reverse().map((entry) => (
+            {entries?.slice().reverse().map((entry) => (
               <TableRow key={entry._id} className="border-b hover:bg-gray-50">
                 {/* User Column */}
                 <TableCell className="min-w-[200px]">
@@ -276,10 +304,10 @@ export default function EntriesPage() {
                 <TableCell>
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${entry.status === "APPROVED"
-                        ? "bg-green-100 text-green-800"
-                        : entry.status === "PENDING"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
+                      ? "bg-green-100 text-green-800"
+                      : entry.status === "PENDING"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
                       }`}
                   >
                     {entry.status}
