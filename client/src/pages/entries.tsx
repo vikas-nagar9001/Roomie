@@ -234,7 +234,7 @@ export default function EntriesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries?.map((entry) => (
+          {entries?.slice().reverse().map((entry) => (
               <TableRow key={entry._id} className="border-b hover:bg-gray-50">
                 {/* User Column */}
                 <TableCell className="min-w-[200px]">
