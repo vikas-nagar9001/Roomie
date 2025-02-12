@@ -121,209 +121,184 @@ export default function EntriesPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Entries</h1>
-          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setOpenAddDialog(true)}>Add Entry</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Entry</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <Input
-                  placeholder="Entry Name"
-                  value={newEntry.name}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, name: e.target.value })
-                  }
-                />
-                <Input
-                  type="number"
-                  placeholder="Amount"
-                  value={newEntry.amount}
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, amount: e.target.value })
-                  }
-                />
-                <Button type="submit" disabled={addEntryMutation.isPending}>
-                  Add Entry
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
+  <h1 className="text-2xl sm:text-3xl font-bold">Entries</h1>
+  <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+    <DialogTrigger asChild>
+      <Button onClick={() => setOpenAddDialog(true)}>Add Entry</Button>
+    </DialogTrigger>
+    <DialogContent className="max-w-md w-full p-6">
+      <DialogHeader>
+        <DialogTitle>Add New Entry</DialogTitle>
+      </DialogHeader>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          placeholder="Entry Name"
+          value={newEntry.name}
+          onChange={(e) =>
+            setNewEntry({ ...newEntry, name: e.target.value })
+          }
+        />
+        <Input
+          type="number"
+          placeholder="Amount"
+          value={newEntry.amount}
+          onChange={(e) =>
+            setNewEntry({ ...newEntry, amount: e.target.value })
+          }
+        />
+        <Button type="submit" disabled={addEntryMutation.isPending} className="w-full">
+          Add Entry
+        </Button>
+      </form>
+    </DialogContent>
+  </Dialog>
+</div>
+
+<div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+  <Card>
+    <CardHeader>
+      <CardTitle>Overall Statistics</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span>Total Amount:</span>
+        <div className="text-end sm:text-right">
+          <div className="font-bold text-green-600">
+            ₹{entries?.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + entry.amount, 0) || 0}
+          </div>
+          <div className="text-sm text-gray-500">
+            {entries?.filter((e) => e.status === "APPROVED").length || 0} Entries
+          </div>
         </div>
-
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Overall Statistics</CardTitle>
-            </CardHeader>
-
-            <CardContent className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Total Amount:</span>
-                <div className="text-right">
-                  <div className="font-bold text-green-600">
-                    ₹
-                    {entries
-                      ?.filter((e) => e.status === "APPROVED")
-                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {entries?.filter((e) => e.status === "APPROVED").length ||
-                      0}{" "}
-                    Entries
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Pending:</span>
-                <div className="text-right">
-                  <div className="font-bold text-yellow-600">
-                    ₹
-                    {entries
-                      ?.filter((e) => e.status === "PENDING")
-                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {entries?.filter((e) => e.status === "PENDING").length || 0}{" "}
-                    Entries
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Statistics</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span>Total Amount:</span>
-                <div className="text-right">
-                  <div className="font-bold text-green-600">
-                    ₹
-                    {entries
-                      ?.filter(
-                        (e) =>
-                          e.userId.toString() === user?._id.toString() &&
-                          e.status === "APPROVED",
-                      )
-                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {entries?.filter(
-                      (e) =>
-                        e.userId.toString() === user?._id.toString() &&
-                        e.status === "APPROVED",
-                    ).length || 0}{" "}
-                    Entries
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <span>Pending:</span>
-                <div className="text-right">
-                  <div className="font-bold text-yellow-600">
-                    ₹
-                    {entries
-                      ?.filter(
-                        (e) =>
-                          e.userId.toString() === user?._id.toString() &&
-                          e.status === "PENDING",
-                      )
-                      .reduce((sum, entry) => sum + entry.amount, 0) || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    {entries?.filter(
-                      (e) =>
-                        e.userId.toString() === user?._id.toString() &&
-                        e.status === "PENDING",
-                    ).length || 0}{" "}
-                    Entries
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      </div>
+      <div className="flex justify-between items-center">
+        <span>Pending:</span>
+        <div className="text-end sm:text-right">
+          <div className="font-bold text-yellow-600">
+            ₹{entries?.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0) || 0}
+          </div>
+          <div className="text-sm text-gray-500">
+            {entries?.filter((e) => e.status === "PENDING").length || 0} Entries
+          </div>
         </div>
+      </div>
+    </CardContent>
+  </Card>
 
-        <Table>
+  <Card>
+    <CardHeader>
+      <CardTitle>Your Statistics</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span>Total Amount:</span>
+        <div className="text-end sm:text-right">
+          <div className="font-bold text-green-600">
+            ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED")
+              .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+          </div>
+          <div className="text-sm text-gray-500">
+            {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED").length || 0} Entries
+          </div>
+        </div>
+      </div>
+      <div className="flex justify-between items-center">
+        <span>Pending:</span>
+        <div className="text-end sm:text-right">
+          <div className="font-bold text-yellow-600">
+            ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
+              .reduce((sum, entry) => sum + entry.amount, 0) || 0}
+          </div>
+          <div className="text-sm text-gray-500">
+            {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} Entries
+          </div>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
+
+        <Table className="w-full overflow-x-auto">
           <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Entry Name</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date & Time</TableHead>
-              <TableHead>Status</TableHead>
+            <TableRow className="bg-gray-100">
+              <TableHead className="text-left">User</TableHead>
+              <TableHead className="text-left">Entry Name</TableHead>
+              <TableHead className="text-left">Amount</TableHead>
+              <TableHead className="text-left">Date & Time</TableHead>
+              <TableHead className="text-left">Status</TableHead>
               {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-center">Actions</TableHead>
               )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {entries?.map((entry) => (
-              <TableRow key={entry._id}>
-                <TableCell className="min-w-[180px]">
-                  <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+              <TableRow key={entry._id} className="border-b hover:bg-gray-50">
+                {/* User Column */}
+                <TableCell className="min-w-[200px]">
+                  <div className="flex items-center gap-3">
                     <img
                       src={entry.user?.profilePicture || "/default-avatar.png"}
                       alt={entry.user?.name || "User"}
-                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-secondary"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = "/default-avatar.png";
                       }}
                     />
-                    <div className="truncate max-w-[120px] sm:max-w-[160px]">
-                      <div className="font-medium">
+                    <div className="truncate max-w-[140px] sm:max-w-[180px]">
+                      <span className="font-medium text-gray-800">
                         {entry.user?.name || "Unknown User"}
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </TableCell>
 
-                <TableCell className="font-medium min-w-[150px] truncate">
+                {/* Entry Name */}
+                <TableCell className="font-medium min-w-[180px] truncate">
                   {entry.name}
                 </TableCell>
 
-                <TableCell>₹{entry.amount}</TableCell>
+                {/* Amount */}
+                <TableCell className="font-semibold text-blue-600">₹{entry.amount}</TableCell>
 
-                <TableCell>
-                  {new Date(entry.dateTime).toLocaleString()}
+                {/* Date & Time */}
+                <TableCell className="min-w-[160px] text-gray-600">
+                  {new Intl.DateTimeFormat("en-IN", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(entry.dateTime))}
                 </TableCell>
 
+                {/* Status */}
                 <TableCell>
                   <span
-                    className={`px-2 py-1 rounded-full text-sm ${
-                      entry.status === "APPROVED"
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${entry.status === "APPROVED"
                         ? "bg-green-100 text-green-800"
                         : entry.status === "PENDING"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
                   >
                     {entry.status}
                   </span>
                 </TableCell>
 
+                {/* Actions (Visible for Admins) */}
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                  <TableCell>
+                  <TableCell className="min-w-[180px] text-center">
                     {entry.status === "PENDING" ? (
-                      <div className="flex gap-2">
+                      <div className="flex justify-center sm:justify-start gap-2">
                         <Button
                           variant="outline"
                           size="sm"
+                          className="text-green-600 border-green-600 hover:bg-green-100"
                           onClick={() => {
-                            fetch(`/api/entries/${entry._id}/approved`, {
-                              method: "POST",
-                            })
+                            fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                               .then(() => {
-                                queryClient.invalidateQueries({
-                                  queryKey: ["/api/entries"],
-                                });
+                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                                 toast({
                                   title: "Entry Approved",
                                   description: `Entry "${entry.name}" has been approved successfully.`,
@@ -338,14 +313,11 @@ export default function EntriesPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          className="text-red-600 border-red-600 hover:bg-red-100"
                           onClick={() => {
-                            fetch(`/api/entries/${entry._id}/rejected`, {
-                              method: "POST",
-                            })
+                            fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
                               .then(() => {
-                                queryClient.invalidateQueries({
-                                  queryKey: ["/api/entries"],
-                                });
+                                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                                 toast({
                                   title: "Entry Rejected",
                                   description: `Entry "${entry.name}" has been rejected.`,
@@ -367,6 +339,7 @@ export default function EntriesPage() {
             ))}
           </TableBody>
         </Table>
+
       </div>
     </div>
   );
