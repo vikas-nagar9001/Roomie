@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { LuPlus, LuMail, LuCheck, LuX, LuSettings } from "react-icons/lu";
+import { Settings } from "lucide-react";
 
 export default function PaymentsPage() {
   const { user } = useAuth();
@@ -54,10 +55,10 @@ export default function PaymentsPage() {
     queryKey: ["/api/users"],
   });
 
-  const totalReceived = payments?.reduce((sum, p) => 
+  const totalReceived = payments?.reduce((sum, p) =>
     p.status === "PAID" ? sum + p.amount : sum, 0) || 0;
 
-  const totalPending = payments?.reduce((sum, p) => 
+  const totalPending = payments?.reduce((sum, p) =>
     p.status === "PENDING" ? sum + p.amount : sum, 0) || 0;
 
   const createBillMutation = useMutation({
@@ -105,7 +106,7 @@ export default function PaymentsPage() {
     dueDate.setDate(dueDate.getDate() + (settings.defaultDueDate || 5));
 
     createBillMutation.mutate({
-      items: items.map(item => ({ 
+      items: items.map(item => ({
         name: item.name,
         amount: Number(item.amount)
       })),
@@ -127,46 +128,68 @@ export default function PaymentsPage() {
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <h1 className="text-3xl font-bold">Payments</h1>
           {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-            <div className="flex gap-2">
-              <Button onClick={() => setIsCreateBillOpen(true)}>
-                <LuPlus className="mr-2 h-4 w-4" />
+            <div className="flex gap-3">
+              {/* Create Bill Button */}
+              <Button
+                onClick={() => setIsCreateBillOpen(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow-md transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path>
+                </svg>
                 Create Bill
               </Button>
-              <Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
-                <LuSettings className="mr-2 h-4 w-4" />
+
+              {/* Settings Button with User Profile Icon */}
+              <Button
+                variant="outline"
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex items-center gap-2 border-gray-300 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg shadow-md transition-all"
+              >
+              <Settings className="w-5 h-5 text-gray-700" />
                 Settings
               </Button>
             </div>
           )}
         </div>
 
+
         <div className="grid gap-4 md:grid-cols-2">
-          <Card>
+          <Card className="border border-gray-200 shadow-lg rounded-lg p-4">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Received</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Total Received</CardTitle>
+              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
+              </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">₹{totalReceived}</div>
+              <div className="text-2xl font-bold text-green-600">₹{totalReceived}</div>
             </CardContent>
           </Card>
-          <Card>
+
+          <Card className="border border-yellow-300 shadow-lg rounded-lg p-4">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pending</CardTitle>
+              <CardTitle className="text-sm font-medium text-yellow-700">Total Pending</CardTitle>
+              <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2 2m-2-6a4 4 0 11-4 4"></path>
+              </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-600">₹{totalPending}</div>
+              <div className="text-2xl font-bold text-yellow-700">₹{totalPending}</div>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="status">Payment Status</TabsTrigger>
-            <TabsTrigger value="bills">Bills</TabsTrigger>
+
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="flex flex-wrap gap-2 p-2 border-b justify-start">
+            <TabsTrigger value="status" className="px-4 py-2">Payment Status</TabsTrigger>
+            <TabsTrigger value="bills" className="px-4 py-2">Bills</TabsTrigger>
           </TabsList>
 
           <TabsContent value="status">
-            <Card>
+            <Card className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -175,15 +198,15 @@ export default function PaymentsPage() {
                     <TableHead>Left Amount</TableHead>
                     <TableHead>Status</TableHead>
                     {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
                     )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {payments?.map((payment: any) => (
                     <TableRow key={payment._id}>
-                      <TableCell className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
+                      <TableCell className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                        <Avatar className="h-10 w-10">
                           <AvatarImage
                             src={payment.userId?.profilePicture || "/default-avatar.png"}
                             alt={payment.userId?.name}
@@ -192,31 +215,39 @@ export default function PaymentsPage() {
                             {payment.userId?.name?.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        {payment.userId?.name}
+                        <div className="truncate max-w-[120px] sm:max-w-[160px]">
+                          {payment.userId?.name}
+                        </div>
                       </TableCell>
                       <TableCell>₹{payment.amount}</TableCell>
-                      <TableCell>
-                        ₹{payment.status === "PENDING" ? payment.amount : 0}
-                      </TableCell>
+                      <TableCell>₹{payment.status === "PENDING" ? payment.amount : 0}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={payment.status === "PAID" ? "default" : "secondary"}
+                          className={`border ${payment.status === "PAID"
+                            ? "bg-green-100 text-green-700 border-green-300"
+                            : "bg-yellow-100 text-yellow-700 border-yellow-300"
+                            }`}
                         >
                           {payment.status}
                         </Badge>
                       </TableCell>
                       {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                        <TableCell className="flex items-center gap-2">
+                        <TableCell className="flex gap-3 justify-center sm:justify-start">
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
+                            className="p-2 rounded-full text-blue-500 hover:text-blue-700 transition-all duration-200"
                             onClick={() => sendReminderMutation.mutate(payment._id)}
                           >
-                            <LuMail className="h-4 w-4" />
+                            <LuMail className="h-5 w-5" />
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
+                            variant="ghost"
+                            className={`p-2 rounded-full ${payment.status === "PAID"
+                              ? "text-red-500 hover:text-red-700"
+                              : "text-green-500 hover:text-green-700"
+                              } transition-all duration-200`}
                             onClick={() =>
                               updatePaymentStatusMutation.mutate({
                                 paymentId: payment._id,
@@ -225,11 +256,7 @@ export default function PaymentsPage() {
                               })
                             }
                           >
-                            {payment.status === "PAID" ? (
-                              <LuX className="h-4 w-4" />
-                            ) : (
-                              <LuCheck className="h-4 w-4" />
-                            )}
+                            {payment.status === "PAID" ? <LuX className="h-5 w-5" /> : <LuCheck className="h-5 w-5" />}
                           </Button>
                         </TableCell>
                       )}
@@ -241,7 +268,7 @@ export default function PaymentsPage() {
           </TabsContent>
 
           <TabsContent value="bills">
-            <Card>
+            <Card className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -255,21 +282,15 @@ export default function PaymentsPage() {
                 <TableBody>
                   {bills?.map((bill: any) => (
                     <TableRow key={bill._id}>
-                      <TableCell>
-                        {bill.month} {bill.year}
-                      </TableCell>
+                      <TableCell>{bill.month} {bill.year}</TableCell>
                       <TableCell>
                         {bill.items.map((item: any) => (
-                          <div key={item.name}>
-                            {item.name}: ₹{item.amount}
-                          </div>
+                          <div key={item.name} className="truncate">{item.name}: ₹{item.amount}</div>
                         ))}
                       </TableCell>
                       <TableCell>₹{bill.totalAmount}</TableCell>
                       <TableCell>₹{bill.splitAmount}</TableCell>
-                      <TableCell>
-                        {format(new Date(bill.dueDate), "PPP")}
-                      </TableCell>
+                      <TableCell>{format(new Date(bill.dueDate), "PPP")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -277,6 +298,8 @@ export default function PaymentsPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+
 
         <Dialog open={isCreateBillOpen} onOpenChange={setIsCreateBillOpen}>
           <DialogContent>
@@ -320,7 +343,7 @@ export default function PaymentsPage() {
             </div>
           </DialogContent>
         </Dialog>
-        
+
         <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
           <DialogContent>
             <DialogHeader>
@@ -332,7 +355,7 @@ export default function PaymentsPage() {
                 <Input
                   type="number"
                   value={settings.defaultDueDate}
-                  onChange={(e) => setSettings({...settings, defaultDueDate: parseInt(e.target.value)})}
+                  onChange={(e) => setSettings({ ...settings, defaultDueDate: parseInt(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
@@ -340,7 +363,7 @@ export default function PaymentsPage() {
                 <Input
                   type="number"
                   value={settings.penaltyAmount}
-                  onChange={(e) => setSettings({...settings, penaltyAmount: parseInt(e.target.value)})}
+                  onChange={(e) => setSettings({ ...settings, penaltyAmount: parseInt(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
@@ -348,18 +371,18 @@ export default function PaymentsPage() {
                 <Input
                   type="number"
                   value={settings.reminderFrequency}
-                  onChange={(e) => setSettings({...settings, reminderFrequency: parseInt(e.target.value)})}
+                  onChange={(e) => setSettings({ ...settings, reminderFrequency: parseInt(e.target.value) })}
                 />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   checked={settings.customSplitEnabled}
-                  onCheckedChange={(checked) => setSettings({...settings, customSplitEnabled: checked as boolean})}
+                  onCheckedChange={(checked) => setSettings({ ...settings, customSplitEnabled: checked as boolean })}
                 />
                 <Label>Enable Custom Split</Label>
               </div>
-              <Button 
-                className="w-full" 
+              <Button
+                className="w-full"
                 onClick={() => updateSettingsMutation.mutate(settings)}
               >
                 Save Settings
