@@ -68,12 +68,12 @@ export function UserTable({ search }: UserTableProps) {
               <TableCell className="min-w-[200px]">
                 <div className="flex items-center gap-3">
                   <img
-                    src={user.profilePicture || "/default-avatar.png"}
+                    src={user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
                     alt={user.name || "User"}
                     className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
-                      target.src = "/default-avatar.png";
+                      target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
                     }}
                   />
                   <div className="truncate max-w-[140px] sm:max-w-[180px]">
@@ -101,10 +101,10 @@ export function UserTable({ search }: UserTableProps) {
                 <Badge
                   className={`px-3 py-1 text-sm font-semibold ${
                     user.status === "ACTIVE"
-                      ? "bg-green-100 text-green-700"
+                      ? "bg-green-100 text-green-700 hover:bg-green-200"
                       : user.status === "PENDING"
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-red-100 text-red-700"
+                      ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                      : "bg-red-100 text-red-700 hover:bg-red-200"
                   }`}
                 >
                   {user.status}

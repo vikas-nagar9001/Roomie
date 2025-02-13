@@ -95,113 +95,119 @@ export default function ProfilePage() {
               <div className="flex flex-col items-center space-y-4">
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={user?.profilePicture} />
-                  <AvatarFallback>
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProfilePictureChange}
-                  className="hidden"
-                  id="profile-picture"
+
+
+                 <AvatarFallback>
+                <img
+                  src="https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg"
+                  alt={user?.name?.charAt(0).toUpperCase()}
+                  className="w-full h-full object-cover"
                 />
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => document.getElementById("profile-picture")?.click()}
-                >
-                  Change Picture
-                </Button>
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Main Content */}
-          <Card>
-            <CardContent className="p-6">
-              <Tabs defaultValue="profile">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="profile" className="flex items-center gap-2">
-                    <LuUser className="h-4 w-4" />
-                    Profile
-                  </TabsTrigger>
-                  <TabsTrigger value="activity" className="flex items-center gap-2">
-                    <LuHistory className="h-4 w-4" />
-                    Activity
-                  </TabsTrigger>
-                  {user?.role === "ADMIN" && (
-                    <TabsTrigger value="flat" className="flex items-center gap-2">
-                      <LuSettings className="h-4 w-4" />
-                      Flat Settings
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-
-                <TabsContent value="profile" className="space-y-4 mt-4">
-                  <div>
-                    <Label htmlFor="name">Name</Label>
-                    <Input
-                      id="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                    onClick={() => updateProfileMutation.mutate({ name, email })}
-                    disabled={updateProfileMutation.isPending}
-                  >
-                    Save Changes
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="activity" className="mt-4">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Recent Activity</h3>
-                    {activities?.map((activity: any) => (
-                      <div
-                        key={activity._id}
-                        className="p-4 rounded-lg border bg-card text-card-foreground"
-                      >
-                        <p className="font-medium">{activity.description}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {new Date(activity.timestamp).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                {user?.role === "ADMIN" && (
-                  <TabsContent value="flat" className="mt-4">
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Flat Settings</h3>
-                      <div>
-                        <Label>Flat Username</Label>
-                        <p className="text-sm text-muted-foreground">
-                          {user?.flatUsername}
-                        </p>
-                      </div>
-                    </div>
-                  </TabsContent>
-                )}
-              </Tabs>
-            </CardContent>
-          </Card>
+              </AvatarFallback>
+            </Avatar>
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={handleProfilePictureChange}
+              className="hidden"
+              id="profile-picture"
+            />
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => document.getElementById("profile-picture")?.click()}
+            >
+              Change Picture
+            </Button>
+            <p className="text-sm font-medium">{user?.name}</p>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
+
+          {/* Main Content */ }
+  <Card>
+    <CardContent className="p-6">
+      <Tabs defaultValue="profile">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <LuUser className="h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="flex items-center gap-2">
+            <LuHistory className="h-4 w-4" />
+            Activity
+          </TabsTrigger>
+          {user?.role === "ADMIN" && (
+            <TabsTrigger value="flat" className="flex items-center gap-2">
+              <LuSettings className="h-4 w-4" />
+              Flat Settings
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="profile" className="space-y-4 mt-4">
+          <div>
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <Button
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+            onClick={() => updateProfileMutation.mutate({ name, email })}
+            disabled={updateProfileMutation.isPending}
+          >
+            Save Changes
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="activity" className="mt-4">
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Recent Activity</h3>
+            {activities?.map((activity: any) => (
+              <div
+                key={activity._id}
+                className="p-4 rounded-lg border bg-card text-card-foreground"
+              >
+                <p className="font-medium">{activity.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(activity.timestamp).toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        </TabsContent>
+
+        {user?.role === "ADMIN" && (
+          <TabsContent value="flat" className="mt-4">
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold">Flat Settings</h3>
+              <div>
+                <Label>Flat Username</Label>
+                <p className="text-sm text-muted-foreground">
+                  {user?.flatUsername}
+                </p>
+              </div>
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
+    </CardContent>
+  </Card>
+        </div >
+      </div >
+    </div >
   );
 }

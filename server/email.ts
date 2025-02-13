@@ -11,14 +11,17 @@ const transporter = nodemailer.createTransport({
 
 async function getBaseUrl() {
   let baseUrl = process.env.BASE_URL;
-  try {
-    const tunnelUrl = await ngrok.connect(); // Secure connection
-    if (tunnelUrl) {
-      baseUrl = tunnelUrl;
-    }
-  } catch (error) {
-    console.warn("Could not get ngrok URL, using localhost");
-  }
+ 
+  //for ngrok 
+
+  // try {
+  //   const tunnelUrl = await ngrok.connect(); // Secure connection
+  //   if (tunnelUrl) { 
+  //     baseUrl = tunnelUrl;
+  //   }
+  // } catch (error) {
+  //   console.warn("Could not get ngrok URL, using localhost");
+  // }
   return baseUrl;
 }
 

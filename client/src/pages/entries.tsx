@@ -267,12 +267,12 @@ export default function EntriesPage() {
                 <TableCell className="min-w-[200px]">
                   <div className="flex items-center gap-3">
                     <img
-                      src={entry.user?.profilePicture || "/default-avatar.png"}
+                      src={entry.user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
                       alt={entry.user?.name || "User"}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = "/default-avatar.png";
+                        target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
                       }}
                     />
                     <div className="truncate max-w-[140px] sm:max-w-[180px]">
