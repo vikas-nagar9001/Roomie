@@ -94,7 +94,7 @@ export default function ProfilePage() {
             <CardContent className="p-6">
               <div className="flex flex-col items-center space-y-4">
                 <Avatar className="h-24 w-24">
-                  <AvatarImage src={user?.profilePicture} />
+                <AvatarImage src={user?.profilePicture|| "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"} />    
                   <AvatarFallback>
                     {user?.name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
