@@ -59,7 +59,7 @@ app.use((req, res, next) => {
       serveStatic(app);
     }
 
-    const PORT = 10000;
+    const PORT = 5000;
     server.listen(PORT, "0.0.0.0", async () => {
       log(`serving on port ${PORT}`);
     //   try {

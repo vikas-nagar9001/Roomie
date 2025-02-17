@@ -132,7 +132,7 @@ export function registerRoutes(app: Express): Server {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
-                profilePicture: user.profilePicture || "/default-avatar.png",
+                profilePicture: user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s",
               }
             : null,
         };
