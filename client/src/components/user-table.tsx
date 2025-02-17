@@ -131,7 +131,7 @@ export function UserTable({ search }: UserTableProps) {
                         updateUserMutation.mutate({
                           userId: user._id,
                           data: {
-                            role: user.role === "USER" ? "CO_ADMIN" : "USER",
+                            role: user.role === "USER" ? "ADMIN" : "USER",
                           },
                         })
                       }

@@ -195,7 +195,7 @@ export function setupAuth(app: Express) {
 
       req.login(updatedUser, (err) => {
         if (err) return next(err);
-        res.json(updatedUser);
+        res.status(200).json(updatedUser); 
       });
     } catch (err) {
       console.error('Set password error:', err);

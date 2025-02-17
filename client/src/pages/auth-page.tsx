@@ -108,7 +108,8 @@ export default function AuthPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full"
+                      // className="w-full"
+                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                       disabled={loginMutation.isPending}
                     >
                       Login
@@ -165,7 +166,7 @@ export default function AuthPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full"
+                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                       disabled={registerMutation.isPending}
                     >
                       Create Account
@@ -178,7 +179,8 @@ export default function AuthPage() {
         </Card>
       </div>
 
-      <div className="hidden md:flex flex-col justify-center p-8 bg-primary text-primary-foreground">
+      <div className="hidden md:flex flex-col justify-center p-8 bg-indigo-600 text-primary-foreground">
+        {/* className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition" */}
         <div className="max-w-md mx-auto space-y-6">
           <LuBuilding2 className="w-16 h-16" />
           <h1 className="text-4xl font-bold">Manage Your Flat Share Effortlessly</h1>
@@ -190,30 +192,31 @@ export default function AuthPage() {
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
           <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Reset Password</DialogTitle>
           </DialogHeader>
-          <form 
+          <form
             onSubmit={(e) => {
               e.preventDefault();
               forgotPasswordMutation.mutate(resetEmail);
             }}
             className="space-y-4"
           >
-            <div>
-              <Label htmlFor="resetEmail">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="resetEmail" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="resetEmail"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
               />
             </div>
             <Button
               type="submit"
-              className="w-full"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
               disabled={forgotPasswordMutation.isPending}
             >
               Send Reset Link
@@ -221,6 +224,7 @@ export default function AuthPage() {
           </form>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
