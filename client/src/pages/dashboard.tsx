@@ -8,11 +8,11 @@ export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
 
   return (
-    <div className="min-h-screen w-full p-6 relative flex flex-col bg-white ">
+    <div className="min-h-screen w-full relative flex flex-col bg-white ">
       {/* Background Blur Effect */}
       <div className="absolute inset-0 bg-[radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%)] opacity-30 blur-2xl"></div>
 
-      <div className="relative z-10 w-full flex-grow bg-gradient-to-r from-indigo-600  via-[#241e95]  to-indigo-800 shadow-2xl rounded-2xl p-6 md:p-8">
+      <div className="relative z-10 w-full flex-grow bg-gradient-to-r from-indigo-600  via-[#241e95]  to-indigo-800 shadow-2xl p-6 md:p-8">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-white">Welcome, {user?.name} 👋</h1>
