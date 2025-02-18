@@ -113,8 +113,8 @@ export default function ProfilePage() {
                 >
                   Change Picture
                 </Button>
-                <p className="text-sm font-medium">{user?.name}</p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <p className="text-sm font-semibold text-white">{user?.name}</p>
+                <p className="text-sm text-muted-foreground text-gray-200">{user?.email}</p>
               </div>
             </CardContent>
           </Card>
@@ -123,8 +123,8 @@ export default function ProfilePage() {
           <Card>
             <CardContent className="p-6">
               <Tabs defaultValue="profile">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="profile" className="flex items-center gap-2">
+                <TabsList className="grid w-full grid-cols-3 bg-white/80">
+                  <TabsTrigger value="profile" className="flex items-center gap-2 ">
                     <LuUser className="h-4 w-4" />
                     Profile
                   </TabsTrigger>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
 
                 <TabsContent value="profile" className="space-y-4 mt-4">
                   <div>
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="name" className="text-white">Name</Label>
                     <Input
                       id="name"
                       value={name}
@@ -150,7 +150,7 @@ export default function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="email" className="text-white">Email</Label>
                     <Input
                       id="email"
                       type="email"
@@ -169,7 +169,7 @@ export default function ProfilePage() {
 
                 <TabsContent value="activity" className="mt-4">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Recent Activity</h3>
+                    <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
                     {activities?.map((activity: any) => (
                       <div
                         key={activity._id}
@@ -187,9 +187,9 @@ export default function ProfilePage() {
                 {user?.role === "ADMIN" && (
                   <TabsContent value="flat" className="mt-4">
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Flat Settings</h3>
+                      <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
                       <div>
-                        <Label>Flat Username</Label>
+                        <Label className="text-slate-200">Flat Username</Label>
                         <p className="text-sm text-muted-foreground">
                           {user?.flatUsername}
                         </p>
