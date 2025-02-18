@@ -36,7 +36,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           variant="outline"
           size="sm"
           onClick={() => setOpen(true)}
-          className="border-gray-300 text-gray-700 bg-slate-200 hover:bg-gray-100 transition-all"
+          className="border-gray-300 text-gray-700 bg-slate-300 hover:bg-gray-100 transition-all"
         >
           Edit
         </Button>
@@ -183,29 +183,29 @@ export default function EntriesPage() {
         </div>
 
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-          <Card>
+          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
             <CardHeader>
-              <CardTitle>Overall Statistics</CardTitle>
+              <CardTitle className="text-lg font-semibold">Overall Statistics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
-                <span>Total Amount:</span>
+                <span className="text-white/80">Total Amount:</span>
                 <div className="text-end sm:text-right">
-                  <div className="font-bold text-green-600">
+                  <div className="font-bold text-green-400 text-lg">
                     ₹{entries?.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-white/60">
                     {entries?.filter((e) => e.status === "APPROVED").length || 0} Entries
                   </div>
                 </div>
               </div>
               <div className="flex justify-between items-center">
-                <span>Pending:</span>
+                <span className="text-white/80">Pending:</span>
                 <div className="text-end sm:text-right">
-                  <div className="font-bold text-yellow-600">
+                  <div className="font-bold text-yellow-400 text-lg">
                     ₹{entries?.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-white/60">
                     {entries?.filter((e) => e.status === "PENDING").length || 0} Entries
                   </div>
                 </div>
@@ -213,31 +213,31 @@ export default function EntriesPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
             <CardHeader>
-              <CardTitle>Your Statistics</CardTitle>
+              <CardTitle className="text-lg font-semibold">Your Statistics</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center">
-                <span>Total Amount:</span>
+                <span className="text-white/80">Total Amount:</span>
                 <div className="text-end sm:text-right">
-                  <div className="font-bold text-green-600">
+                  <div className="font-bold text-green-400 text-lg">
                     ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED")
                       .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-white/60">
                     {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED").length || 0} Entries
                   </div>
                 </div>
               </div>
               <div className="flex justify-between items-center">
-                <span>Pending:</span>
+                <span className="text-white/80">Pending:</span>
                 <div className="text-end sm:text-right">
-                  <div className="font-bold text-yellow-600">
+                  <div className="font-bold text-yellow-400 text-lg">
                     ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
                       .reduce((sum, entry) => sum + entry.amount, 0) || 0}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div className="text-sm text-white/60">
                     {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} Entries
                   </div>
                 </div>
@@ -247,16 +247,17 @@ export default function EntriesPage() {
         </div>
 
 
-        <Table className="w-full overflow-x-auto">
+
+        <Table className="w-full overflow-x-auto bg-indigo-100">
           <TableHeader>
-            <TableRow className="bg-gray-100">
-              <TableHead className="text-left">User</TableHead>
-              <TableHead className="text-left">Entry Name</TableHead>
-              <TableHead className="text-left">Amount</TableHead>
-              <TableHead className="text-left">Date & Time</TableHead>
-              <TableHead className="text-left">Status</TableHead>
+            <TableRow className="bg-slate-300">
+              <TableHead className="text-left text-gray-800 font-bold">User</TableHead>
+              <TableHead className="text-left text-gray-800 font-bold">Entry Name</TableHead>
+              <TableHead className="text-left text-gray-800 font-bold">Amount</TableHead>
+              <TableHead className="text-left text-gray-800 font-bold">Date & Time</TableHead>
+              <TableHead className="text-left text-gray-800 font-bold">Status</TableHead>
               {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                <TableHead className="text-center">Actions</TableHead>
+                <TableHead className="text-center text-gray-800 font-bold">Actions</TableHead>
               )}
             </TableRow>
           </TableHeader>
