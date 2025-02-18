@@ -154,28 +154,28 @@ export default function PaymentsPage() {
         </div>
 
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card className="border border-gray-200 shadow-lg rounded-lg p-4">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Received</CardTitle>
-              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-base font-semibold text-white">Total Received</CardTitle>
+              <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
               </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">₹{totalReceived}</div>
+              <div className="text-3xl font-extrabold text-green-300">₹{totalReceived}</div>
             </CardContent>
           </Card>
 
-          <Card className="border border-yellow-300 shadow-lg rounded-lg p-4">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-yellow-700">Total Pending</CardTitle>
-              <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-base font-semibold text-white">Total Pending</CardTitle>
+              <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2 2m-2-6a4 4 0 11-4 4"></path>
               </svg>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-yellow-700">₹{totalPending}</div>
+              <div className="text-3xl font-extrabold text-yellow-300">₹{totalPending}</div>
             </CardContent>
           </Card>
         </div>
