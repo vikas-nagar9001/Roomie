@@ -19,6 +19,7 @@ import { LuPlus, LuMail, LuCheck, LuX, LuSettings } from "react-icons/lu";
 import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
 import { Settings } from "lucide-react";
 import { Link } from "wouter";
+import favicon from "../../favroomie.png";
 
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
@@ -134,7 +135,7 @@ export default function PaymentsPage() {
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
           <div className="flex items-center gap-3">
-            <img src="../../favroomie.png" alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+            <img src={favicon}  alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
             <h1 className="text-3xl font-bold text-white">Roomie</h1>
           </div>
 

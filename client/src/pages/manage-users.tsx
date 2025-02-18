@@ -7,6 +7,8 @@ import { LuUserPlus } from "react-icons/lu";
 import { Input } from "@/components/ui/input";
 import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
 import { Link } from "wouter";
+import favicon from "../../favroomie.png";
+
 
 export default function ManageUsers() {
   const { user} = useAuth();
@@ -26,7 +28,7 @@ export default function ManageUsers() {
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
           <div className="flex items-center gap-3">
-            <img src="../../favroomie.png" alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+            <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
             <h1 className="text-3xl font-bold text-white">Roomie</h1>
           </div>
 

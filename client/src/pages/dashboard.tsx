@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
 import { Link } from "wouter";
+import favicon from "../../favroomie.png";
 
 export default function Dashboard() {
   const { user, logoutMutation } = useAuth();
@@ -13,7 +14,7 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex flex-col md:flex-row justify-between items-center">
         {/* Logo */}
         <div className="flex items-center gap-3">
-          <img src="../../favroomie.png" alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+          <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
           <h1 className="text-3xl font-bold text-white">Roomie</h1>
         </div>
 
