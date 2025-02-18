@@ -1,16 +1,19 @@
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { CheckCircle, XCircle } from "lucide-react"  // Importing icons
 
 import { cn } from "@/lib/utils"
 
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
+  "relative w-full rounded-lg border p-4 flex items-center [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
   {
     variants: {
       variant: {
         default: "bg-background text-foreground",
         destructive:
           "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+        success:
+          "border-success/50 text-success dark:border-success [&>svg]:text-success", // success variant
       },
     },
     defaultVariants: {
@@ -56,4 +59,20 @@ const AlertDescription = React.forwardRef<
 ))
 AlertDescription.displayName = "AlertDescription"
 
-export { Alert, AlertTitle, AlertDescription }
+// Adding the alert component to display success or error icons
+export function AlertWithIcon({ variant, title, description }: { variant: "success" | "error" | "default", title: string, description: string }) {
+  // Choose icon based on the variant
+  const Icon = variant === "success" ? CheckCircle : variant === "error" ? XCircle : null
+
+  return (
+    <Alert variant={variant} className="flex items-center space-x-3">
+      {Icon && <Icon className="h-6 w-6" />}
+      <div>
+        <AlertTitle>{title}</AlertTitle>
+        <AlertDescription>{description}</AlertDescription>
+      </div>
+    </Alert>
+  )
+}
+
+export { Alert, AlertTitle, AlertDescription, AlertWithIcon }

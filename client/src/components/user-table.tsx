@@ -52,8 +52,8 @@ export function UserTable({ search }: UserTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <Table className="border border-gray-300 shadow-sm rounded-lg">
-        <TableHeader className="bg-gray-100">
+      <Table className="border border-gray-300 bg-indigo-100 shadow-sm rounded-lg">
+        <TableHeader className="bg-slate-300">
           <TableRow>
             <TableHead className="text-gray-700">Name</TableHead>
             <TableHead className="text-gray-700">Email</TableHead>

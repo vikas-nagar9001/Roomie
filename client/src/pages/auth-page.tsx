@@ -63,9 +63,9 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen grid md:grid-cols-2">
+    <div className="min-h-screen grid md:grid-cols-2 bg-indigo-100">
       <div className="flex items-center justify-center p-8">
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md bg-white">
           <CardHeader>
             <CardTitle>Welcome to Roomie</CardTitle>
           </CardHeader>
