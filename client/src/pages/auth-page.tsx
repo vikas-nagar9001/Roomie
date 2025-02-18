@@ -67,7 +67,7 @@ export default function AuthPage() {
       <div className="flex items-center justify-center p-8">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Welcome to RoomieBuddy</CardTitle>
+            <CardTitle>Welcome to Roomie</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login">
