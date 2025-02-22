@@ -14,6 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import CreatableSelect from "react-select/creatable";
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
+import ResponsivePagination from "react-responsive-pagination";
+import "react-responsive-pagination/themes/classic.css"; // Default theme
 import {
   Table,
   TableBody,
@@ -117,6 +119,8 @@ export default function EntriesPage() {
   const { toast } = useToast();
   const [newEntry, setNewEntry] = useState({ name: "", amount: "" });
   const [openAddDialog, setOpenAddDialog] = useState(false); // State for controlling the Add Entry dialog
+  const [currentPage, setCurrentPage] = useState(1);
+  const entriesPerPage = 6; // Limit of 10 per page
 
   const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
@@ -125,6 +129,18 @@ export default function EntriesPage() {
   const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/entries/total"],
   });
+
+
+  // Reverse entries and apply pagination
+  const paginatedEntries = entries?.slice().reverse().slice(
+    (currentPage - 1) * entriesPerPage,
+    currentPage * entriesPerPage
+  );
+
+  const totalPages = Math.ceil((entries?.length || 0) / entriesPerPage);
+
+
+
 
   const addEntryMutation = useMutation({
     mutationFn: async (data: { name: string; amount: number }) => {
@@ -545,9 +561,8 @@ export default function EntriesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries?.slice().reverse().map((entry) => (
+              {paginatedEntries?.map((entry) => (
                 <TableRow key={entry._id} className="border-b hover:bg-gray-50">
-                  {/* User Column */}
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <img
@@ -566,24 +581,16 @@ export default function EntriesPage() {
                       </div>
                     </div>
                   </TableCell>
-
-                  {/* Entry Name */}
                   <TableCell className="font-medium min-w-[180px] truncate">
                     {entry.name}
                   </TableCell>
-
-                  {/* Amount */}
                   <TableCell className="font-semibold text-blue-600"> ₹{entry.amount.toFixed(2)}</TableCell>
-
-                  {/* Date & Time */}
                   <TableCell className="min-w-[160px] text-gray-600">
                     {new Intl.DateTimeFormat("en-IN", {
                       dateStyle: "medium",
                       timeStyle: "short",
                     }).format(new Date(entry.dateTime))}
                   </TableCell>
-
-                  {/* Status */}
                   <TableCell>
                     <span
                       className={`px-3 py-1 rounded-full text-sm font-medium ${entry.status === "APPROVED"
@@ -596,8 +603,6 @@ export default function EntriesPage() {
                       {entry.status}
                     </span>
                   </TableCell>
-
-                  {/* Actions (Visible for Admins) */}
                   {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                     <TableCell className="min-w-[180px] text-center">
                       {entry.status === "PENDING" ? (
@@ -609,7 +614,6 @@ export default function EntriesPage() {
                             onClick={() => {
                               fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                                 .then(() => {
-                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                                   toast({
                                     title: "Entry Approved",
                                     description: `Entry "${entry.name}" has been approved successfully.`,
@@ -628,7 +632,6 @@ export default function EntriesPage() {
                             onClick={() => {
                               fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
                                 .then(() => {
-                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                                   toast({
                                     title: "Entry Rejected",
                                     description: `Entry "${entry.name}" has been rejected.`,
@@ -642,9 +645,7 @@ export default function EntriesPage() {
                           </Button>
                         </div>
                       ) : (
-
                         <EditEntryDialog entry={entry} />
-
                       )}
                     </TableCell>
                   )}
@@ -652,6 +653,15 @@ export default function EntriesPage() {
               ))}
             </TableBody>
           </Table>
+
+          {/* Pagination Component */}
+          <div className="flex justify-center mt-4">
+            <ResponsivePagination
+              current={currentPage}
+              total={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
 
         </div>
       </div>

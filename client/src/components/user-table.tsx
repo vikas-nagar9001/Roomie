@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -18,6 +19,8 @@ import { Mail, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
+import ResponsivePagination from "react-responsive-pagination";
+import "react-responsive-pagination/themes/classic.css"; // Default pagination style
 
 interface UserTableProps {
   search: string;
@@ -44,11 +47,25 @@ export function UserTable({ search }: UserTableProps) {
     },
   });
 
-  const filteredUsers = users?.filter(
-    (user) =>
-      user.name.toLowerCase().includes(search.toLowerCase()) ||
-      user.email.toLowerCase().includes(search.toLowerCase())
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 6;
+
+  // Filtered users based on search input
+  const filteredUsers =
+    users?.filter(
+      (user) =>
+        user.name.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase())
+    ) || [];
+
+  // Paginate users
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * usersPerPage,
+    currentPage * usersPerPage
   );
+
 
   return (
     <div className="overflow-x-auto">
@@ -63,7 +80,7 @@ export function UserTable({ search }: UserTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {filteredUsers?.map((user) => (
+          {paginatedUsers?.map((user) => (
             <TableRow key={user._id} className="hover:bg-gray-50 transition">
               <TableCell className="min-w-[200px]">
                 <div className="flex items-center gap-3">
@@ -162,6 +179,16 @@ export function UserTable({ search }: UserTableProps) {
           ))}
         </TableBody>
       </Table>
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-4">
+          <ResponsivePagination
+            current={currentPage}
+            total={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 }
