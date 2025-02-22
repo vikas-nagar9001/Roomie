@@ -1,49 +1,47 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
-// import { setupTunnel } from "./tunnel";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+const versionFilePath = path.join(__dirname, "..", "version.txt");
+
+// 🔹 Middleware to check `version.txt` on every request
 app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  if (fs.existsSync(versionFilePath)) {
+    const version = fs.readFileSync(versionFilePath, "utf8").trim();
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+    if (version === "new") {
+      console.log("🔄 New version detected! Clearing cache...");
 
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
+      // 🔹 Invalidate cache by setting response headers
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
+      // 🔹 Reset `version.txt` to "old" after clearing cache
+      fs.writeFileSync(versionFilePath, "old", "utf8");
+      console.log("✅ Version reset to old.");
     }
-  });
-
+  }
   next();
 });
 
+// Register API routes
+const server = registerRoutes(app);
+
 (async () => {
   try {
-    // Connect to MongoDB before starting the server
     await storage.connect();
-
-    const server = registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
@@ -60,17 +58,11 @@ app.use((req, res, next) => {
     }
 
     const PORT = 10000;
-    server.listen(PORT, "0.0.0.0", async () => {
-      log(`serving on port ${PORT}`);
-    //   try {
-    //     const tunnelUrl = await setupTunnel();
-    //     log(`ngrok tunnel established at ${tunnelUrl}`);
-    //   } catch (error) {
-    //     console.error('Failed to establish ngrok tunnel:', error);
-    //   }
+    server.listen(PORT, "0.0.0.0", () => {
+      log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
-    console.error('Failed to start the server:', error);
+    console.error("❌ Failed to start the server:", error);
     process.exit(1);
   }
 })();

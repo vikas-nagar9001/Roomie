@@ -10,6 +10,12 @@ import path from "path";
 import express from "express";
 import { mkdir, existsSync } from "fs";
 import { promisify } from "util";
+import { fileURLToPath } from "url";
+import fs from "fs";
+
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const mkdirAsync = promisify(mkdir);
 const upload = multer({
@@ -79,7 +85,25 @@ export function registerRoutes(app: Express): Server {
       console.error("Failed to update profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
+  }); 
+
+
+
+  // Move one directory back to reach `Roomie/version.txt`
+  const versionFilePath = path.join(__dirname, "..", "version.txt");
+  //version.txt set version.txt to new  endpoint
+  app.post("/api/set-version-new", (req, res) => {
+    try {
+      fs.writeFileSync(versionFilePath, "new", "utf8");
+      console.log("✅ version.txt set to 'new'");
+      res.json({ message: "Version updated to 'new'. Cache will be cleared on the next request." });
+    } catch (error) {
+      console.error("❌ Error updating version.txt:", error);
+      res.status(500).json({ message: "Failed to update version.txt" });
+    }
   });
+  
+
 
   // Upload profile picture
   app.post(
@@ -129,11 +153,11 @@ export function registerRoutes(app: Express): Server {
           ...entry,
           user: user
             ? {
-                _id: user._id,
-                name: user.name,
-                email: user.email,
-                profilePicture: user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s",
-              }
+              _id: user._id,
+              name: user.name,
+              email: user.email,
+              profilePicture: user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s",
+            }
             : null,
         };
       }),
@@ -301,7 +325,7 @@ export function registerRoutes(app: Express): Server {
       });
 
       // Create payments for each user
-      await Promise.all(users.map(user => 
+      await Promise.all(users.map(user =>
         storage.createPayment({
           billId: bill._id,
           userId: user._id,
@@ -328,14 +352,14 @@ export function registerRoutes(app: Express): Server {
     try {
       const payment = await PaymentModel.findByIdAndUpdate(
         req.params.id,
-        { 
+        {
           status: req.body.status,
           paidAmount: req.body.status === "PAID" ? req.body.amount : 0,
           ...(req.body.status === "PAID" ? { paidAt: new Date() } : { paidAt: null })
         },
         { new: true }
       ).populate('userId', 'name email profilePicture');
-      
+
       res.json(payment);
     } catch (error) {
       res.status(500).json({ message: "Failed to update payment" });

@@ -11,7 +11,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
-import { FaCamera } from "react-icons/fa";  // Ensure correct import from react-icons/fa for camera icon
+import { FaCamera } from "react-icons/fa";
+import { MdOutlineCached } from "react-icons/md";
+import axios from "axios";  // Ensure correct import from react-icons/fa for camera icon
 import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
 
 export default function ProfilePage() {
@@ -83,6 +85,23 @@ export default function ProfilePage() {
     }
   };
 
+  const handleClearCache = async () => {
+    try {
+      const response = await axios.post("/api/set-version-new");
+      alert(response.data.message); // Show success message
+      window.location.reload(); // Reload the page to clear cache
+    } catch (error) {
+      alert("Failed to clear cache. Check console for details.");
+      console.error("Error clearing cache:", error);
+    }
+  };
+
+  // ✅ Explicitly define mutation type
+  const clearCacheMutation = useMutation<void, Error>({
+    mutationFn: handleClearCache,
+  });
+
+
   return (
     <div className="min-h-screen p-8 bg-gradient-to-b from-indigo-600 via-[#241e95] to-indigo-800  text-white">
       <div className="max-w-4xl mx-auto space-y-8">
@@ -130,8 +149,8 @@ export default function ProfilePage() {
               </div>
             </CardContent>
 
-            {/* Centering the logout button */}
-            <div className="flex justify-center py-4">
+            <div className="flex justify-center py-4 gap-4">
+              {/* Logout Button */}
               <Button
                 onClick={() => logoutMutation.mutate()}
                 disabled={logoutMutation.isPending}
@@ -140,6 +159,8 @@ export default function ProfilePage() {
                 <FiLogOut className="h-5 w-5 text-white" />
                 Logout
               </Button>
+
+
             </div>
           </Card>
 
@@ -186,13 +207,25 @@ export default function ProfilePage() {
                       onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
-                  <Button
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                    onClick={() => updateProfileMutation.mutate({ name, email })}
-                    disabled={updateProfileMutation.isPending}
-                  >
-                    Save Changes
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                      onClick={() => updateProfileMutation.mutate({ name, email })}
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      Save Changes
+                    </Button>
+
+                    <Button
+                      onClick={() => clearCacheMutation.mutate()}
+                      disabled={clearCacheMutation.isPending}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-600 text-white font-medium rounded-md shadow-md hover:bg-slate-500 transition-all"
+                    >
+                      <MdOutlineCached className="h-4 w-4 text-white" />
+                      Clear Cache
+                    </Button>
+                  </div>
+
                 </TabsContent>
 
                 <TabsContent value="activity" className="mt-4">
