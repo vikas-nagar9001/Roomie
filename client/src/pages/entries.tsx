@@ -266,8 +266,8 @@ export default function EntriesPage() {
 
 
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
-              <div className="w-full overflow-x-auto px-4 py-2 bg-transparent rounded-t-lg">
-                <div className="flex space-x-6 min-w-max">
+              <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg">
+                <div className="flex space-x-6 min-w-max ">
                   {entries && Array.isArray(entries) && entries.length > 0 ? (
                     (() => {
                       const totalApprovedGlobal = entries
@@ -304,7 +304,7 @@ export default function EntriesPage() {
                         const textY = Math.sin(angleRad) * radius;
 
                         return (
-                          <div key={userId} className="flex items-center gap-x-4 bg-white/10 px-4 py-3 rounded-lg shadow-md relative">
+                          <div key={userId} className="flex items-center gap-x-4 border-white/10 pt-2 bg-white/5 rounded-md shadow-md px-4 py-3 relative">
                             {/* Profile Picture with Circular Progress Border */}
                             <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
                               {/* Circular Progress Border */}
@@ -427,36 +427,39 @@ export default function EntriesPage() {
 
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg p-4">
               {/* Header with Profile & Date-Time */}
-              <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap">
+              <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
+
                 {/* Left Side: User Profile */}
                 <div className="flex items-center space-x-3">
                   {user?.profilePicture ? (
                     <img
                       src={user.profilePicture}
                       alt="User Profile"
-                      className="w-12 h-12 rounded-full border border-white/20"
+                      className="w-12 h-12 rounded-full border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105"
                     />
                   ) : (
-                    <FaUserCircle className="text-5xl text-white/50" />
+                    <FaUserCircle className="text-5xl text-white/50 transition-transform duration-300 hover:scale-110" />
                   )}
                   <div>
-                    <div className="text-sm font-semibold">{user?.name || "Guest User"}</div>
-                    <div className="text-xs text-white/60 truncate w-32">{user?.email || "No Email"}</div>
+                    <div className="text-sm font-semibold text-white">{user?.name || "Guest User"}</div>
+                    <div className="text-xs text-white/60 truncate w-40 sm:w-32">{user?.email || "No Email"}</div>
                   </div>
                 </div>
 
                 {/* Right Side: Date & Time */}
                 <div className="text-right text-sm mt-2 sm:mt-0">
                   <div className="flex items-center space-x-1 text-white/80">
-                    <MdOutlineDateRange className="text-lg" />
-                    <span>{new Date().toLocaleDateString()}</span>
+                    <MdOutlineDateRange className="text-lg text-blue-400" />
+                    <span className="font-medium">{new Date().toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center space-x-1 text-white/70">
-                    <MdAccessTime className="text-lg" />
-                    <span>{new Date().toLocaleTimeString()}</span>
+                    <MdAccessTime className="text-lg text-green-400" />
+                    <span className="font-medium">{new Date().toLocaleTimeString()}</span>
                   </div>
                 </div>
+
               </div>
+
 
               {/* Card Content */}
               <CardContent className="space-y-4 mt-3">
@@ -489,56 +492,68 @@ export default function EntriesPage() {
                 </div>
 
                 {/* Top Expense Category with Top 5 Approved Entries List */}
-                {entries && entries.length > 0 && (
-                  (() => {
-                    const approvedEntries = entries.filter(
-                      (e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED"
-                    );
+                {entries && entries.length > 0 && (() => {
+                  const approvedEntries = entries.filter(
+                    (e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED"
+                  );
 
-                    if (approvedEntries.length === 0) {
-                      return <div className="text-white text-sm">No Approved Expenses Found</div>;
-                    }
+                  if (approvedEntries.length === 0) {
+                    return <div className="text-white text-sm text-center py-2">No Approved Expenses Found</div>;
+                  }
 
-                    const sortedEntries = [...approvedEntries].sort((a, b) => b.amount - a.amount);
-                    const topEntries = sortedEntries.slice(0, 5);
-                    const topCategory =
-                      topEntries[0]?.category?.trim() ||
-                      topEntries[0]?.entryCategory?.trim() ||
-                      topEntries[0]?.name?.trim() ||
-                      "No Category";
-                    const totalAmount = topEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                  const sortedEntries = [...approvedEntries].sort((a, b) => b.amount - a.amount);
+                  const topEntries = sortedEntries.slice(0, 5);
+                  const topCategory =
+                    topEntries[0]?.category?.trim() ||
+                    topEntries[0]?.entryCategory?.trim() ||
+                    topEntries[0]?.name?.trim() ||
+                    "No Category";
+                  const totalAmount = topEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
-                    return (
-                      <div className="flex items-start border-t border-white/10 pt-3">
-                        {/* Left Side: Scrollable Entries List */}
-                        <div className="w-1/3 max-h-28 overflow-y-auto pr-3 border-r border-white/10">
-                          <div className="text-yellow-300 text-xs font-medium mb-1">Top Entries</div>
-                          {topEntries.length > 0 ? (
-                            topEntries.map((entry, index) => (
-                              <div key={index} className="text-yellow-200 text-xs truncate">
-                                {index + 1}. {entry.entryName || entry.title || entry.name}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-yellow-500 text-xs">No Entries Found</div>
-                          )}
+                  return (
+                    <div className="border-t p-4 border-white/10 pt-2 bg-white/5 rounded-md shadow-md">
+
+                      {/* Main Flex Container - Desktop & Mobile Same */}
+                      <div className="flex items-start">
+
+                        {/* Left Side: Entries List (Heading Fixed, Entries Scrollable) */}
+                        <div className="w-1/3 pr-2 border-r border-white/10">
+                          {/* Fixed Heading */}
+                          <div className="text-cyan-300 text-sm font-medium mb-1 border-b border-white/10 pb-1">
+                            Top Entries:
+                          </div>
+
+                          {/* Scrollable Entries List */}
+                          <div className="max-h-24 overflow-y-auto space-y-1">
+                            {topEntries.length > 0 ? (
+                              topEntries.map((entry, index) => (
+                                <div key={index} className="text-yellow-200 text-xs truncate">
+                                  {index + 1}. {entry.entryName || entry.title || entry.name}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-yellow-500 text-xs">No Entries Found</div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Right Side: Top Expense Details */}
-                        <div className="w-2/3 pl-3 text-white text-sm space-y-2">
+                        <div className="w-2/3 pl-2 text-white text-sm space-y-1">
                           <div className="font-semibold">Top Expense Category:</div>
-                          <div className="text-lg font-bold text-blue-400">{topCategory}</div>
-                          <div className="text-sm text-white/70">
+                          <div className="text-sm font-bold text-blue-400">{topCategory}</div>
+                          <div className="text-xs text-white/70">
                             <span className="font-medium">Total Amount:</span> ₹{totalAmount.toFixed(2)}
                           </div>
-                          <div className="text-sm text-white/70">
+                          <div className="text-xs text-white/70">
                             <span className="font-medium">Total Entries:</span> {topEntries.length}
                           </div>
                         </div>
+
                       </div>
-                    );
-                  })()
-                )}
+                    </div>
+                  );
+                })()}
+
               </CardContent>
             </Card>
 

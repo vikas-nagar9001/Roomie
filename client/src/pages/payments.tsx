@@ -15,11 +15,13 @@ import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { LuMail, LuCheck, LuX,  } from "react-icons/lu";
+import { LuMail, LuCheck, LuX, } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import { Settings } from "lucide-react";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
+import ResponsivePagination from "react-responsive-pagination";
+import "react-responsive-pagination/themes/classic.css"; // Pagination styling
 
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
@@ -34,6 +36,11 @@ export default function PaymentsPage() {
     reminderFrequency: 3,
     customSplitEnabled: false
   });
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentBillsPage, setCurrentBillsPage] = useState(1);
+  const itemsPerPage = 6;
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
@@ -126,6 +133,10 @@ export default function PaymentsPage() {
     setNewBillItems([...newBillItems, { name: "", amount: "" }]);
   };
 
+  // Calculate Paginated Data
+  const paginatedPayments = payments.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedBills = bills.slice((currentBillsPage - 1) * itemsPerPage, currentBillsPage * itemsPerPage);
+
   return (
     <>
 
@@ -135,7 +146,7 @@ export default function PaymentsPage() {
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
           <div className="flex items-center gap-3">
-            <img src={favicon}  alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+            <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
             <h1 className="text-3xl font-bold text-white">Roomie</h1>
           </div>
 
@@ -231,7 +242,7 @@ export default function PaymentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="bg-indigo-100">
-                    {payments?.map((payment: any) => (
+                    {paginatedPayments?.map((payment: any) => (
                       <TableRow key={payment._id} className="hover:bg-white">
                         <TableCell className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                           <Avatar className="h-10 w-10">
@@ -298,6 +309,14 @@ export default function PaymentsPage() {
                   </TableBody>
                 </Table>
               </Card>
+              {/* Pagination for Payments */}
+              <div className="flex justify-center mt-4">
+                <ResponsivePagination
+                  current={currentPage}
+                  total={Math.ceil(payments.length / itemsPerPage)}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="bills">
@@ -313,7 +332,7 @@ export default function PaymentsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody className="bg-indigo-100">
-                    {bills?.map((bill: any) => (
+                    {paginatedBills?.map((bill: any) => (
                       <TableRow key={bill._id} className="hover:bg-white">
                         <TableCell>{bill.month} {bill.year}</TableCell>
                         <TableCell>
@@ -330,6 +349,14 @@ export default function PaymentsPage() {
                   </TableBody>
                 </Table>
               </Card>
+              {/* Pagination for Bills */}
+              <div className="flex justify-center mt-4">
+                <ResponsivePagination
+                  current={currentBillsPage}
+                  total={Math.ceil(bills.length / itemsPerPage)}
+                  onPageChange={setCurrentBillsPage}
+                />
+              </div>
             </TabsContent>
           </Tabs>
 
