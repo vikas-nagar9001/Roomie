@@ -5,7 +5,7 @@ import { UserTable } from "@/components/user-table";
 import { InviteUserDialog } from "@/components/invite-user-dialog";
 import { LuUserPlus } from "react-icons/lu";
 import { Input } from "@/components/ui/input";
-import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
+import { FiUser } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 

@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LuUserPlus } from "react-icons/lu";
-import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
+import { FiUser } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 
@@ -27,6 +27,10 @@ import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import CreatableSelect from "react-select/creatable";
+import { FaUserCircle } from "react-icons/fa";
+import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
+
 
 // Create a separate component for editing an entry.
 function EditEntryDialog({ entry }: { entry: Entry }) {
@@ -135,6 +139,17 @@ export default function EntriesPage() {
     });
   };
 
+  const options = [
+    { value: "Milk Morning", label: "Milk Morning" },
+    { value: "Milk Evening", label: "Milk Evening" },
+    { value: "Milk Day", label: "Milk Day" },
+    { value: "Vegtable", label: "Vegtable" },
+    { value: "Chaipatti", label: "Chaipatti" },
+    { value: "Room Product", label: "Room Product" },
+    { value: "Sugar", label: "Sugar" },
+    { value: "Masala", label: "Masala" },
+  ];
+
 
   return (
     <>
@@ -185,12 +200,22 @@ export default function EntriesPage() {
                   <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <Input
-                    placeholder="Entry Name"
-                    value={newEntry.name}
-                    onChange={(e) => setNewEntry({ ...newEntry, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+
+                  {/* Dropdown with Custom Input */}
+                  <CreatableSelect
+                    options={options}
+                    isClearable
+                    placeholder="Select or type entry name"
+                    value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
+                    onChange={(selectedOption) => {
+                      setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
+                    }}
+                    onCreateOption={(inputValue) => {
+                      setNewEntry({ ...newEntry, name: inputValue });
+                    }}
+                    className="w-full"
                   />
+
                   <Input
                     type="number"
                     placeholder="Amount"
@@ -198,7 +223,6 @@ export default function EntriesPage() {
                     onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
                   />
-
 
                   <Button
                     type="submit"
@@ -215,19 +239,73 @@ export default function EntriesPage() {
           </div>
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+
+
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+              <div className="w-full overflow-x-auto px-4 py-2 bg-transferent rounded-t-lg">
+                <div className="flex space-x-6 min-w-max">
+                  {entries && Array.isArray(entries) && entries.length > 0 ? (
+                    Array.from(new Set(entries.map((e) => e.userId))).map((userId) => {
+                      const userEntries = entries.filter((e) => e.userId === userId);
+                      const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                      const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
+
+                      const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                      const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+
+                      const userName = userEntries[0]?.user?.name || "Unknown";
+                      const userProfile =
+                        userEntries[0]?.user?.profilePicture ||
+                        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
+
+                      return (
+                        <div key={userId} className="flex items-center space-x-2 bg-white/10 px-3 py-2 rounded-lg shadow">
+                          <img
+                            src={userProfile}
+                            alt={`${userName} profile picture`}
+                            loading="lazy"
+                            className="w-8 h-8 rounded-full border border-white object-cover bg-gray-200"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.onerror = null;
+                              target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                            }}
+                          />
+                          <div className="text-xs text-white/80">
+                            <div className="font-semibold">{userName}</div>
+                            {/* Approved Entries */}
+                            <div className="text-white/60">{approvedEntries.length} Approved Entries</div>
+                            <div className="font-bold text-green-400">₹{totalApprovedAmount.toFixed(2)}</div>
+                            {/* Pending Entries */}
+                            <div className="text-white/60">{pendingEntries.length} Pending Entries</div>
+                            <div className="font-bold text-yellow-400">₹{totalPendingAmount.toFixed(2)}</div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-white/60 text-sm">No entries found</div>
+                  )}
+                </div>
+              </div>
+
               <CardHeader>
                 <CardTitle className="text-lg font-semibold">Overall Statistics</CardTitle>
               </CardHeader>
+
               <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹{entries?.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || 0}
+                      ₹{entries && Array.isArray(entries) && entries.length > 0
+                        ? entries.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + (entry.amount || 0), 0).toFixed(2)
+                        : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => e.status === "APPROVED").length || 0} Entries
+                      {entries && Array.isArray(entries) && entries.length > 0
+                        ? entries.filter((e) => e.status === "APPROVED").length
+                        : 0} Entries
                     </div>
                   </div>
                 </div>
@@ -235,21 +313,58 @@ export default function EntriesPage() {
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
-                      ₹{entries?.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || 0}
+                      ₹{entries && Array.isArray(entries) && entries.length > 0
+                        ? entries.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + (entry.amount || 0), 0).toFixed(2)
+                        : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => e.status === "PENDING").length || 0} Entries
+                      {entries && Array.isArray(entries) && entries.length > 0
+                        ? entries.filter((e) => e.status === "PENDING").length
+                        : 0} Entries
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Your Statistics</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+
+
+            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg p-4">
+              {/* Header with Profile & Date-Time */}
+              <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap">
+                {/* Left Side: User Profile */}
+                <div className="flex items-center space-x-3">
+                  {user?.profilePicture ? (
+                    <img
+                      src={user.profilePicture}
+                      alt="User Profile"
+                      className="w-12 h-12 rounded-full border border-white/20"
+                    />
+                  ) : (
+                    <FaUserCircle className="text-5xl text-white/50" />
+                  )}
+                  <div>
+                    <div className="text-sm font-semibold">{user?.name || "Guest User"}</div>
+                    <div className="text-xs text-white/60 truncate w-32">{user?.email || "No Email"}</div>
+                  </div>
+                </div>
+
+                {/* Right Side: Date & Time */}
+                <div className="text-right text-sm mt-2 sm:mt-0">
+                  <div className="flex items-center space-x-1 text-white/80">
+                    <MdOutlineDateRange className="text-lg" />
+                    <span>{new Date().toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-white/70">
+                    <MdAccessTime className="text-lg" />
+                    <span>{new Date().toLocaleTimeString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Content */}
+              <CardContent className="space-y-4 mt-3">
+                {/* Total Amount */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
@@ -262,6 +377,8 @@ export default function EntriesPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Pending */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
@@ -274,8 +391,62 @@ export default function EntriesPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* Top Expense Category with Top 5 Approved Entries List */}
+                {entries && entries.length > 0 && (
+                  (() => {
+                    const approvedEntries = entries.filter(
+                      (e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED"
+                    );
+
+                    if (approvedEntries.length === 0) {
+                      return <div className="text-white text-sm">No Approved Expenses Found</div>;
+                    }
+
+                    const sortedEntries = [...approvedEntries].sort((a, b) => b.amount - a.amount);
+                    const topEntries = sortedEntries.slice(0, 5);
+                    const topCategory =
+                      topEntries[0]?.category?.trim() ||
+                      topEntries[0]?.entryCategory?.trim() ||
+                      topEntries[0]?.name?.trim() ||
+                      "No Category";
+                    const totalAmount = topEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+                    return (
+                      <div className="flex items-start border-t border-white/10 pt-3">
+                        {/* Left Side: Scrollable Entries List */}
+                        <div className="w-1/3 max-h-28 overflow-y-auto pr-3 border-r border-white/10">
+                          <div className="text-yellow-300 text-xs font-medium mb-1">Top Entries</div>
+                          {topEntries.length > 0 ? (
+                            topEntries.map((entry, index) => (
+                              <div key={index} className="text-yellow-200 text-xs truncate">
+                                {index + 1}. {entry.entryName || entry.title || entry.name}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-yellow-500 text-xs">No Entries Found</div>
+                          )}
+                        </div>
+
+                        {/* Right Side: Top Expense Details */}
+                        <div className="w-2/3 pl-3 text-white text-sm space-y-2">
+                          <div className="font-semibold">Top Expense Category:</div>
+                          <div className="text-lg font-bold text-blue-400">{topCategory}</div>
+                          <div className="text-sm text-white/70">
+                            <span className="font-medium">Total Amount:</span> ₹{totalAmount.toFixed(2)}
+                          </div>
+                          <div className="text-sm text-white/70">
+                            <span className="font-medium">Total Entries:</span> {topEntries.length}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
               </CardContent>
             </Card>
+
+
           </div>
 
 
