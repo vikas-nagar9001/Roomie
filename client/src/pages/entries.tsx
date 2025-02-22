@@ -7,7 +7,13 @@ import { LuUserPlus } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
-
+import { Input } from "@/components/ui/input";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Entry } from "@shared/schema";
+import { useToast } from "@/hooks/use-toast";
+import CreatableSelect from "react-select/creatable";
+import { FaUserCircle } from "react-icons/fa";
+import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import {
   Table,
   TableBody,
@@ -23,13 +29,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Entry } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import CreatableSelect from "react-select/creatable";
-import { FaUserCircle } from "react-icons/fa";
-import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 
 
 // Create a separate component for editing an entry.
@@ -242,47 +241,107 @@ export default function EntriesPage() {
 
 
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
-              <div className="w-full overflow-x-auto px-4 py-2 bg-transferent rounded-t-lg">
+              <div className="w-full overflow-x-auto px-4 py-2 bg-transparent rounded-t-lg">
                 <div className="flex space-x-6 min-w-max">
                   {entries && Array.isArray(entries) && entries.length > 0 ? (
-                    Array.from(new Set(entries.map((e) => e.userId))).map((userId) => {
-                      const userEntries = entries.filter((e) => e.userId === userId);
-                      const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
-                      const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
+                    (() => {
+                      const totalApprovedGlobal = entries
+                        .filter((e) => e.status === "APPROVED")
+                        .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1; // Avoid division by zero
 
-                      const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-                      const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                      return Array.from(new Set(entries.map((e) => e.userId))).map((userId) => {
+                        const userEntries = entries.filter((e) => e.userId === userId);
+                        const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                        const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
 
-                      const userName = userEntries[0]?.user?.name || "Unknown";
-                      const userProfile =
-                        userEntries[0]?.user?.profilePicture ||
-                        "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
+                        const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                        const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
 
-                      return (
-                        <div key={userId} className="flex items-center space-x-2 bg-white/10 px-3 py-2 rounded-lg shadow">
-                          <img
-                            src={userProfile}
-                            alt={`${userName} profile picture`}
-                            loading="lazy"
-                            className="w-8 h-8 rounded-full border border-white object-cover bg-gray-200"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.onerror = null;
-                              target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                            }}
-                          />
-                          <div className="text-xs text-white/80">
-                            <div className="font-semibold">{userName}</div>
-                            {/* Approved Entries */}
-                            <div className="text-white/60">{approvedEntries.length} Approved Entries</div>
-                            <div className="font-bold text-green-400">₹{totalApprovedAmount.toFixed(2)}</div>
-                            {/* Pending Entries */}
-                            <div className="text-white/60">{pendingEntries.length} Pending Entries</div>
-                            <div className="font-bold text-yellow-400">₹{totalPendingAmount.toFixed(2)}</div>
+                        const userName = userEntries[0]?.user?.name || "Unknown";
+                        const userProfile =
+                          userEntries[0]?.user?.profilePicture ||
+                          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
+
+                        const progressPercentage = Math.min((totalApprovedAmount / totalApprovedGlobal) * 100, 100).toFixed(0);
+
+                        // ✅ Corrected Color Logic
+                        const getBorderColor = () => {
+                          if (progressPercentage >= 81) return "#00FF00"; // 🟢 Green (81-100%)
+                          if (progressPercentage >= 51) return "#FFD700"; // 🟡 Yellow (51-80%)
+                          return "#FF4500"; // 🔴 Red (0-50%)
+                        };
+
+                        // ✅ Calculate position for percentage text
+                        const progressAngle = (progressPercentage / 100) * 360;
+                        const radius = 28; // Radius for positioning text
+                        const angleRad = (progressAngle - 90) * (Math.PI / 180);
+                        const textX = Math.cos(angleRad) * radius;
+                        const textY = Math.sin(angleRad) * radius;
+
+                        return (
+                          <div key={userId} className="flex items-center gap-x-4 bg-white/10 px-4 py-3 rounded-lg shadow-md relative">
+                            {/* Profile Picture with Circular Progress Border */}
+                            <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center">
+                              {/* Circular Progress Border */}
+                              <div
+                                className="absolute inset-0 rounded-full flex items-center justify-center"
+                                style={{
+                                  background: `conic-gradient(${getBorderColor()} ${progressPercentage}%, rgba(255, 255, 255, 0.1) ${progressPercentage}%)`,
+                                  padding: "3px",
+                                  borderRadius: "50%",
+                                }}
+                              >
+                                {/* Profile Image */}
+                                <img
+                                  src={userProfile}
+                                  alt={`${userName} profile picture`}
+                                  loading="lazy"
+                                  className="w-full h-full rounded-full border border-white object-cover bg-gray-200"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.onerror = null;
+                                    target.src =
+                                      "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                                  }}
+                                />
+                              </div>
+
+                              {/* ✅ Percentage Text at Progress End Point - Smaller Size & Better Padding */}
+                              <div
+                                className="absolute text-[10px] sm:text-xs font-semibold"
+                                style={{
+                                  transform: `translate(${textX}px, ${textY}px)`,
+                                  left: "50%",
+                                  top: "50%",
+                                  whiteSpace: "nowrap",
+                                  padding: "2px 4px",
+                                  background: "rgba(0, 0, 0, 0.75)", // Darker background for visibility
+                                  borderRadius: "4px",
+                                  color: getBorderColor(), // ✅ Percentage text color according to progress
+                                }}
+                              >
+                                {progressPercentage}%
+                              </div>
+                            </div>
+
+                            {/* ✅ Premium Divider Line */}
+                            <div className="w-[2px] h-12 bg-gradient-to-b from-indigo-400 via-purple-500 to-pink-500 shadow-md rounded-full"></div>
+
+                            {/* ✅ User Info - Added Margin for Better Spacing */}
+                            <div className="text-xs text-white/80 flex flex-col gap-y-1">
+                              <div className="font-semibold text-sm">{userName}</div>
+                              <div className="text-white/60">{approvedEntries.length} Approved Entries</div>
+                              <div className="font-bold text-green-400">₹{totalApprovedAmount.toFixed(2)}</div>
+                              <div className="text-white/60">{pendingEntries.length} Pending Entries</div>
+                              <div className="font-bold text-yellow-400">₹{totalPendingAmount.toFixed(2)}</div>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })
+
+
+
+                        );
+                      });
+                    })()
                   ) : (
                     <div className="text-white/60 text-sm">No entries found</div>
                   )}
@@ -298,14 +357,19 @@ export default function EntriesPage() {
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹{entries && Array.isArray(entries) && entries.length > 0
-                        ? entries.filter((e) => e.status === "APPROVED").reduce((sum, entry) => sum + (entry.amount || 0), 0).toFixed(2)
+                      ₹
+                      {entries && Array.isArray(entries) && entries.length > 0
+                        ? entries
+                          .filter((e) => e.status === "APPROVED")
+                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
+                          .toFixed(2)
                         : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
                       {entries && Array.isArray(entries) && entries.length > 0
                         ? entries.filter((e) => e.status === "APPROVED").length
-                        : 0} Entries
+                        : 0}{" "}
+                      Entries
                     </div>
                   </div>
                 </div>
@@ -313,19 +377,26 @@ export default function EntriesPage() {
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
-                      ₹{entries && Array.isArray(entries) && entries.length > 0
-                        ? entries.filter((e) => e.status === "PENDING").reduce((sum, entry) => sum + (entry.amount || 0), 0).toFixed(2)
+                      ₹
+                      {entries && Array.isArray(entries) && entries.length > 0
+                        ? entries
+                          .filter((e) => e.status === "PENDING")
+                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
+                          .toFixed(2)
                         : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
                       {entries && Array.isArray(entries) && entries.length > 0
                         ? entries.filter((e) => e.status === "PENDING").length
-                        : 0} Entries
+                        : 0}{" "}
+                      Entries
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+
 
 
 
