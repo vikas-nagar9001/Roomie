@@ -12,7 +12,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import CreatableSelect from "react-select/creatable";
-import { FaUserCircle } from "react-icons/fa";
+import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import {
   Table,
@@ -38,16 +38,25 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen} >
+
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
+        {/* ✏️ Edit Button with Icon */}
+        <button
+          className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
           onClick={() => setOpen(true)}
-          className="border-gray-300 text-gray-700 bg-slate-300 hover:bg-gray-100 transition-all"
         >
-          Edit
-        </Button>
+          <FaEdit className="text-lg" />
+        </button>
       </DialogTrigger>
+      <DialogTrigger asChild>
+        {/* 🗑️ Delete Button with Icon */}
+        <button
+          className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
+        >
+          <FaTrash className="text-lg" />
+        </button>
+      </DialogTrigger>
+
       <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-300">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
@@ -633,7 +642,9 @@ export default function EntriesPage() {
                           </Button>
                         </div>
                       ) : (
+
                         <EditEntryDialog entry={entry} />
+
                       )}
                     </TableCell>
                   )}
