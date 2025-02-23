@@ -29,7 +29,7 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-300">
+      <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-900">Invite User</DialogTitle>
         </DialogHeader>

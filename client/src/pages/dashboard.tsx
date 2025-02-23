@@ -13,10 +13,12 @@ export default function Dashboard() {
       {/* Header Section  */}
       <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex flex-col md:flex-row justify-between items-center">
         {/* Logo */}
-        <div className="flex items-center gap-3">
-          <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
-          <h1 className="text-3xl font-bold text-white">Roomie</h1>
-        </div>
+        <a href="/">
+          <div className="flex items-center gap-3">
+            <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+            <h1 className="text-3xl font-bold text-white">Roomie</h1>
+          </div>
+          </a>
 
         {/* Action Buttons */}
         <div className="flex gap-4 mt-4 md:mt-0">

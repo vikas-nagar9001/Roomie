@@ -59,7 +59,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
         </button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-300">
+      <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
         </DialogHeader>
@@ -183,10 +183,12 @@ export default function EntriesPage() {
         {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
+          <a href="/">
           <div className="flex items-center gap-3">
             <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
             <h1 className="text-3xl font-bold text-white">Roomie</h1>
           </div>
+          </a>
 
           {/* Profile Button (aligned to the right on desktop) */}
           <div className="ml-auto">
@@ -207,19 +209,20 @@ export default function EntriesPage() {
         <div className="max-w-7xl mx-auto">
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
+
+       
             <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+
               <DialogTrigger asChild>
-
                 <Button
-
-
                   className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                 >
                   <LuUserPlus className="h-5 w-5" />
                   <span>Add Entry</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-sm w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-200">
+              
+              <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
                 </DialogHeader>
@@ -237,7 +240,7 @@ export default function EntriesPage() {
                     onCreateOption={(inputValue) => {
                       setNewEntry({ ...newEntry, name: inputValue });
                     }}
-                    className="w-full"
+                    className="w-full bg-indigo-500"
                   />
 
                   <Input
@@ -258,7 +261,10 @@ export default function EntriesPage() {
 
                 </form>
               </DialogContent>
+             
+
             </Dialog>
+     
 
           </div>
 
