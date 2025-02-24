@@ -13,7 +13,7 @@ import ResetPasswordPage from "@/pages/reset-password";
 import ProfilePage from "@/pages/profile";
 import PaymentsPage from "@/pages/payments";
 import { ProtectedRoute } from "./lib/protected-route";
-import axios from "axios";
+import { apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
 
 function Router() {
@@ -52,10 +52,8 @@ function App() {
 const checkForNewVersion = async () => {
   try {
     console.log("checking app version");
-    const BASE_URL = import.meta.env.VITE_BASE_URL || "http://localhost:5000"; // ✅ Use `VITE_`
-    console.log("BASE_URL:", BASE_URL);
-    const response = await axios.get(`${BASE_URL}/api/version`);
-    const latestVersion = response.data.version; // Get latest version from backend
+    const response = await apiRequest("GET", "/api/version");
+    const latestVersion = (await response.json()).version;// Get latest version from backend
     let storedVersion = localStorage.getItem("app_version");
 
     if (!storedVersion) {

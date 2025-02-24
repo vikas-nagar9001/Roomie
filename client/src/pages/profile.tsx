@@ -111,12 +111,12 @@ export default function ProfilePage() {
         {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
-          <a href="/">
-            <div className="flex items-center gap-3">
-              <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
+          <Link to="/">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <img src={favicon} alt="Roomie Logo" className="h-12" />
               <h1 className="text-3xl font-bold text-white">Roomie</h1>
             </div>
-          </a>
+          </Link>
 
           {/* Profile Button (aligned to the right on desktop) */}
           <div className="ml-auto">
