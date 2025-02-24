@@ -89,19 +89,23 @@ export function registerRoutes(app: Express): Server {
 
 
 
-  // Move one directory back to reach `Roomie/version.txt`
   const versionFilePath = path.join(__dirname, "..", "version.txt");
-  //version.txt set version.txt to new  endpoint
-  app.post("/api/set-version-new", (req, res) => {
-    try {
-      fs.writeFileSync(versionFilePath, "new", "utf8");
-      console.log("✅ version.txt set to 'new'");
-      res.json({ message: "Version updated to 'new'. Cache will be cleared on the next request." });
-    } catch (error) {
-      console.error("❌ Error updating version.txt:", error);
-      res.status(500).json({ message: "Failed to update version.txt" });
+
+// API to get current version
+app.get("/api/version", (req, res) => {
+  try {
+    if (fs.existsSync(versionFilePath)) {
+      const latestVersion = fs.readFileSync(versionFilePath, "utf8").trim();
+      res.json({ version: latestVersion });
+    } else {
+      res.status(404).json({ message: "Version file not found" });
     }
-  });
+  } catch (error) {
+    console.error("❌ Error reading version.txt:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
   
 
 
