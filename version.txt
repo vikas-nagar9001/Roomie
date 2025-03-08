@@ -1,9 +1,13 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<< HEAD
 old
 =======
 1.0
 >>>>>>> 1b5976f2ed12ff3950288b6e43ac1edac1915b11
+=======
+1.5
+>>>>>>> Stashed changes
 =======
 1.5
 >>>>>>> Stashed changes

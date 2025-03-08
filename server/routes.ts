@@ -133,8 +133,13 @@ export function registerRoutes(app: Express): Server {
   app.post("/api/set-version-new", (req, res) => {
     try {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
       fs.writeFileSync(versionFilePath, "new", "utf8");
       console.log("✅ version.txt set to 'new'");
+=======
+      fs.writeFileSync(versionFilePath, "1.5", "utf8");
+      console.log("✅ change version.txt");
+>>>>>>> Stashed changes
 =======
       fs.writeFileSync(versionFilePath, "1.5", "utf8");
       console.log("✅ change version.txt");
