@@ -15,12 +15,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Mail, MoreVertical } from "lucide-react";
+import { Mail, MoreVertical, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
 import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css"; // Default pagination style
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserTableProps {
   search: string;
@@ -49,6 +51,9 @@ export function UserTable({ search }: UserTableProps) {
 
   // Pagination States
   const [currentPage, setCurrentPage] = useState(1);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const { toast } = useToast();
   const usersPerPage = 6;
 
   // Filtered users based on search input
@@ -66,6 +71,34 @@ export function UserTable({ search }: UserTableProps) {
     currentPage * usersPerPage
   );
 
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const response = await fetch(`/api/users/${userToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete user');
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "User Deleted",
+        description: "The user has been successfully deleted.",
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error('Error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user. Please try again.",
+        variant: "destructive",
+      });
+    }
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -172,6 +205,16 @@ export function UserTable({ search }: UserTableProps) {
                         {user.status === "ACTIVE" ? "Deactivate" : "Activate"}
                       </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem
+                      className="text-red-600 focus:text-red-600"
+                      onClick={() => {
+                        setUserToDelete(user._id);
+                        setDeleteDialogOpen(true);
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
@@ -189,6 +232,17 @@ export function UserTable({ search }: UserTableProps) {
           />
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete User"
+        description="Are you sure you want to delete this user? This action cannot be undone."
+        onConfirm={handleDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }

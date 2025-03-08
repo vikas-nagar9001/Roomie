@@ -70,17 +70,17 @@ export function registerRoutes(app: Express): Server {
       if (!Array.isArray(entryIds)) {
         return res.status(400).json({ message: "entryIds must be an array" });
       }
-      
+
       // Delete all entries and log the activity
       await Promise.all(entryIds.map(id => storage.deleteEntry(id)));
-      
+
       await storage.logActivity({
         userId: req.user._id,
         type: "ENTRY_DELETED",
         description: `Deleted ${entryIds.length} entries`,
         timestamp: new Date(),
       });
-      
+
       res.json({ message: "Entries deleted successfully" });
     } catch (error) {
       console.error("Failed to delete entries:", error);
@@ -97,6 +97,48 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to clear activities:", error);
       res.status(500).json({ message: "Failed to clear activities" });
+    }
+  });
+
+  // Delete user
+  app.delete("/api/users/:userId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can delete users" });
+    }
+
+    try {
+      const { userId } = req.params;
+      const userToDelete = await storage.getUser(userId);
+
+      if (!userToDelete) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Don't allow deleting the last admin
+      if (userToDelete.role === "ADMIN") {
+        const admins = await storage.getUsersByFlatId(req.user.flatId);
+        const adminCount = admins.filter(u => u.role === "ADMIN").length;
+        if (adminCount <= 1) {
+          return res.status(400).json({ message: "Cannot delete the last admin" });
+        }
+      }
+
+      const success = await storage.deleteUser(userId);
+      if (success) {
+        await storage.logActivity({
+          userId: req.user._id,
+          type: "USER_DELETED",
+          description: `Deleted user ${userToDelete.name} (${userToDelete.email})`,
+          timestamp: new Date(),
+        });
+        res.json({ message: "User deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete user" });
+      }
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      res.status(500).json({ message: "Failed to delete user" });
     }
   });
 
@@ -123,7 +165,7 @@ export function registerRoutes(app: Express): Server {
       console.error("Failed to update profile:", error);
       res.status(500).json({ message: "Failed to update profile" });
     }
-  }); 
+  });
 
 
 
@@ -132,25 +174,15 @@ export function registerRoutes(app: Express): Server {
   //version.txt set version.txt to new  endpoint
   app.post("/api/set-version-new", (req, res) => {
     try {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-      fs.writeFileSync(versionFilePath, "new", "utf8");
-      console.log("✅ version.txt set to 'new'");
-=======
       fs.writeFileSync(versionFilePath, "1.5", "utf8");
-      console.log("✅ change version.txt");
->>>>>>> Stashed changes
-=======
-      fs.writeFileSync(versionFilePath, "1.5", "utf8");
-      console.log("✅ change version.txt");
->>>>>>> Stashed changes
-      res.json({ message: "Version updated to 'new'. Cache will be cleared on the next request." });
+      console.log("✅ version.txt set to '1.5'");
+      res.json({ message: "Version updated to '1.5'. Cache will be cleared on the next request." });
     } catch (error) {
       console.error("❌ Error updating version.txt:", error);
       res.status(500).json({ message: "Failed to update version.txt" });
     }
   });
-  
+
   app.get("/api/version", (req, res) => {
     try {
       if (fs.existsSync(versionFilePath)) {

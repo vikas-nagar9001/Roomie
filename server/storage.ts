@@ -59,6 +59,7 @@ const activitySchema = new mongoose.Schema({
       "ENTRY_UPDATED",
       "ENTRY_DELETED",
       "ENTRY_RESTORED",
+      "USER_DELETED",
     ],
     required: true,
   },
@@ -309,6 +310,27 @@ export class MongoStorage implements IStorage {
       return !!result;
     } catch (error) {
       console.error("Failed to delete entry:", error);
+      return false;
+    }
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      // Delete user's entries
+      await EntryModel.deleteMany({ userId: id });
+      
+      // Delete user's activities
+      await ActivityModel.deleteMany({ userId: id });
+      
+      // Delete user's payments
+      await PaymentModel.deleteMany({ userId: id });
+      
+      // Finally, delete the user
+      const result = await UserModel.findByIdAndDelete(id);
+      
+      return !!result;
+    } catch (error) {
+      console.error("Failed to delete user:", error);
       return false;
     }
   }
