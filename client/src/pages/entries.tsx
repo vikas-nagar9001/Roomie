@@ -183,12 +183,12 @@ export default function EntriesPage() {
         {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
         <div className="flex items-center gap-4 w-full">
           {/* Roomie Logo */}
-          <a href="/">
-          <div className="flex items-center gap-3">
-            <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
-            <h1 className="text-3xl font-bold text-white">Roomie</h1>
-          </div>
-          </a>
+          <Link to="/">
+            <div className="flex items-center gap-3 cursor-pointer">
+              <img src={favicon} alt="Roomie Logo" className="h-12" />
+              <h1 className="text-3xl font-bold text-white">Roomie</h1>
+            </div>
+          </Link>
 
           {/* Profile Button (aligned to the right on desktop) */}
           <div className="ml-auto">
@@ -210,7 +210,7 @@ export default function EntriesPage() {
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
 
-       
+
             <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
 
               <DialogTrigger asChild>
@@ -221,7 +221,7 @@ export default function EntriesPage() {
                   <span>Add Entry</span>
                 </Button>
               </DialogTrigger>
-              
+
               <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
@@ -261,10 +261,10 @@ export default function EntriesPage() {
 
                 </form>
               </DialogContent>
-             
+
 
             </Dialog>
-     
+
 
           </div>
 
