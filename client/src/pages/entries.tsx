@@ -31,100 +31,114 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 
 // Create a separate component for editing an entry.
 function EditEntryDialog({ entry }: { entry: Entry }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
+  const handleDelete = () => {
+    fetch(`/api/entries/${entry._id}`, {
+      method: "DELETE",
+    })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+        toast({
+          title: "Entry Deleted",
+          description: `Entry "${entry.name}" has been deleted successfully.`,
+          variant: "destructive",
+        });
+      })
+      .catch(console.error);
+  };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen} >
+    <>
+      <Dialog open={open} onOpenChange={setOpen} >
 
-      <DialogTrigger asChild>
-        {/* ✏️ Edit Button with Icon */}
-        <button
-          className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
-          onClick={() => setOpen(true)}
-        >
-          <FaEdit className="text-lg" />
-        </button>
-      </DialogTrigger>
-      {/* 🗑️ Delete Button with Icon */}
-      <button
-        className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
-        onClick={() => {
-          if (confirm(`Are you sure you want to delete entry "${entry.name}"?`)) {
-            fetch(`/api/entries/${entry._id}`, {
-              method: "DELETE",
-            })
-              .then(() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                toast({
-                  title: "Entry Deleted",
-                  description: `Entry "${entry.name}" has been deleted successfully.`,
-                  variant: "destructive",
-                });
-              })
-              .catch(console.error);
-          }
-        }}
-      >
-        <FaTrash className="text-lg" />
-      </button>
-
-      <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-        <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
-        </DialogHeader>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            fetch(`/api/entries/${entry._id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                name: formData.get("name"),
-                amount: parseFloat(formData.get("amount") as string),
-              }),
-            })
-              .then(() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                toast({
-                  title: "Entry Updated",
-                  description: `Entry "${entry.name}" has been updated successfully.`,
-                });
-                setOpen(false); // Close the dialog on success
-              })
-              .catch(console.error);
-          }}
-          className="space-y-4"
-        >
-          <Input
-            name="name"
-            defaultValue={entry.name}
-            placeholder="Entry Name"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
-          />
-          <Input
-            name="amount"
-            type="number"
-            defaultValue={entry.amount}
-            placeholder="Amount"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
-          />
-
-          <Button
-            type="submit"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+        <DialogTrigger asChild>
+          {/* ✏️ Edit Button with Icon */}
+          <button
+            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
+            onClick={() => setOpen(true)}
           >
-            <span> Update Entry</span>
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <FaEdit className="text-lg" />
+          </button>
+        </DialogTrigger>
+        {/* 🗑️ Delete Button with Icon */}
+        <button
+          className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
+          onClick={() => setDeleteDialogOpen(true)}
+        >
+          <FaTrash className="text-lg" />
+        </button>
 
+        <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              fetch(`/api/entries/${entry._id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: formData.get("name"),
+                  amount: parseFloat(formData.get("amount") as string),
+                }),
+              })
+                .then(() => {
+                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                  toast({
+                    title: "Entry Updated",
+                    description: `Entry "${entry.name}" has been updated successfully.`,
+                  });
+                  setOpen(false); // Close the dialog on success
+                })
+                .catch(console.error);
+            }}
+            className="space-y-4"
+          >
+            <Input
+              name="name"
+              defaultValue={entry.name}
+              placeholder="Entry Name"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+            />
+            <Input
+              name="amount"
+              type="number"
+              defaultValue={entry.amount}
+              placeholder="Amount"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+            />
+
+            <Button
+              type="submit"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+            >
+              <span> Update Entry</span>
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Entry"
+        description={`Are you sure you want to delete entry "${entry.name}"? This action cannot be undone.`}
+        onConfirm={handleDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+    </>
   );
 }
 
@@ -147,8 +161,8 @@ export default function EntriesPage() {
   
   // Function to handle selecting/deselecting all entries
   const handleSelectAll = (checked: boolean) => {
-    if (checked && paginatedEntries) {
-      setSelectedEntries(paginatedEntries.map(entry => entry._id));
+    if (checked && entries) {
+      setSelectedEntries(entries.map(entry => entry._id));
     } else {
       setSelectedEntries([]);
     }
@@ -164,35 +178,41 @@ export default function EntriesPage() {
   };
   
   // Function to handle bulk deletion
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
+  
   const handleBulkDelete = () => {
     if (selectedEntries.length === 0) return;
     
-    if (confirm(`Are you sure you want to delete ${selectedEntries.length} selected entries?`)) {
-      fetch('/api/entries/bulk', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entryIds: selectedEntries }),
-      })
-        .then(() => {
-          queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-          toast({
-            title: "Entries Deleted",
-            description: `${selectedEntries.length} entries have been deleted successfully.`,
-            variant: "destructive",
-          });
-          setSelectedEntries([]);
-        })
-        .catch(error => {
-          console.error("Failed to delete entries:", error);
-          toast({
-            title: "Error",
-            description: "Failed to delete entries. Please try again.",
-            variant: "destructive",
-          });
-        });
-    }
+    setBulkDeleteDialogOpen(true);
   };
-
+  
+  const confirmBulkDelete = () => {
+    fetch('/api/entries/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryIds: selectedEntries }),
+    })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+        toast({
+          title: "Entries Deleted",
+          description: `${selectedEntries.length} entries have been deleted successfully.`,
+          variant: "destructive",
+        });
+        setSelectedEntries([]);
+        setBulkDeleteDialogOpen(false);
+      })
+      .catch(error => {
+        console.error("Failed to delete entries:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete entries. Please try again.",
+          variant: "destructive",
+        });
+        setBulkDeleteDialogOpen(false);
+      });
+  };
+  
 
   // Reverse entries and apply pagination
   const paginatedEntries = entries?.slice().reverse().slice(
@@ -648,14 +668,6 @@ export default function EntriesPage() {
           <Table className="w-full overflow-x-auto bg-indigo-100">
             <TableHeader>
               <TableRow className="bg-slate-300">
-                <TableHead className="w-10 text-center text-gray-800 font-bold">
-                  <input 
-                    type="checkbox" 
-                    checked={paginatedEntries?.length > 0 && selectedEntries.length === paginatedEntries?.length}
-                    onChange={(e) => handleSelectAll(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                </TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">User</TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">Entry Name</TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">Amount</TableHead>
@@ -664,19 +676,19 @@ export default function EntriesPage() {
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableHead className="text-center text-gray-800 font-bold">Actions</TableHead>
                 )}
+                <TableHead className="w-10 text-center text-gray-800 font-bold">
+                  <input 
+                    type="checkbox" 
+                    checked={entries?.length > 0 && selectedEntries.length === entries?.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedEntries?.map((entry) => (
                 <TableRow key={entry._id} className="border-b hover:bg-gray-50">
-                  <TableCell className="w-10 text-center">
-                    <input 
-                      type="checkbox" 
-                      checked={selectedEntries.includes(entry._id)}
-                      onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                  </TableCell>
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <img
@@ -763,6 +775,14 @@ export default function EntriesPage() {
                       )}
                     </TableCell>
                   )}
+                  <TableCell className="w-10 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedEntries.includes(entry._id)}
+                      onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -779,6 +799,17 @@ export default function EntriesPage() {
 
         </div>
       </div>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        title="Delete Multiple Entries"
+        description={`Are you sure you want to delete ${selectedEntries.length} selected entries? This action cannot be undone.`}
+        onConfirm={confirmBulkDelete}
+        confirmText="Delete All"
+        cancelText="Cancel"
+      />
     </>
   );
 }
