@@ -17,12 +17,24 @@ const server = registerRoutes(app);
   try {
     await storage.connect();
 
+    // 🔹 Middleware to set cache-control headers
+    app.use((req, res, next) => {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      res.setHeader("Surrogate-Control", "no-store"); // For CDNs
+      next();
+    });
+
+    // 🔹 Error-handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
 
+      console.error(`❌ Error [${status}]: ${message}`);
+
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate"); // Ensure error responses are not cached
       res.status(status).json({ message });
-      throw err;
     });
 
     if (app.get("env") === "development") {

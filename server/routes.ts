@@ -132,8 +132,13 @@ export function registerRoutes(app: Express): Server {
   //version.txt set version.txt to new  endpoint
   app.post("/api/set-version-new", (req, res) => {
     try {
+<<<<<<< Updated upstream
       fs.writeFileSync(versionFilePath, "new", "utf8");
       console.log("✅ version.txt set to 'new'");
+=======
+      fs.writeFileSync(versionFilePath, "1.5", "utf8");
+      console.log("✅ change version.txt");
+>>>>>>> Stashed changes
       res.json({ message: "Version updated to 'new'. Cache will be cleared on the next request." });
     } catch (error) {
       console.error("❌ Error updating version.txt:", error);
@@ -141,6 +146,19 @@ export function registerRoutes(app: Express): Server {
     }
   });
   
+  app.get("/api/version", (req, res) => {
+    try {
+      if (fs.existsSync(versionFilePath)) {
+        const latestVersion = fs.readFileSync(versionFilePath, "utf8").trim();
+        res.json({ version: latestVersion });
+      } else {
+        res.status(404).json({ message: "Version file not found" });
+      }
+    } catch (error) {
+      console.error("❌ Error reading version.txt:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
 
 
   // Upload profile picture
