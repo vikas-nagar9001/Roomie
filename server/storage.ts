@@ -139,6 +139,7 @@ export interface IStorage {
   getUserActivities(userId: string): Promise<ActivitySchema[]>;
   createBill(data: any): Promise<any>;
   getBillsByFlatId(flatId: string): Promise<any[]>;
+  deleteEntry(id: string): Promise<boolean>;
   sessionStore: session.Store;
 }
 
@@ -300,6 +301,16 @@ export class MongoStorage implements IStorage {
         userId: obj.userId ? this.convertId(obj.userId) : null
       };
     });
+  }
+
+  async deleteEntry(id: string): Promise<boolean> {
+    try {
+      const result = await EntryModel.findByIdAndDelete(id);
+      return !!result;
+    } catch (error) {
+      console.error("Failed to delete entry:", error);
+      return false;
+    }
   }
 }
 

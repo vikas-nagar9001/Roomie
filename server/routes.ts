@@ -62,6 +62,32 @@ export function registerRoutes(app: Express): Server {
     res.json(activities);
   });
 
+  // Bulk delete entries
+  app.delete("/api/entries/bulk", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const { entryIds } = req.body;
+      if (!Array.isArray(entryIds)) {
+        return res.status(400).json({ message: "entryIds must be an array" });
+      }
+      
+      // Delete all entries and log the activity
+      await Promise.all(entryIds.map(id => storage.deleteEntry(id)));
+      
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "ENTRY_DELETED",
+        description: `Deleted ${entryIds.length} entries`,
+        timestamp: new Date(),
+      });
+      
+      res.json({ message: "Entries deleted successfully" });
+    } catch (error) {
+      console.error("Failed to delete entries:", error);
+      res.status(500).json({ message: "Failed to delete entries" });
+    }
+  });
+
   // Clear user activities
   app.delete("/api/user/activities", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
@@ -101,23 +127,19 @@ export function registerRoutes(app: Express): Server {
 
 
 
+  // Move one directory back to reach `Roomie/version.txt`
   const versionFilePath = path.join(__dirname, "..", "version.txt");
-
-// API to get current version
-app.get("/api/version", (req, res) => {
-  try {
-    if (fs.existsSync(versionFilePath)) {
-      const latestVersion = fs.readFileSync(versionFilePath, "utf8").trim();
-      res.json({ version: latestVersion });
-    } else {
-      res.status(404).json({ message: "Version file not found" });
+  //version.txt set version.txt to new  endpoint
+  app.post("/api/set-version-new", (req, res) => {
+    try {
+      fs.writeFileSync(versionFilePath, "new", "utf8");
+      console.log("✅ version.txt set to 'new'");
+      res.json({ message: "Version updated to 'new'. Cache will be cleared on the next request." });
+    } catch (error) {
+      console.error("❌ Error updating version.txt:", error);
+      res.status(500).json({ message: "Failed to update version.txt" });
     }
-  } catch (error) {
-    console.error("❌ Error reading version.txt:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
+  });
   
 
 
@@ -504,6 +526,34 @@ app.get("/api/version", (req, res) => {
     } catch (error) {
       console.error("Failed to update entry:", error);
       res.status(500).json({ message: "Failed to update entry" });
+    }
+  });
+
+  // Delete entry (soft delete)
+  app.delete("/api/entries/:id", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const { id } = req.params;
+      const entry = await storage.updateEntry(id, {
+        isDeleted: true,
+        deletedAt: new Date(),
+      });
+
+      if (!entry) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "ENTRY_DELETED",
+        description: `Deleted entry: ${entry.name}`,
+        timestamp: new Date(),
+      });
+
+      res.json(entry);
+    } catch (error) {
+      console.error("Failed to delete entry:", error);
+      res.status(500).json({ message: "Failed to delete entry" });
     }
   });
 

@@ -50,14 +50,28 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           <FaEdit className="text-lg" />
         </button>
       </DialogTrigger>
-      <DialogTrigger asChild>
-        {/* 🗑️ Delete Button with Icon */}
-        <button
-          className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
-        >
-          <FaTrash className="text-lg" />
-        </button>
-      </DialogTrigger>
+      {/* 🗑️ Delete Button with Icon */}
+      <button
+        className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
+        onClick={() => {
+          if (confirm(`Are you sure you want to delete entry "${entry.name}"?`)) {
+            fetch(`/api/entries/${entry._id}`, {
+              method: "DELETE",
+            })
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                toast({
+                  title: "Entry Deleted",
+                  description: `Entry "${entry.name}" has been deleted successfully.`,
+                  variant: "destructive",
+                });
+              })
+              .catch(console.error);
+          }
+        }}
+      >
+        <FaTrash className="text-lg" />
+      </button>
 
       <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
         <DialogHeader>
@@ -121,6 +135,7 @@ export default function EntriesPage() {
   const [openAddDialog, setOpenAddDialog] = useState(false); // State for controlling the Add Entry dialog
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 6; // Limit of 10 per page
+  const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
 
   const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
@@ -129,6 +144,54 @@ export default function EntriesPage() {
   const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/entries/total"],
   });
+  
+  // Function to handle selecting/deselecting all entries
+  const handleSelectAll = (checked: boolean) => {
+    if (checked && paginatedEntries) {
+      setSelectedEntries(paginatedEntries.map(entry => entry._id));
+    } else {
+      setSelectedEntries([]);
+    }
+  };
+
+  // Function to handle selecting/deselecting a single entry
+  const handleSelectEntry = (entryId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedEntries(prev => [...prev, entryId]);
+    } else {
+      setSelectedEntries(prev => prev.filter(id => id !== entryId));
+    }
+  };
+  
+  // Function to handle bulk deletion
+  const handleBulkDelete = () => {
+    if (selectedEntries.length === 0) return;
+    
+    if (confirm(`Are you sure you want to delete ${selectedEntries.length} selected entries?`)) {
+      fetch('/api/entries/bulk', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryIds: selectedEntries }),
+      })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+          toast({
+            title: "Entries Deleted",
+            description: `${selectedEntries.length} entries have been deleted successfully.`,
+            variant: "destructive",
+          });
+          setSelectedEntries([]);
+        })
+        .catch(error => {
+          console.error("Failed to delete entries:", error);
+          toast({
+            title: "Error",
+            description: "Failed to delete entries. Please try again.",
+            variant: "destructive",
+          });
+        });
+    }
+  };
 
 
   // Reverse entries and apply pagination
@@ -568,9 +631,31 @@ export default function EntriesPage() {
 
 
 
+          {selectedEntries.length > 0 && (
+            <div className="mb-4 flex justify-end">
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2"
+              >
+                <FaTrash className="text-sm" />
+                Delete Selected ({selectedEntries.length})
+              </Button>
+            </div>
+          )}
+          
           <Table className="w-full overflow-x-auto bg-indigo-100">
             <TableHeader>
               <TableRow className="bg-slate-300">
+                <TableHead className="w-10 text-center text-gray-800 font-bold">
+                  <input 
+                    type="checkbox" 
+                    checked={paginatedEntries?.length > 0 && selectedEntries.length === paginatedEntries?.length}
+                    onChange={(e) => handleSelectAll(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                </TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">User</TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">Entry Name</TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">Amount</TableHead>
@@ -584,6 +669,14 @@ export default function EntriesPage() {
             <TableBody>
               {paginatedEntries?.map((entry) => (
                 <TableRow key={entry._id} className="border-b hover:bg-gray-50">
+                  <TableCell className="w-10 text-center">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedEntries.includes(entry._id)}
+                      onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </TableCell>
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <img
