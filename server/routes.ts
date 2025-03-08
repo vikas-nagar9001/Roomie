@@ -62,6 +62,18 @@ export function registerRoutes(app: Express): Server {
     res.json(activities);
   });
 
+  // Clear user activities
+  app.delete("/api/user/activities", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      await storage.clearUserActivities(req.user._id);
+      res.json({ message: "Activities cleared successfully" });
+    } catch (error) {
+      console.error("Failed to clear activities:", error);
+      res.status(500).json({ message: "Failed to clear activities" });
+    }
+  });
+
   // Update user profile
   app.patch("/api/user/profile", async (req, res) => {
     if (!req.user) return res.sendStatus(401);

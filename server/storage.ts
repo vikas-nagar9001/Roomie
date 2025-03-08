@@ -231,10 +231,12 @@ export class MongoStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivitySchema[]> {
-    const activities = await ActivityModel.find({ userId }).sort({
-      timestamp: -1,
-    });
-    return activities.map((activity) => this.convertId(activity.toObject()));
+    const activities = await ActivityModel.find({ userId }).sort({ timestamp: -1 });
+    return activities.map(activity => this.convertId(activity.toObject()));
+  }
+
+  async clearUserActivities(userId: string): Promise<void> {
+    await ActivityModel.deleteMany({ userId });
   }
 
   async getUserEntriesTotal(userId: string): Promise<number> {

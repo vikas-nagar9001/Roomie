@@ -13,20 +13,30 @@ import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
 import { FaCamera } from "react-icons/fa";
 import { MdOutlineCached } from "react-icons/md";
-import axios from "axios";  // Ensure correct import from react-icons/fa for camera icon
+import axios from "axios";
 import { FiLogOut, FiUser } from "react-icons/fi";
 import favicon from "../../favroomie.png";
 import { Link } from "wouter";
+import ResponsivePagination from "react-responsive-pagination";
+import "react-responsive-pagination/themes/classic.css";
 export default function ProfilePage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  const { data: activities } = useQuery({
+  const { data: activities = [] } = useQuery({
     queryKey: ["/api/user/activities"],
     enabled: !!user,
   });
+
+  const totalPages = Math.ceil(activities.length / itemsPerPage);
+  const paginatedActivities = activities.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
@@ -100,6 +110,27 @@ export default function ProfilePage() {
   // ✅ Explicitly define mutation type
   const clearCacheMutation = useMutation<void, Error>({
     mutationFn: handleClearCache,
+  });
+
+  const clearActivitiesMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("DELETE", "/api/user/activities");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/activities"] });
+      toast({
+        title: "Activities cleared",
+        description: "All activities have been cleared successfully",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to clear activities",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
 
@@ -257,8 +288,17 @@ export default function ProfilePage() {
 
                   <TabsContent value="activity" className="mt-4">
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-                      {activities?.map((activity: any) => (
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+                        <Button
+                          onClick={() => clearActivitiesMutation.mutate()}
+                          disabled={clearActivitiesMutation.isPending}
+                          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
+                      {paginatedActivities.map((activity: any) => (
                         <div
                           key={activity._id}
                           className="p-4 rounded-lg border bg-card text-card-foreground"
@@ -269,6 +309,15 @@ export default function ProfilePage() {
                           </p>
                         </div>
                       ))}
+                      {activities.length > 0 && (
+                        <div className="mt-4">
+                          <ResponsivePagination
+                            current={currentPage}
+                            total={totalPages}
+                            onPageChange={setCurrentPage}
+                          />
+                        </div>
+                      )}
                     </div>
                   </TabsContent>
 
