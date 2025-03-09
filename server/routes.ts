@@ -231,6 +231,143 @@ export function registerRoutes(app: Express): Server {
   // Serve profile pictures
   app.use("/uploads/profiles", express.static("uploads/profiles"));
 
+  // Penalties API endpoints
+  // Get all penalties for a flat
+  app.get("/api/penalties", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const penalties = await storage.getPenaltiesByFlatId(req.user.flatId);
+      res.json(penalties);
+    } catch (error) {
+      console.error("Failed to get penalties:", error);
+      res.status(500).json({ message: "Failed to get penalties" });
+    }
+  });
+
+  // Get penalties total
+  app.get("/api/penalties/total", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const totals = await storage.getPenaltyTotalsByFlatId(req.user.flatId, req.user._id);
+      res.json(totals);
+    } catch (error) {
+      console.error("Failed to get penalty totals:", error);
+      res.status(500).json({ message: "Failed to get penalty totals" });
+    }
+  });
+
+  // Create a new penalty
+  app.post("/api/penalties", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can create penalties" });
+    }
+
+    try {
+      const { userId, type, amount, description, image } = req.body;
+      
+      const penalty = await storage.createPenalty({
+        userId,
+        type,
+        amount: Number(amount),
+        description,
+        image,
+        flatId: req.user.flatId,
+        createdBy: req.user._id
+      });
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "PENALTY_ADDED",
+        description: `Added a ${type} penalty of ₹${amount} to ${userId}`,
+        timestamp: new Date(),
+      });
+
+      res.status(201).json(penalty);
+    } catch (error) {
+      console.error("Failed to create penalty:", error);
+      res.status(500).json({ message: "Failed to create penalty" });
+    }
+  });
+
+  // Update a penalty
+  app.patch("/api/penalties/:penaltyId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can update penalties" });
+    }
+
+    try {
+      const { penaltyId } = req.params;
+      const { type, amount, description, image } = req.body;
+      
+      const updatedPenalty = await storage.updatePenalty(penaltyId, {
+        type,
+        amount: Number(amount),
+        description,
+        image
+      });
+
+      if (!updatedPenalty) {
+        return res.status(404).json({ message: "Penalty not found" });
+      }
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "PENALTY_UPDATED",
+        description: `Updated penalty ${penaltyId}`,
+        timestamp: new Date(),
+      });
+
+      res.json(updatedPenalty);
+    } catch (error) {
+      console.error("Failed to update penalty:", error);
+      res.status(500).json({ message: "Failed to update penalty" });
+    }
+  });
+
+  // Delete a penalty
+  app.delete("/api/penalties/:penaltyId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can delete penalties" });
+    }
+
+    try {
+      const { penaltyId } = req.params;
+      const success = await storage.deletePenalty(penaltyId);
+
+      if (!success) {
+        return res.status(404).json({ message: "Penalty not found" });
+      }
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "PENALTY_DELETED",
+        description: `Deleted penalty ${penaltyId}`,
+        timestamp: new Date(),
+      });
+
+      res.json({ message: "Penalty deleted successfully" });
+    } catch (error) {
+      console.error("Failed to delete penalty:", error);
+      res.status(500).json({ message: "Failed to delete penalty" });
+    }
+  });
+
+  // Get penalties for a specific user
+  app.get("/api/users/:userId/penalties", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const { userId } = req.params;
+      const penalties = await storage.getPenaltiesByUserId(userId);
+      res.json(penalties);
+    } catch (error) {
+      console.error("Failed to get user penalties:", error);
+      res.status(500).json({ message: "Failed to get user penalties" });
+    }
+  });
+
   // Get all entries
   app.get("/api/entries", async (req, res) => {
     if (!req.user) return res.sendStatus(401);

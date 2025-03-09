@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export type Role = "ADMIN" | "CO_ADMIN" | "USER";
 export type UserStatus = "PENDING" | "ACTIVE" | "DEACTIVATED";
-export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT" | "ENTRY_ADDED" | "ENTRY_UPDATED" | "ENTRY_DELETED" | "ENTRY_RESTORED" | "PAYMENT_ADDED" | "PAYMENT_STATUS_UPDATED";
+export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT" | "ENTRY_ADDED" | "ENTRY_UPDATED" | "ENTRY_DELETED" | "ENTRY_RESTORED" | "PAYMENT_ADDED" | "PAYMENT_STATUS_UPDATED" | "PENALTY_ADDED" | "PENALTY_UPDATED" | "PENALTY_DELETED";
 
 export interface Payment {
   _id: string;
@@ -44,6 +44,30 @@ export interface Entry {
   deletedAt?: Date;
 }
 
+export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER";
+
+export interface Penalty {
+  _id: string;
+  userId: string;
+  flatId: string;
+  type: PenaltyType;
+  amount: number;
+  description: string;
+  image?: string;
+  createdAt: Date;
+  createdBy: string;
+  isDeleted: boolean;
+  deletedAt?: Date;
+}
+
+export const insertPenaltySchema = z.object({
+  userId: z.string(),
+  type: z.enum(["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER"]),
+  amount: z.number().min(0),
+  description: z.string().min(1, "Description is required"),
+  image: z.string().optional(),
+});
+
 export const insertEntrySchema = z.object({
   name: z.string().min(1, "Name is required"),
   amount: z.number().min(0),
@@ -65,7 +89,7 @@ export const insertUserSchema = z.object({
 
 export const insertActivitySchema = z.object({
   userId: z.string(),
-  type: z.enum(["LOGIN", "UPDATE_PROFILE", "CHANGE_PASSWORD", "FLAT_MANAGEMENT"]),
+  type: z.enum(["LOGIN", "UPDATE_PROFILE", "CHANGE_PASSWORD", "FLAT_MANAGEMENT", "ENTRY_ADDED", "ENTRY_UPDATED", "ENTRY_DELETED", "ENTRY_RESTORED", "PAYMENT_ADDED", "PAYMENT_STATUS_UPDATED", "PENALTY_ADDED", "PENALTY_UPDATED", "PENALTY_DELETED"]),
   description: z.string(),
   timestamp: z.date().default(() => new Date()),
 });
@@ -112,3 +136,4 @@ export interface Activity {
 export type InsertFlat = z.infer<typeof insertFlatSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
+export type InsertPenalty = z.infer<typeof insertPenaltySchema>;

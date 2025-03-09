@@ -12,6 +12,7 @@ import SetPasswordPage from "@/pages/set-password";
 import ResetPasswordPage from "@/pages/reset-password";
 import ProfilePage from "@/pages/profile";
 import PaymentsPage from "@/pages/payments";
+import PenaltiesPage from "@/pages/penalties";
 import { ProtectedRoute } from "./lib/protected-route";
 import { apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
@@ -27,6 +28,7 @@ function Router() {
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/entries" component={EntriesPage} />
       <ProtectedRoute path="/payments" component={PaymentsPage} />
+      <ProtectedRoute path="/penalties" component={PenaltiesPage} />
       <Route component={NotFound} />
     </Switch>
   );

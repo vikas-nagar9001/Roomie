@@ -1,7 +1,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard } from "react-icons/fi";
+import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 
@@ -82,6 +82,20 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-gray-600">Manage bills and track payments</p>
+                </CardContent>
+              </Card>
+            </Link>
+            
+            <Link href="/penalties">
+              <Card className="group hover:shadow-xl hover:scale-[1.05] transition-all cursor-pointer border border-gray-200 rounded-xl bg-white/80 backdrop-blur-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-lg font-medium">
+                    <FiAlertTriangle className="h-6 w-6 text-red-600 group-hover:text-red-800 transition-colors" />
+                    Penalties
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Manage and track user penalties</p>
                 </CardContent>
               </Card>
             </Link>

@@ -159,6 +159,10 @@ export default function EntriesPage() {
     queryKey: ["/api/entries/total"],
   });
   
+  const { data: users } = useQuery({
+    queryKey: ["/api/users"],
+  });
+  
   // Function to handle selecting/deselecting all entries
   const handleSelectAll = (checked: boolean) => {
     if (checked && entries) {
@@ -363,17 +367,23 @@ export default function EntriesPage() {
                         .filter((e) => e.status === "APPROVED")
                         .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1; // Avoid division by zero
 
-                      return Array.from(new Set(entries.map((e) => e.userId))).map((userId) => {
-                        const userEntries = entries.filter((e) => e.userId === userId);
+                      return Array.from(new Set(entries.map((e) => 
+                        typeof e.userId === 'object' ? e.userId._id : e.userId
+                      ))).map((userId) => {
+                        const userEntries = entries.filter((e) => 
+                          (typeof e.userId === 'object' ? e.userId._id : e.userId) === userId
+                        );
                         const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
                         const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
 
                         const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
                         const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
 
-                        const userName = userEntries[0]?.user?.name || "Unknown";
+                        const userName = (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.name) || 
+                          users?.find(u => u._id === userId)?.name || "Unknown";
                         const userProfile =
-                          userEntries[0]?.user?.profilePicture ||
+                          (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.profilePicture) ||
+                          users?.find(u => u._id === userId)?.profilePicture ||
                           "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
 
                         const progressPercentage = Math.min((totalApprovedAmount / totalApprovedGlobal) * 100, 100).toFixed(0);
@@ -583,7 +593,10 @@ export default function EntriesPage() {
                 {/* Top Expense Category with Top 5 Approved Entries List */}
                 {entries && entries.length > 0 && (() => {
                   const approvedEntries = entries.filter(
-                    (e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED"
+                    (e) => {
+                      const entryUserId = typeof e.userId === 'object' ? e.userId._id : e.userId;
+                      return entryUserId === user?._id && e.status === "APPROVED";
+                    }
                   );
 
                   if (approvedEntries.length === 0) {
@@ -692,8 +705,12 @@ export default function EntriesPage() {
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <img
-                        src={entry.user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                        alt={entry.user?.name || "User"}
+                        src={typeof entry.userId === 'object' && entry.userId?.profilePicture ? entry.userId.profilePicture : 
+                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture || 
+                          entry.user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
+                        alt={typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name : 
+                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name || 
+                          entry.user?.name || "User"}
                         className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
@@ -702,7 +719,9 @@ export default function EntriesPage() {
                       />
                       <div className="truncate max-w-[140px] sm:max-w-[180px]">
                         <span className="font-medium text-gray-800">
-                          {entry.user?.name || "Unknown User"}
+                          {typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name : 
+                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name || 
+                          entry.user?.name || "Unknown User"}
                         </span>
                       </div>
                     </div>
