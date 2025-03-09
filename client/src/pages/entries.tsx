@@ -367,12 +367,24 @@ export default function EntriesPage() {
                         .filter((e) => e.status === "APPROVED")
                         .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1; // Avoid division by zero
 
-                      return Array.from(new Set(entries.map((e) => 
-                        typeof e.userId === 'object' ? e.userId._id : e.userId
-                      ))).map((userId) => {
-                        const userEntries = entries.filter((e) => 
-                          (typeof e.userId === 'object' ? e.userId._id : e.userId) === userId
-                        );
+                      // Create a normalized array of unique user IDs
+                      const normalizedUserIds = entries.map(e => {
+                        const userId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                        return userId?.toString();
+                      });
+                      
+                      // Filter out any undefined/null values and create a unique set
+                      return Array.from(new Set(normalizedUserIds.filter(id => id))).map((userId) => {
+                        const userEntries = entries.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        return entryUserId?.toString() === userId?.toString();
+                      });
                         const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
                         const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
 
@@ -477,43 +489,78 @@ export default function EntriesPage() {
               </CardHeader>
 
               <CardContent className="space-y-4">
+                {/* Total Amount */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹
-                      {entries && Array.isArray(entries) && entries.length > 0
-                        ? entries
-                          .filter((e) => e.status === "APPROVED")
-                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
-                          .toFixed(2)
-                        : "0.00"}
+                      ₹{entries?.filter((e) => {
+                        console.log('Entry userId type:', typeof e.userId);
+                        console.log('Entry userId value:', e.userId);
+                        console.log('User _id:', user?._id);
+                        
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        console.log('Processed entryUserId:', userIdStr);
+                        console.log('Processed user._id:', currentUserIdStr);
+                        console.log('Match result:', userIdStr === currentUserIdStr);
+                        
+                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
+                      })
+                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries && Array.isArray(entries) && entries.length > 0
-                        ? entries.filter((e) => e.status === "APPROVED").length
-                        : 0}{" "}
-                      Entries
+                      {entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
+                      }).length || 0} Entries
                     </div>
                   </div>
                 </div>
+
+                {/* Pending */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
-                      ₹
-                      {entries && Array.isArray(entries) && entries.length > 0
-                        ? entries
-                          .filter((e) => e.status === "PENDING")
-                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
-                          .toFixed(2)
-                        : "0.00"}
+                      ₹{entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "PENDING";
+                      })
+                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries && Array.isArray(entries) && entries.length > 0
-                        ? entries.filter((e) => e.status === "PENDING").length
-                        : 0}{" "}
-                      Entries
+                      {entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "PENDING";
+                      }).length || 0} Entries
                     </div>
                   </div>
                 </div>
@@ -567,11 +614,31 @@ export default function EntriesPage() {
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED")
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || 0}
+                      ₹{entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
+                      })
+                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "APPROVED").length || 0} Entries
+                      {entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
+                      }).length || 0} Entries
                     </div>
                   </div>
                 </div>
@@ -581,11 +648,31 @@ export default function EntriesPage() {
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
-                      ₹{entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING")
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || 0}
+                      ₹{entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "PENDING";
+                      })
+                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => e.userId.toString() === user?._id.toString() && e.status === "PENDING").length || 0} Entries
+                      {entries?.filter((e) => {
+                        // Handle different userId formats
+                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                          ? (e.userId._id || e.userId.id || e.userId)
+                          : e.userId;
+                          
+                        const userIdStr = entryUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr && e.status === "PENDING";
+                      }).length || 0} Entries
                     </div>
                   </div>
                 </div>
@@ -594,8 +681,15 @@ export default function EntriesPage() {
                 {entries && entries.length > 0 && (() => {
                   const approvedEntries = entries.filter(
                     (e) => {
-                      const entryUserId = typeof e.userId === 'object' ? e.userId._id : e.userId;
-                      return entryUserId === user?._id && e.status === "APPROVED";
+                      // Handle different userId formats
+                      const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                        ? (e.userId._id || e.userId.id || e.userId)
+                        : e.userId;
+                        
+                      const userIdStr = entryUserId?.toString();
+                      const currentUserIdStr = user?._id?.toString();
+                      
+                      return userIdStr === currentUserIdStr && e.status === "APPROVED";
                     }
                   );
 

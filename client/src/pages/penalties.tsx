@@ -58,7 +58,13 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           variant: "destructive",
         });
       })
-      .catch(console.error);
+      .catch(() => {
+                  toast({
+                    title: "Error",
+                    description: "Failed to update penalty. Please try again.",
+                    variant: "destructive",
+                  });
+                });
   };
 
   return (
@@ -81,7 +87,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           <FaTrash className="text-lg" />
         </button>
 
-        <DialogContent className="top-40 max-w-md w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-gray-900">Edit Penalty</DialogTitle>
           </DialogHeader>
@@ -106,7 +112,13 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                   });
                   setOpen(false); // Close the dialog on success
                 })
-                .catch(console.error);
+                .catch(() => {
+                  toast({
+                    title: "Error",
+                    description: "Failed to update penalty. Please try again.",
+                    variant: "destructive",
+                  });
+                });
             }}
             className="space-y-4"
           >
@@ -187,17 +199,7 @@ export default function PenaltiesPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
 
   const { data: penalties } = useQuery<Penalty[]>({
-    queryKey: ["/api/penalties"],
-    onSuccess: (data) => {
-      console.log("Penalties data received:", data);
-      if (data && data.length > 0) {
-        console.log("First penalty userId structure:", data[0].userId);
-        console.log("userId type:", typeof data[0].userId);
-        if (typeof data[0].userId === 'object') {
-          console.log("userId object properties:", Object.keys(data[0].userId));
-        }
-      }
-    }
+    queryKey: ["/api/penalties"]
   });
 
   const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
@@ -250,8 +252,7 @@ export default function PenaltiesPage() {
         setSelectedPenalties([]);
         setBulkDeleteDialogOpen(false);
       })
-      .catch(error => {
-        console.error("Failed to delete penalties:", error);
+      .catch(() => {
         toast({
           title: "Error",
           description: "Failed to delete penalties. Please try again.",
@@ -368,7 +369,7 @@ export default function PenaltiesPage() {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="top-40 max-w-md w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+              <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
                 <DialogHeader>
                   <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
                 </DialogHeader>
@@ -619,9 +620,17 @@ export default function PenaltiesPage() {
                       ₹{totals?.userTotal?.toFixed(2) || "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {penalties?.filter(p => 
-                        (typeof p.userId === 'object' ? p.userId._id : p.userId) === user?._id
-                      ).length || 0} Penalties
+                      {penalties?.filter(p => {
+                        // Handle different userId formats
+                        const penaltyUserId = typeof p.userId === 'object' && p.userId !== null
+                          ? (p.userId._id || p.userId.id || p.userId)
+                          : p.userId;
+                          
+                        const userIdStr = penaltyUserId?.toString();
+                        const currentUserIdStr = user?._id?.toString();
+                        
+                        return userIdStr === currentUserIdStr;
+                      }).length || 0} Penalties
                     </div>
                   </div>
                 </div>
