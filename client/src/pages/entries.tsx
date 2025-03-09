@@ -155,14 +155,14 @@ export default function EntriesPage() {
     queryKey: ["/api/entries"],
   });
 
-  const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
+  const { data: totals } = useQuery<{ userTotal: number; flatTotal: number; fairSharePercentage: number; fairShareAmount: number; userContributionPercentage: number; isDeficit: boolean }>({
     queryKey: ["/api/entries/total"],
   });
-  
+
   const { data: users } = useQuery({
     queryKey: ["/api/users"],
   });
-  
+
   // Function to handle selecting/deselecting all entries
   const handleSelectAll = (checked: boolean) => {
     if (checked && entries) {
@@ -180,16 +180,16 @@ export default function EntriesPage() {
       setSelectedEntries(prev => prev.filter(id => id !== entryId));
     }
   };
-  
+
   // Function to handle bulk deletion
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false);
-  
+
   const handleBulkDelete = () => {
     if (selectedEntries.length === 0) return;
-    
+
     setBulkDeleteDialogOpen(true);
   };
-  
+
   const confirmBulkDelete = () => {
     fetch('/api/entries/bulk', {
       method: 'DELETE',
@@ -216,7 +216,7 @@ export default function EntriesPage() {
         setBulkDeleteDialogOpen(false);
       });
   };
-  
+
 
   // Reverse entries and apply pagination
   const paginatedEntries = entries?.slice().reverse().slice(
@@ -229,17 +229,38 @@ export default function EntriesPage() {
 
 
 
+  // Query to check if user can add entry
+  const { data: canAddEntryData, refetch: refetchCanAddEntry } = useQuery({
+    queryKey: ["/api/can-add-entry"],
+    refetchOnWindowFocus: false
+  });
+
   const addEntryMutation = useMutation({
     mutationFn: async (data: { name: string; amount: number }) => {
+      // First check if user can add entry
+      await refetchCanAddEntry();
+
+      if (canAddEntryData && !canAddEntryData.canAddEntry) {
+        throw new Error(canAddEntryData.message);
+      }
+
       const res = await apiRequest("POST", "/api/entries", data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
       toast({ title: "Entry added successfully" });
       setOpenAddDialog(false); // Close the Add Entry dialog on success
       setNewEntry({ name: "", amount: "" }); // Optionally, clear the form
     },
+    onError: (error: any) => {
+      toast({
+        title: "Cannot add entry",
+        description: error.message || "You've exceeded your fair share of contributions.",
+        variant: "destructive"
+      });
+    }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -297,68 +318,109 @@ export default function EntriesPage() {
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
 
-
-            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-
-              <DialogTrigger asChild>
+            <div className="flex gap-2">
+              {/* Contribution Check Button for Admins */}
+              {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                 <Button
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                  variant="outline"
+                  className="bg-white hover:bg-gray-100 text-indigo-600"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/check-contribution-penalties', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ skipAdmins: false })
+                      });
+
+                      const data = await res.json();
+
+                      toast({
+                        title: "Contribution Check Complete",
+                        description: data.message,
+                        variant: data.deficitUsers?.length > 0 ? "destructive" : "default"
+                      });
+
+                      // Refresh penalties data
+                      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+                    } catch (error) {
+                      toast({
+                        title: "Error",
+                        description: "Failed to run contribution check",
+                        variant: "destructive"
+                      });
+                    }
+                  }}
                 >
-                  <LuUserPlus className="h-5 w-5" />
-                  <span>Add Entry</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Run Contribution
                 </Button>
-              </DialogTrigger>
+              )}
 
-              <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
+              <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
 
-                  {/* Dropdown with Custom Input */}
-                  <CreatableSelect
-                    options={options}
-                    isClearable
-                    placeholder="Select or type entry name"
-                    value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
-                    onChange={(selectedOption) => {
-                      setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
-                    }}
-                    onCreateOption={(inputValue) => {
-                      setNewEntry({ ...newEntry, name: inputValue });
-                    }}
-                    className="w-full bg-indigo-500"
-                  />
-
-                  <Input
-                    type="number"
-                    placeholder="Amount"
-                    value={newEntry.amount}
-                    onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                  />
-
+                <DialogTrigger asChild>
                   <Button
-                    type="submit"
-                    disabled={addEntryMutation.isPending}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                   >
+                    <LuUserPlus className="h-5 w-5" />
                     <span>Add Entry</span>
                   </Button>
+                </DialogTrigger>
 
-                </form>
-              </DialogContent>
+                <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+
+                    {/* Dropdown with Custom Input */}
+                    <CreatableSelect
+                      options={options}
+                      isClearable
+                      placeholder="Select or type entry name"
+                      value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
+                      onChange={(selectedOption) => {
+                        setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
+                      }}
+                      onCreateOption={(inputValue) => {
+                        setNewEntry({ ...newEntry, name: inputValue });
+                      }}
+                      className="w-full bg-indigo-500"
+                    />
+
+                    <Input
+                      type="number"
+                      placeholder="Amount"
+                      value={newEntry.amount}
+                      onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={addEntryMutation.isPending}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                    >
+                      <span>Add Entry</span>
+                    </Button>
+
+                  </form>
+                </DialogContent>
 
 
-            </Dialog>
+              </Dialog>
 
 
+            </div>
           </div>
-
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
 
 
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+              {/* Fair Share Information */}
+
               <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg">
                 <div className="flex space-x-6 min-w-max ">
                   {entries && Array.isArray(entries) && entries.length > 0 ? (
@@ -374,24 +436,24 @@ export default function EntriesPage() {
                           : e.userId;
                         return userId?.toString();
                       });
-                      
+
                       // Filter out any undefined/null values and create a unique set
                       return Array.from(new Set(normalizedUserIds.filter(id => id))).map((userId) => {
                         const userEntries = entries.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-                          
-                        return entryUserId?.toString() === userId?.toString();
-                      });
+                          // Handle different userId formats
+                          const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                            ? (e.userId._id || e.userId.id || e.userId)
+                            : e.userId;
+
+                          return entryUserId?.toString() === userId?.toString();
+                        });
                         const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
                         const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
 
                         const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
                         const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
 
-                        const userName = (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.name) || 
+                        const userName = (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.name) ||
                           users?.find(u => u._id === userId)?.name || "Unknown";
                         const userProfile =
                           (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.profilePicture) ||
@@ -494,26 +556,13 @@ export default function EntriesPage() {
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹{entries?.filter((e) => {
-                        console.log('Entry userId type:', typeof e.userId);
-                        console.log('Entry userId value:', e.userId);
-                        console.log('User _id:', user?._id);
-                        
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-                          
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-                        
-                        console.log('Processed entryUserId:', userIdStr);
-                        console.log('Processed user._id:', currentUserIdStr);
-                        console.log('Match result:', userIdStr === currentUserIdStr);
-                        
-                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
-                      })
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
+                    ₹
+                      {entries && Array.isArray(entries) && entries.length > 0
+                        ? entries
+                          .filter((e) => e.status === "APPROVED")
+                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
+                          .toFixed(2)
+                        : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
                       {entries?.filter((e) => {
@@ -521,10 +570,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "APPROVED";
                       }).length || 0} Entries
                     </div>
@@ -541,10 +590,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       })
                         .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
@@ -555,10 +604,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       }).length || 0} Entries
                     </div>
@@ -566,6 +615,7 @@ export default function EntriesPage() {
                 </div>
               </CardContent>
             </Card>
+
 
 
 
@@ -619,10 +669,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "APPROVED";
                       })
                         .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
@@ -633,10 +683,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "APPROVED";
                       }).length || 0} Entries
                     </div>
@@ -653,10 +703,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       })
                         .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
@@ -667,10 +717,10 @@ export default function EntriesPage() {
                         const entryUserId = typeof e.userId === 'object' && e.userId !== null
                           ? (e.userId._id || e.userId.id || e.userId)
                           : e.userId;
-                          
+
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       }).length || 0} Entries
                     </div>
@@ -685,10 +735,10 @@ export default function EntriesPage() {
                       const entryUserId = typeof e.userId === 'object' && e.userId !== null
                         ? (e.userId._id || e.userId.id || e.userId)
                         : e.userId;
-                        
+
                       const userIdStr = entryUserId?.toString();
                       const currentUserIdStr = user?._id?.toString();
-                      
+
                       return userIdStr === currentUserIdStr && e.status === "APPROVED";
                     }
                   );
@@ -752,17 +802,47 @@ export default function EntriesPage() {
 
               </CardContent>
             </Card>
-
-
+          
+            
           </div>
+          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg mb-8" >
+              {totals && (
+                <div className="px-4 py-3 bg-indigo-800/50 border-b border-white/10">
+                  <h3 className="text-sm font-semibold mb-2">Contribution Status</h3>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <p className="text-white/70">Your Contribution:</p>
+                      <p className="font-semibold">{totals.userContributionPercentage?.toFixed(2)}% (₹{totals.userTotal?.toFixed(2) || 0})</p>
+                    </div>
+                    <div>
+                      <p className="text-white/70">Fair Share:</p>
+                      <p className="font-semibold">{totals.fairSharePercentage?.toFixed(2)}% (₹{totals.fairShareAmount?.toFixed(2) || 0})</p>
+                    </div>
+                    <div className="col-span-2 mt-1">
+                      <div className="w-full bg-white/20 rounded-full h-2.5">
+                        <div
+                          className={`h-2.5 rounded-full ${totals.isDeficit ? 'bg-red-500' : 'bg-green-500'}`}
+                          style={{ width: `${Math.min(totals.userContributionPercentage || 0, 100)}%` }}
+                        ></div>
+                      </div>
+                      <p className={`text-xs mt-1 ${totals.isDeficit ? 'text-red-300' : 'text-green-300'}`}>
+                        {totals.isDeficit
+                          ? `You're below your fair share by ${(totals.fairSharePercentage - totals.userContributionPercentage).toFixed(2)}%`
+                          : `You're contributing your fair share!`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Card>
 
 
 
           {selectedEntries.length > 0 && (
             <div className="mb-4 flex justify-end">
-              <Button 
-                variant="destructive" 
-                size="sm" 
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={handleBulkDelete}
                 className="flex items-center gap-2"
               >
@@ -771,7 +851,7 @@ export default function EntriesPage() {
               </Button>
             </div>
           )}
-          
+
           <Table className="w-full overflow-x-auto bg-indigo-100">
             <TableHeader>
               <TableRow className="bg-slate-300">
@@ -784,8 +864,8 @@ export default function EntriesPage() {
                   <TableHead className="text-center text-gray-800 font-bold">Actions</TableHead>
                 )}
                 <TableHead className="w-10 text-center text-gray-800 font-bold">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={entries?.length > 0 && selectedEntries.length === entries?.length}
                     onChange={(e) => handleSelectAll(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
@@ -799,11 +879,11 @@ export default function EntriesPage() {
                   <TableCell className="min-w-[200px]">
                     <div className="flex items-center gap-3">
                       <img
-                        src={typeof entry.userId === 'object' && entry.userId?.profilePicture ? entry.userId.profilePicture : 
-                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture || 
+                        src={typeof entry.userId === 'object' && entry.userId?.profilePicture ? entry.userId.profilePicture :
+                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture ||
                           entry.user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                        alt={typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name : 
-                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name || 
+                        alt={typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name :
+                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
                           entry.user?.name || "User"}
                         className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
                         onError={(e) => {
@@ -813,9 +893,9 @@ export default function EntriesPage() {
                       />
                       <div className="truncate max-w-[140px] sm:max-w-[180px]">
                         <span className="font-medium text-gray-800">
-                          {typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name : 
-                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name || 
-                          entry.user?.name || "Unknown User"}
+                          {typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name :
+                            users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
+                            entry.user?.name || "Unknown User"}
                         </span>
                       </div>
                     </div>
@@ -889,8 +969,8 @@ export default function EntriesPage() {
                     </TableCell>
                   )}
                   <TableCell className="w-10 text-center">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedEntries.includes(entry._id)}
                       onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
                       className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"

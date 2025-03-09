@@ -8,7 +8,7 @@ import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 import { Input } from "@/components/ui/input";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Penalty, PenaltyType } from "@shared/schema";
+import { Penalty, PenaltyType, PenaltySettings } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
@@ -39,6 +39,111 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+
+// Penalty Settings Form Component
+function PenaltySettingsForm() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [penaltyPercentage, setPenaltyPercentage] = useState(3); // Default 3%
+  const [warningDays, setWarningDays] = useState(3); // Default 3 days
+
+  // Fetch current settings
+  const { data: settings, isLoading } = useQuery<PenaltySettings>({
+    queryKey: ["/api/penalty-settings"],
+    onSuccess: (data) => {
+      if (data) {
+        setPenaltyPercentage(data.contributionPenaltyPercentage);
+        setWarningDays(data.warningPeriodDays);
+      }
+    },
+  });
+
+  // Update settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: { contributionPenaltyPercentage: number; warningPeriodDays: number }) => {
+      const res = await apiRequest("PATCH", "/api/penalty-settings", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] });
+      toast({
+        title: "Settings Updated",
+        description: "Penalty settings have been updated successfully."
+      });
+      setLoading(false);
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      });
+      setLoading(false);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    updateSettingsMutation.mutate({
+      contributionPenaltyPercentage: penaltyPercentage,
+      warningPeriodDays: warningDays,
+    });
+  };
+
+  if (isLoading) {
+    return <div className="p-4 text-center">Loading settings...</div>;
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <Label htmlFor="penaltyPercentage">Contribution Penalty Percentage</Label>
+            <span className="text-sm font-medium">{penaltyPercentage}%</span>
+          </div>
+          <Slider
+            id="penaltyPercentage"
+            min={1}
+            max={10}
+            step={0.5}
+            value={[penaltyPercentage]}
+            onValueChange={(value) => setPenaltyPercentage(value[0])}
+            className="py-4"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Percentage of total flat entry amount to charge as penalty for users who contribute less than their fair share.
+          </p>
+        </div>
+
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <Label htmlFor="warningDays">Warning Period (Days)</Label>
+            <span className="text-sm font-medium">{warningDays} days</span>
+          </div>
+          <Slider
+            id="warningDays"
+            min={1}
+            max={7}
+            step={1}
+            value={[warningDays]}
+            onValueChange={(value) => setWarningDays(value[0])}
+            className="py-4"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Number of days to wait before applying another penalty if the user still hasn't contributed their fair share.
+          </p>
+        </div>
+      </div>
+
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? "Updating..." : "Save Settings"}
+      </Button>
+    </form>
+  );
+}
 
 // Create a separate component for editing a penalty
 function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
@@ -59,12 +164,12 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
         });
       })
       .catch(() => {
-                  toast({
-                    title: "Error",
-                    description: "Failed to update penalty. Please try again.",
-                    variant: "destructive",
-                  });
-                });
+        toast({
+          title: "Error",
+          description: "Failed to update penalty. Please try again.",
+          variant: "destructive",
+        });
+      });
   };
 
   return (
@@ -305,7 +410,7 @@ export default function PenaltiesPage() {
       });
       return;
     }
-    
+
     addPenaltyMutation.mutate({
       userId: newPenalty.userId,
       type: newPenalty.type,
@@ -362,88 +467,110 @@ export default function PenaltiesPage() {
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Penalties</h1>
 
-            <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-              <DialogTrigger asChild>
-                <Button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition">
-                  <span>Add Penalty</span>
-                </Button>
-              </DialogTrigger>
 
-              <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="userId">Select User</Label>
-                    <Select
-                      value={newPenalty.userId}
-                      onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a user" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {users?.map((user: any) => (
-                          <SelectItem key={user._id} value={user._id}>
-                            {user.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div className="flex gap-2">
+              {/* Settings Button */}
+              {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="bg-white hover:bg-gray-100 text-indigo-600">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                      </svg>
+                      Settings
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Penalty Settings</DialogTitle>
+                    </DialogHeader>
+                    <PenaltySettingsForm />
+                  </DialogContent>
+                </Dialog>
+              )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Penalty Type</Label>
-                    <Select
-                      value={newPenalty.type}
-                      onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select penalty type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
-                        <SelectItem value="DAMAGE">Damage</SelectItem>
-                        <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
-                        <SelectItem value="OTHER">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="amount">Amount</Label>
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      value={newPenalty.amount}
-                      onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      placeholder="Description"
-                      value={newPenalty.description}
-                      onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={addPenaltyMutation.isPending}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                  >
+              <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+                <DialogTrigger asChild>
+                  <Button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition">
                     <span>Add Penalty</span>
                   </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </DialogTrigger>
 
+                <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userId">Select User</Label>
+                      <Select
+                        value={newPenalty.userId}
+                        onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a user" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {users?.map((user: any) => (
+                            <SelectItem key={user._id} value={user._id}>
+                              {user.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="type">Penalty Type</Label>
+                      <Select
+                        value={newPenalty.type}
+                        onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select penalty type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
+                          <SelectItem value="DAMAGE">Damage</SelectItem>
+                          <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount</Label>
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={newPenalty.amount}
+                        onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        placeholder="Description"
+                        value={newPenalty.description}
+                        onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                      />
+                    </div>
+
+                    <Button
+                      type="submit"
+                      disabled={addPenaltyMutation.isPending}
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                    >
+                      <span>Add Penalty</span>
+                    </Button>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
               <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg">
@@ -453,18 +580,18 @@ export default function PenaltiesPage() {
                       const totalPenaltiesGlobal = penalties
                         .reduce((sum, penalty) => sum + (penalty.amount || 0), 0) || 1; // Avoid division by zero
 
-                      return Array.from(new Set(penalties.map((p) => 
+                      return Array.from(new Set(penalties.map((p) =>
                         typeof p.userId === 'object' ? p.userId._id : p.userId
                       ))).map((userId) => {
-                        const userPenalties = penalties.filter((p) => 
+                        const userPenalties = penalties.filter((p) =>
                           (typeof p.userId === 'object' ? p.userId._id : p.userId) === userId
                         );
-                        
+
                         const totalUserAmount = userPenalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0);
-                        
-                        const userName = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.name) || 
+
+                        const userName = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.name) ||
                           (users?.find(u => u._id === userId)?.name) || "User";
-                          
+
                         const userProfile = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.profilePicture) ||
                           users?.find(u => u._id === userId)?.profilePicture ||
                           "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
@@ -522,9 +649,9 @@ export default function PenaltiesPage() {
                                   top: "50%",
                                   whiteSpace: "nowrap",
                                   padding: "2px 4px",
-                                  background: "rgba(0, 0, 0, 0.75)", 
+                                  background: "rgba(0, 0, 0, 0.75)",
                                   borderRadius: "4px",
-                                  color: getBorderColor(), 
+                                  color: getBorderColor(),
                                 }}
                               >
                                 {progressPercentage}%
@@ -625,10 +752,10 @@ export default function PenaltiesPage() {
                         const penaltyUserId = typeof p.userId === 'object' && p.userId !== null
                           ? (p.userId._id || p.userId.id || p.userId)
                           : p.userId;
-                          
+
                         const userIdStr = penaltyUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
-                        
+
                         return userIdStr === currentUserIdStr;
                       }).length || 0} Penalties
                     </div>
@@ -667,7 +794,7 @@ export default function PenaltiesPage() {
           <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
             <div className="p-4 bg-indigo-50 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2">
               <h2 className="text-lg font-semibold text-gray-800">All Penalties</h2>
-              
+
               {selectedPenalties.length > 0 && (
                 <Button
                   onClick={handleBulkDelete}
@@ -716,8 +843,8 @@ export default function PenaltiesPage() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <img
-                              src={typeof penalty.userId === 'object' && penalty.userId?.profilePicture ? penalty.userId.profilePicture : 
-                                users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.profilePicture || 
+                              src={typeof penalty.userId === 'object' && penalty.userId?.profilePicture ? penalty.userId.profilePicture :
+                                users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.profilePicture ||
                                 "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
                               alt="User"
                               className="w-8 h-8 rounded-full object-cover"
@@ -727,9 +854,9 @@ export default function PenaltiesPage() {
                               }}
                             />
                             <span>
-                              {typeof penalty.userId === 'object' && penalty.userId?.name ? penalty.userId.name : 
-                              users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.name || 
-                              "User"}
+                              {typeof penalty.userId === 'object' && penalty.userId?.name ? penalty.userId.name :
+                                users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.name ||
+                                "User"}
                             </span>
                           </div>
                         </TableCell>
@@ -783,8 +910,10 @@ export default function PenaltiesPage() {
             confirmText="Delete"
             cancelText="Cancel"
           />
-        </div>
+
+        </div >
       </div>
     </>
+
   );
 }

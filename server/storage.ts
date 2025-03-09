@@ -75,7 +75,7 @@ const penaltySchema = new mongoose.Schema({
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
   type: {
     type: String,
-    enum: ["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER"],
+    enum: ["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER", "CONTRIBUTION_DEFICIT"],
     required: true,
   },
   amount: { type: Number, required: true },
@@ -85,6 +85,15 @@ const penaltySchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   isDeleted: { type: Boolean, default: false },
   deletedAt: { type: Date },
+  nextPenaltyDate: { type: Date }
+});
+
+const penaltySettingsSchema = new mongoose.Schema({
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
+  contributionPenaltyPercentage: { type: Number, default: 3 }, // Default 3%
+  warningPeriodDays: { type: Number, default: 3 }, // Default 3 days
+  updatedAt: { type: Date, default: Date.now },
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
 });
 
 const entrySchema = new mongoose.Schema({
@@ -140,6 +149,7 @@ const EntryModel = mongoose.model("Entry", entrySchema);
 const BillModel = mongoose.model("Bill", billSchema);
 const PaymentModel = mongoose.model("Payment", paymentSchema);
 const PenaltyModel = mongoose.model("Penalty", penaltySchema);
+const PenaltySettingsModel = mongoose.model("PenaltySettings", penaltySettingsSchema);
 
 export interface IStorage {
   connect(): Promise<void>;
@@ -168,9 +178,14 @@ export interface IStorage {
   getPenaltiesByUserId(userId: string): Promise<Penalty[]>;
   updatePenalty(id: string, data: Partial<Penalty>): Promise<Penalty | undefined>;
   deletePenalty(id: string): Promise<boolean>;
-  getPenaltyTotalsByFlatId(flatId: string): Promise<{ userTotal: number; flatTotal: number }>;
+  getPenaltyTotalsByFlatId(flatId: string, userId?: string): Promise<{ userTotal: number; flatTotal: number }>;
+  // Penalty Settings methods
+  getPenaltySettings(flatId: string): Promise<PenaltySettings | undefined>;
+  createPenaltySettings(data: InsertPenaltySettings & { updatedBy: string }): Promise<PenaltySettings>;
+  updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined>;
   sessionStore: session.Store;
 }
+
 
 export class MongoStorage implements IStorage {
   sessionStore: session.Store;
@@ -250,6 +265,36 @@ export class MongoStorage implements IStorage {
       .reduce((sum, penalty) => sum + penalty.amount, 0) : 0;
     
     return { userTotal, flatTotal };
+  }
+
+  // Penalty Settings methods
+  async getPenaltySettings(flatId: string): Promise<PenaltySettings | undefined> {
+    const settings = await PenaltySettingsModel.findOne({ flatId }).lean();
+    return settings ? this.convertId(settings) : undefined;
+  }
+
+  async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: string }): Promise<PenaltySettings> {
+    const settings = new PenaltySettingsModel({
+      ...data,
+      updatedAt: new Date()
+    });
+    await settings.save();
+    return this.convertId(settings.toObject());
+  }
+
+  async updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined> {
+    const settings = await PenaltySettingsModel.findOneAndUpdate(
+      { flatId },
+      { 
+        $set: {
+          ...data,
+          updatedAt: new Date()
+        } 
+      },
+      { new: true, upsert: true }
+    ).lean();
+    
+    return settings ? this.convertId(settings) : undefined;
   }
 
   async connect() {

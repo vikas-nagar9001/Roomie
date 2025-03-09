@@ -44,7 +44,7 @@ export interface Entry {
   deletedAt?: Date;
 }
 
-export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER";
+export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER" | "CONTRIBUTION_DEFICIT";
 
 export interface Penalty {
   _id: string;
@@ -58,14 +58,32 @@ export interface Penalty {
   createdBy: string;
   isDeleted: boolean;
   deletedAt?: Date;
+  nextPenaltyDate?: Date; // Date when the next penalty will be applied if contribution deficit persists
+}
+
+// Settings for contribution penalties
+export interface PenaltySettings {
+  _id: string;
+  flatId: string;
+  contributionPenaltyPercentage: number; // Percentage of total entry to charge as penalty (default 3%)
+  warningPeriodDays: number; // Number of days before applying another penalty (default 3 days)
+  updatedAt: Date;
+  updatedBy: string;
 }
 
 export const insertPenaltySchema = z.object({
   userId: z.string(),
-  type: z.enum(["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER"]),
+  type: z.enum(["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER", "CONTRIBUTION_DEFICIT"]),
   amount: z.number().min(0),
   description: z.string().min(1, "Description is required"),
   image: z.string().optional(),
+  nextPenaltyDate: z.date().optional(),
+});
+
+export const insertPenaltySettingsSchema = z.object({
+  flatId: z.string(),
+  contributionPenaltyPercentage: z.number().min(0).max(100),
+  warningPeriodDays: z.number().min(1),
 });
 
 export const insertEntrySchema = z.object({
@@ -137,3 +155,4 @@ export type InsertFlat = z.infer<typeof insertFlatSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type InsertPenalty = z.infer<typeof insertPenaltySchema>;
+export type InsertPenaltySettings = z.infer<typeof insertPenaltySettingsSchema>;

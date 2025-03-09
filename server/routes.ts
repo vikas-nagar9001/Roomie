@@ -256,6 +256,59 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Get penalty settings
+  app.get("/api/penalty-settings", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      let settings = await storage.getPenaltySettings(req.user.flatId);
+      
+      // If no settings exist, create default settings
+      if (!settings) {
+        settings = await storage.createPenaltySettings({
+          flatId: req.user.flatId,
+          contributionPenaltyPercentage: 3, // Default 3%
+          warningPeriodDays: 3, // Default 3 days
+          updatedBy: req.user._id
+        });
+      }
+      
+      res.json(settings);
+    } catch (error) {
+      console.error("Failed to get penalty settings:", error);
+      res.status(500).json({ message: "Failed to get penalty settings" });
+    }
+  });
+
+  // Update penalty settings
+  app.patch("/api/penalty-settings", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can update penalty settings" });
+    }
+
+    try {
+      const { contributionPenaltyPercentage, warningPeriodDays } = req.body;
+      
+      const settings = await storage.updatePenaltySettings(req.user.flatId, {
+        contributionPenaltyPercentage: Number(contributionPenaltyPercentage),
+        warningPeriodDays: Number(warningPeriodDays),
+        updatedBy: req.user._id
+      });
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "FLAT_MANAGEMENT",
+        description: `Updated penalty settings: ${contributionPenaltyPercentage}% penalty, ${warningPeriodDays} days warning period`,
+        timestamp: new Date(),
+      });
+
+      res.json(settings);
+    } catch (error) {
+      console.error("Failed to update penalty settings:", error);
+      res.status(500).json({ message: "Failed to update penalty settings" });
+    }
+  });
+
   // Create a new penalty
   app.post("/api/penalties", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
@@ -400,17 +453,175 @@ export function registerRoutes(app: Express): Server {
   app.get("/api/entries/total", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const entries = await storage.getEntriesByFlatId(req.user.flatId);
-    const userTotal = entries
-      .filter(
-        (entry) =>
-          entry.userId.toString() === req.user?._id.toString() &&
-          entry.status === "APPROVED",
-      )
+    const users = await storage.getUsersByFlatId(req.user.flatId);
+    const activeUsers = users.filter(user => user.status === "ACTIVE");
+    
+    // Calculate total approved entries for the flat
+    const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
+    const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    
+    // Calculate user's total approved entries
+    const userTotal = approvedEntries
+      .filter(entry => entry.userId.toString() === req.user?._id.toString())
       .reduce((sum, entry) => sum + entry.amount, 0);
-    const flatTotal = entries
-      .filter((entry) => entry.status === "APPROVED")
-      .reduce((sum, entry) => sum + entry.amount, 0);
-    res.json({ userTotal, flatTotal });
+    
+    // Calculate fair share percentage and amount
+    const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
+    const fairShareAmount = flatTotal * (fairSharePercentage / 100);
+    
+    // Calculate user's contribution percentage
+    const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
+    
+    // Check if user has contributed less than their fair share
+    const isDeficit = userContributionPercentage < fairSharePercentage;
+    
+    res.json({ 
+      userTotal, 
+      flatTotal, 
+      fairSharePercentage, 
+      fairShareAmount,
+      userContributionPercentage,
+      isDeficit
+    });
+  });
+  
+  // Check and apply contribution deficit penalties
+  app.post("/api/check-contribution-penalties", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can run contribution checks" });
+    }
+    
+    try {
+      const entries = await storage.getEntriesByFlatId(req.user.flatId);
+      const users = await storage.getUsersByFlatId(req.user.flatId);
+      const activeUsers = users.filter(user => user.status === "ACTIVE");
+      
+      // Get penalty settings
+      let settings = await storage.getPenaltySettings(req.user.flatId);
+      if (!settings) {
+        settings = await storage.createPenaltySettings({
+          flatId: req.user.flatId,
+          contributionPenaltyPercentage: 3, // Default 3%
+          warningPeriodDays: 3, // Default 3 days
+          updatedBy: req.user._id
+        });
+      }
+      
+      // Calculate total approved entries for the flat
+      const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
+      const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+      
+      // Calculate fair share percentage
+      const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
+      
+      // Track users with deficit contributions
+      const deficitUsers = [];
+      
+      // Check each user's contribution
+      for (const user of activeUsers) {
+        // Skip admins if needed
+        if (user.role === "ADMIN" && req.body.skipAdmins) continue;
+        
+        // Calculate user's total approved entries
+        const userTotal = approvedEntries
+          .filter(entry => entry.userId.toString() === user._id.toString())
+          .reduce((sum, entry) => sum + entry.amount, 0);
+        
+        // Calculate user's contribution percentage
+        const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
+        
+        // Check if user has contributed less than their fair share
+        if (userContributionPercentage < fairSharePercentage) {
+          // Calculate deficit amount
+          const fairShareAmount = flatTotal * (fairSharePercentage / 100);
+          const deficitAmount = fairShareAmount - userTotal;
+          
+          // Calculate penalty amount based on settings
+          const penaltyAmount = Math.round(flatTotal * (settings.contributionPenaltyPercentage / 100));
+          
+          // Set next penalty date
+          const nextPenaltyDate = new Date();
+          nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
+          
+          // Create penalty
+          await storage.createPenalty({
+            userId: user._id,
+            type: "CONTRIBUTION_DEFICIT",
+            amount: penaltyAmount,
+            description: `Contribution deficit penalty. User contributed ${userContributionPercentage.toFixed(2)}% instead of required ${fairSharePercentage.toFixed(2)}%. Next penalty on ${nextPenaltyDate.toLocaleDateString()} if not resolved.`,
+            flatId: req.user.flatId,
+            createdBy: req.user._id,
+            nextPenaltyDate
+          });
+          
+          deficitUsers.push({
+            userId: user._id,
+            name: user.name,
+            contributionPercentage: userContributionPercentage,
+            fairSharePercentage,
+            penaltyAmount
+          });
+          
+          // Log activity
+          await storage.logActivity({
+            userId: req.user._id,
+            type: "PENALTY_ADDED",
+            description: `Added contribution deficit penalty of ₹${penaltyAmount} to ${user.name}`,
+            timestamp: new Date(),
+          });
+        }
+      }
+      
+      res.json({
+        message: `Contribution check completed. ${deficitUsers.length} users penalized.`,
+        deficitUsers
+      });
+    } catch (error) {
+      console.error("Failed to check contributions:", error);
+      res.status(500).json({ message: "Failed to check contributions" });
+    }
+  });
+  
+  // Check if user can add entry (not exceeding fair share)
+  app.get("/api/can-add-entry", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      const entries = await storage.getEntriesByFlatId(req.user.flatId);
+      const users = await storage.getUsersByFlatId(req.user.flatId);
+      const activeUsers = users.filter(user => user.status === "ACTIVE");
+      
+      // Calculate total approved entries for the flat
+      const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
+      const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+      
+      // Calculate user's total approved entries
+      const userTotal = approvedEntries
+        .filter(entry => entry.userId.toString() === req.user?._id.toString())
+        .reduce((sum, entry) => sum + entry.amount, 0);
+      
+      // Calculate fair share percentage
+      const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
+      
+      // Calculate user's contribution percentage
+      const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
+      
+      // Check if user has contributed more than their fair share
+      const canAddEntry = userContributionPercentage <= fairSharePercentage || fairSharePercentage === 0;
+      
+      res.json({ 
+        canAddEntry,
+        userContributionPercentage,
+        fairSharePercentage,
+        message: canAddEntry ? 
+          "You can add entries." : 
+          `You've already contributed ${userContributionPercentage.toFixed(2)}% which exceeds your fair share of ${fairSharePercentage.toFixed(2)}%.`
+      });
+    } catch (error) {
+      console.error("Failed to check if user can add entry:", error);
+      res.status(500).json({ message: "Failed to check if user can add entry" });
+    }
   });
 
   // Add entry
