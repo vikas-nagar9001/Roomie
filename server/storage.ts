@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from 'dotenv';
+import { InsertPenaltySettings, PenaltySettingsDocument } from "./schema"; // Import both interfaces
 dotenv.config();
 import {
   InsertUser as InsertUserSchema,
@@ -13,6 +14,7 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import MongoStore from "connect-mongo";
+
 
 // MongoDB Schemas
 const flatSchema = new mongoose.Schema({
@@ -75,7 +77,7 @@ const penaltySchema = new mongoose.Schema({
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
   type: {
     type: String,
-    enum: ["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER", "CONTRIBUTION_DEFICIT"],
+    enum: ["LATE_PAYMENT", "DAMAGE", "RULE_VIOLATION", "OTHER", "MINIMUM_ENTRY"],
     required: true,
   },
   amount: { type: Number, required: true },
@@ -93,7 +95,8 @@ const penaltySettingsSchema = new mongoose.Schema({
   contributionPenaltyPercentage: { type: Number, default: 3 }, // Default 3%
   warningPeriodDays: { type: Number, default: 3 }, // Default 3 days
   updatedAt: { type: Date, default: Date.now },
-  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }
+  updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  lastPenaltyAppliedAt: { type: Date, default: Date.now } // Initialize with current date
 });
 
 const entrySchema = new mongoose.Schema({
@@ -155,6 +158,7 @@ export interface IStorage {
   connect(): Promise<void>;
   getEntriesByFlatId(flatId: string): Promise<any[]>;
   getFlat(flatId: string): Promise<Flat | undefined>;
+  getFlatById(flatId: string): Promise<Flat | undefined>;
   createEntry(entryData: Partial<Entry>): Promise<Entry>;
   getUser(id: string): Promise<UserSchema | undefined>;
   getUserByEmail(email: string): Promise<UserSchema | undefined>;
@@ -196,11 +200,21 @@ export class MongoStorage implements IStorage {
     }
     this.sessionStore = MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 24 * 60 * 60, // 1 day
+      ttl: 30 * 24 * 60 * 60, // 30 days
       autoRemove: 'native'
     });
   }
-  
+
+  async getFlatById(flatId: string): Promise<Flat | undefined> {
+    try {
+      const flat = await FlatModel.findById(flatId).lean();
+      return flat ? this.convertId(flat) : undefined;
+    } catch (error) {
+      console.error(`[ERROR] Error getting flat by ID:`, error);
+      return undefined;
+    }
+  }
+
   // Penalty methods implementation
   async createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty> {
     const penalty = await PenaltyModel.create(penaltyData);
@@ -213,14 +227,11 @@ export class MongoStorage implements IStorage {
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
       .lean();
-    
-    console.log('Raw penalties from database:', JSON.stringify(penalties.slice(0, 2)));
-    console.log('First penalty userId before conversion:', penalties[0]?.userId);
-    
+
+    // console.log('Raw penalties from database:', JSON.stringify(penalties.slice(0, 2)));
+
     const convertedPenalties = penalties.map(this.convertId);
-    console.log('First penalty after conversion:', JSON.stringify(convertedPenalties[0]));
-    console.log('First penalty userId after conversion:', convertedPenalties[0]?.userId);
-    
+
     return convertedPenalties;
   }
 
@@ -255,15 +266,15 @@ export class MongoStorage implements IStorage {
 
   async getPenaltyTotalsByFlatId(flatId: string, userId?: string): Promise<{ userTotal: number; flatTotal: number }> {
     const penalties = await PenaltyModel.find({ flatId, isDeleted: false }).lean();
-    
+
     // Calculate total penalties for the flat
     const flatTotal = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
-    
+
     // Get the specified user's penalties or 0 if no userId provided
     const userTotal = userId ? penalties
       .filter(penalty => penalty.userId.toString() === userId)
       .reduce((sum, penalty) => sum + penalty.amount, 0) : 0;
-    
+
     return { userTotal, flatTotal };
   }
 
@@ -273,29 +284,60 @@ export class MongoStorage implements IStorage {
     return settings ? this.convertId(settings) : undefined;
   }
 
-  async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: string }): Promise<PenaltySettings> {
+
+
+async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.Types.ObjectId }): Promise<PenaltySettingsDocument> {
     const settings = new PenaltySettingsModel({
-      ...data,
-      updatedAt: new Date()
+        ...data,
+        updatedAt: new Date(),
+        lastPenaltyAppliedAt: new Date(), // ✅ Store the current date instead of null
     });
+
     await settings.save();
-    return this.convertId(settings.toObject());
-  }
+    return settings.toObject(); // Ensure it returns the correct structure
+}
+
+
+
+
 
   async updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined> {
     const settings = await PenaltySettingsModel.findOneAndUpdate(
       { flatId },
-      { 
+      {
         $set: {
           ...data,
           updatedAt: new Date()
-        } 
+        }
       },
       { new: true, upsert: true }
     ).lean();
-    
+
     return settings ? this.convertId(settings) : undefined;
   }
+
+
+
+  async updateLastPenaltyDate(flatId: string, date: Date) {
+    console.log("Updating lastPenaltyAppliedAt...");
+    console.log("Date:", date);
+    console.log("Flat ID:", flatId);
+
+    const result = await PenaltySettingsModel.updateOne(
+        { flatId: new mongoose.Types.ObjectId(flatId) },
+        { $set: { lastPenaltyAppliedAt: date } }
+    );
+
+    console.log("Update result:", result);
+    
+    if (result.modifiedCount > 0) {
+        console.log("✅ Success: lastPenaltyAppliedAt updated for Flat ID:", flatId);
+    } else {
+        console.warn("⚠️ Warning: No document updated for Flat ID:", flatId);
+    }
+}
+
+  
 
   async connect() {
     await mongoose.connect(process.env.MONGODB_URI!);
@@ -304,28 +346,28 @@ export class MongoStorage implements IStorage {
 
   convertId<T extends Record<string, any>>(obj: T): T {
     if (!obj) return obj;
-    
+
     // Create a new object to avoid modifying the original
     const result: any = { ...obj };
-    
+
     // Convert _id to string if it exists
     if (obj._id) {
       result._id = obj._id.toString();
     }
-    
+
     // Handle nested objects like userId and createdBy
     if (obj.userId && typeof obj.userId === 'object' && obj.userId._id) {
       // Keep the userId as an object but convert its _id
       result.userId = { ...obj.userId };
       result.userId._id = obj.userId._id.toString();
     }
-    
+
     if (obj.createdBy && typeof obj.createdBy === 'object' && obj.createdBy._id) {
       // Keep the createdBy as an object but convert its _id
       result.createdBy = { ...obj.createdBy };
       result.createdBy._id = obj.createdBy._id.toString();
     }
-    
+
     return result;
   }
 
@@ -390,8 +432,15 @@ export class MongoStorage implements IStorage {
   }
 
   async getUserEntriesTotal(userId: string): Promise<number> {
-    const entries = await EntryModel.find({ userId, isDeleted: false });
-    return entries.reduce((total, entry) => total + entry.amount, 0);
+    const entries = await EntryModel.find({ userId: userId, isDeleted: false });
+    return entries.reduce((total, entry) => {
+      // Ensure we're comparing the correct userId
+      const entryUserId = typeof entry.userId === 'object' ? entry.userId._id?.toString() : entry.userId?.toString();
+      if (entryUserId === userId) {
+        return total + entry.amount;
+      }
+      return total;
+    }, 0);
   }
 
 
@@ -404,6 +453,9 @@ export class MongoStorage implements IStorage {
   async getFlat(flatId: string): Promise<Flat | undefined> {
     const flat = await FlatModel.findById(flatId);
     return this.convertId(flat?.toObject());
+  }
+  async getAllFlats() {
+    return await FlatModel.find({});
   }
 
   async createEntry(entryData: Partial<Entry>): Promise<Entry> {
@@ -467,16 +519,16 @@ export class MongoStorage implements IStorage {
     try {
       // Delete user's entries
       await EntryModel.deleteMany({ userId: id });
-      
+
       // Delete user's activities
       await ActivityModel.deleteMany({ userId: id });
-      
+
       // Delete user's payments
       await PaymentModel.deleteMany({ userId: id });
-      
+
       // Finally, delete the user
       const result = await UserModel.findByIdAndDelete(id);
-      
+
       return !!result;
     } catch (error) {
       console.error("Failed to delete user:", error);

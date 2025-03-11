@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { ContributionStatus } from "@/components/contribution-status";
 
 
 // Create a separate component for editing an entry.
@@ -158,6 +159,60 @@ export default function EntriesPage() {
   const { data: totals } = useQuery<{ userTotal: number; flatTotal: number; fairSharePercentage: number; fairShareAmount: number; userContributionPercentage: number; isDeficit: boolean }>({
     queryKey: ["/api/entries/total"],
   });
+
+
+
+  /////////////penalty data///////////////
+  // all user penalty total  
+  const [allUserPenalties, setPenalties] = useState<{ [userId: string]: { totalAmount: number; entries: number } }>({});
+  const [totalPenaltyAmount, setTotalAmount] = useState(0);
+  const [totalPenaltyEntries, setTotalEntries] = useState(0);
+
+  useEffect(() => {
+    const fetchPenalties = async () => {
+      try {
+        const response = await fetch("/api/penalties");
+        const data = await response.json();
+
+        // Initialize maps
+        const penaltyMap: { [userId: string]: { totalAmount: number; entries: number } } = {};
+        let overallTotalAmount = 0;
+        let overallTotalEntries = 0;
+
+        data.forEach((penalty: { userId: { _id: string }; amount: number }) => {
+          const userId = penalty.userId?._id; // Extract userId from object
+          if (!userId) return; // Skip if userId is missing
+
+          if (!penaltyMap[userId]) {
+            penaltyMap[userId] = { totalAmount: 0, entries: 0 };
+          }
+
+          penaltyMap[userId].totalAmount += penalty.amount;
+          penaltyMap[userId].entries += 1;
+
+          // Update overall totals
+          overallTotalAmount += penalty.amount;
+          overallTotalEntries += 1;
+        });
+
+        setPenalties(penaltyMap);
+        setTotalAmount(overallTotalAmount);
+        setTotalEntries(overallTotalEntries);
+
+        console.log("User-wise penalties:", penaltyMap);
+        console.log("Total Amount:", overallTotalAmount);
+        console.log("Total Entries:", overallTotalEntries);
+      } catch (error) {
+        console.error("Error fetching penalties:", error);
+      }
+    };
+
+    fetchPenalties();
+  }, []);
+
+
+  /////////////penalty data///////////////////////
+
 
   const { data: users } = useQuery({
     queryKey: ["/api/users"],
@@ -352,7 +407,7 @@ export default function EntriesPage() {
                   }}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   Run Contribution
                 </Button>
@@ -421,7 +476,10 @@ export default function EntriesPage() {
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
               {/* Fair Share Information */}
 
-              <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg">
+              <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg"  style={{
+                  scrollbarWidth: "none", // Hide scrollbar for Firefox
+                  msOverflowStyle: "none", // Hide scrollbar for IE/Edge
+                }}>
                 <div className="flex space-x-6 min-w-max ">
                   {entries && Array.isArray(entries) && entries.length > 0 ? (
                     (() => {
@@ -450,8 +508,14 @@ export default function EntriesPage() {
                         const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
                         const pendingEntries = userEntries.filter((e) => e.status === "PENDING");
 
-                        const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                        // Get user penalty details
+                        const userPenaltyCount = allUserPenalties[userId]?.entries || 0;
+                        const userPenaltyAmount = allUserPenalties[userId]?.totalAmount || 0;
+
+                        const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0) - userPenaltyAmount, 0);
                         const totalPendingAmount = pendingEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+
+
 
                         const userName = (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.name) ||
                           users?.find(u => u._id === userId)?.name || "Unknown";
@@ -529,7 +593,13 @@ export default function EntriesPage() {
                             <div className="text-xs text-white/80 flex flex-col gap-y-1">
                               <div className="font-semibold text-sm">{userName}</div>
                               <div className="text-white/60">{approvedEntries.length} Approved Entries</div>
-                              <div className="font-bold text-green-400">₹{totalApprovedAmount.toFixed(2)}</div>
+                              <div className={`font-bold ${totalApprovedAmount < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                ₹{totalApprovedAmount.toFixed(2)}
+                              </div>
+
+                              {/* <div className="text-white/60">{userPenaltyCount} Penalties</div> */}
+                              {/* <div className="font-bold text-red-400">₹{userPenaltyAmount}</div> */}
+
                               <div className="text-white/60">{pendingEntries.length} Pending Entries</div>
                               <div className="font-bold text-yellow-400">₹{totalPendingAmount.toFixed(2)}</div>
                             </div>
@@ -556,13 +626,21 @@ export default function EntriesPage() {
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                    ₹
+                      ₹
                       {entries && Array.isArray(entries) && entries.length > 0
-                        ? entries
-                          .filter((e) => e.status === "APPROVED")
-                          .reduce((sum, entry) => sum + (entry.amount || 0), 0)
-                          .toFixed(2)
+                        ? (() => {
+                          // Calculate the total approved amount
+                          const totalApproved = entries
+                            .filter((e) => e.status === "APPROVED")
+                            .reduce((sum, entry) => sum + (entry.amount || 0), 0);
+
+                          // Ensure penaltiesTotal is a valid number
+                          const totalAfterPenalty = totalApproved - (totalPenaltyAmount || 0);
+
+                          return totalAfterPenalty.toFixed(2);
+                        })()
                         : "0.00"}
+
                     </div>
                     <div className="text-sm text-white/60">
                       {entries?.filter((e) => {
@@ -580,6 +658,19 @@ export default function EntriesPage() {
                   </div>
                 </div>
 
+                {/* Penalty */}
+                {/* <div className="flex justify-between items-center">
+                  <span className="text-white/80">Penalty:</span>
+                  <div className="text-end sm:text-right">
+                    <div className="font-bold text-yellow-400 text-lg">
+                      ₹{totalPenaltyAmount}
+                    </div>
+                    <div className="text-sm text-white/60">
+                      {totalPenaltyEntries} Entries
+                    </div>
+                  </div>
+                </div> */}
+
                 {/* Pending */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Pending:</span>
@@ -593,6 +684,7 @@ export default function EntriesPage() {
 
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
+
 
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       })
@@ -615,10 +707,6 @@ export default function EntriesPage() {
                 </div>
               </CardContent>
             </Card>
-
-
-
-
 
 
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg p-4">
@@ -664,19 +752,29 @@ export default function EntriesPage() {
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-green-400 text-lg">
-                      ₹{entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
+                      ₹
+                      {entries
+                        ?.filter((e) => {
+                          // Handle different userId formats
+                          const entryUserId =
+                            typeof e.userId === "object" && e.userId !== null
+                              ? e.userId._id || e.userId.id || e.userId
+                              : e.userId;
 
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
+                          const userIdStr = entryUserId?.toString();
+                          const currentUserIdStr = user?._id?.toString();
 
-                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
-                      })
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
+                          return userIdStr === currentUserIdStr && e.status === "APPROVED";
+                        })
+                        .reduce((sum, entry) => {
+                          const userId = user?._id?.toString();
+                          const userPenalty = allUserPenalties?.[userId]?.totalAmount || 0; // Extract totalAmount correctly
+
+                          return sum + entry.amount - userPenalty;
+                        }, 0)
+                        .toFixed(2) || "0.00"}
                     </div>
+
                     <div className="text-sm text-white/60">
                       {entries?.filter((e) => {
                         // Handle different userId formats
@@ -692,6 +790,33 @@ export default function EntriesPage() {
                     </div>
                   </div>
                 </div>
+
+
+
+                {/* Penalty */}
+                {/* <div className="flex justify-between items-center">
+                  <span className="text-white/80">Penalty:</span>
+                  <div className="text-end sm:text-right">
+                    <div className="font-bold text-yellow-400 text-lg">
+                      ₹
+                      {(() => {
+                        const userId = user?._id?.toString(); // Ensure it's a string
+                        if (!userId) return "0.00"; // Handle case where userId is undefined
+
+                        const userPenalty = allUserPenalties?.[userId] || { totalAmount: 0, entries: 0 };
+                        return userPenalty.totalAmount.toFixed(2);
+                      })()}
+                    </div>
+
+                    <div className="text-sm text-white/60">
+                      {(() => {
+                        const userPenalty = allUserPenalties?.[user?._id] || { totalAmount: 0, entries: 0 };
+                        return userPenalty.entries;
+                      })()}{" "}
+                      Entries
+                    </div>
+                  </div>
+                </div> */}
 
                 {/* Pending */}
                 <div className="flex justify-between items-center">
@@ -802,39 +927,19 @@ export default function EntriesPage() {
 
               </CardContent>
             </Card>
-          
-            
+
+            {/* Contribution Status Card */}
+            {totals && users && (
+              <ContributionStatus
+                userContribution={totals.userTotal}
+                fairShare={totals.fairShareAmount}
+                userId={user._id}
+                flatTotalEntry={totals.flatTotal}
+                totalUsers={users.length}
+              />
+            )}
           </div>
-          <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg mb-8" >
-              {totals && (
-                <div className="px-4 py-3 bg-indigo-800/50 border-b border-white/10">
-                  <h3 className="text-sm font-semibold mb-2">Contribution Status</h3>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <p className="text-white/70">Your Contribution:</p>
-                      <p className="font-semibold">{totals.userContributionPercentage?.toFixed(2)}% (₹{totals.userTotal?.toFixed(2) || 0})</p>
-                    </div>
-                    <div>
-                      <p className="text-white/70">Fair Share:</p>
-                      <p className="font-semibold">{totals.fairSharePercentage?.toFixed(2)}% (₹{totals.fairShareAmount?.toFixed(2) || 0})</p>
-                    </div>
-                    <div className="col-span-2 mt-1">
-                      <div className="w-full bg-white/20 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full ${totals.isDeficit ? 'bg-red-500' : 'bg-green-500'}`}
-                          style={{ width: `${Math.min(totals.userContributionPercentage || 0, 100)}%` }}
-                        ></div>
-                      </div>
-                      <p className={`text-xs mt-1 ${totals.isDeficit ? 'text-red-300' : 'text-green-300'}`}>
-                        {totals.isDeficit
-                          ? `You're below your fair share by ${(totals.fairSharePercentage - totals.userContributionPercentage).toFixed(2)}%`
-                          : `You're contributing your fair share!`}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </Card>
+
 
 
 
@@ -861,8 +966,9 @@ export default function EntriesPage() {
                 <TableHead className="text-left text-gray-800 font-bold">Date & Time</TableHead>
                 <TableHead className="text-left text-gray-800 font-bold">Status</TableHead>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                  <>
                   <TableHead className="text-center text-gray-800 font-bold">Actions</TableHead>
-                )}
+              
                 <TableHead className="w-10 text-center text-gray-800 font-bold">
                   <input
                     type="checkbox"
@@ -870,7 +976,9 @@ export default function EntriesPage() {
                     onChange={(e) => handleSelectAll(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
-                </TableHead>
+                </TableHead> 
+                </>
+               )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -968,6 +1076,7 @@ export default function EntriesPage() {
                       )}
                     </TableCell>
                   )}
+                    {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <TableCell className="w-10 text-center">
                     <input
                       type="checkbox"
@@ -976,6 +1085,7 @@ export default function EntriesPage() {
                       className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </TableCell>
+                    )}
                 </TableRow>
               ))}
             </TableBody>

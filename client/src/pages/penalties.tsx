@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FiUser } from "react-icons/fi";
@@ -14,6 +14,8 @@ import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css";
+import { useEffect } from "react";
+
 import {
   Table,
   TableBody,
@@ -41,44 +43,115 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 
+
+//////////////////////////////////////////// Timer Component //////////////////////////////////////////
+function PenaltyTimer() {
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+
+  const { data: penaltyTimer } = useQuery({
+    queryKey: ["/api/penalty-timers"],
+  });
+
+  useEffect(() => {
+    if (penaltyTimer) {
+      const updateTimer = () => {
+        const lastPenalty = new Date(penaltyTimer.lastPenaltyAppliedAt);
+        const warningDays = penaltyTimer.warningPeriodDays;
+
+        const nextPenaltyDate = new Date(lastPenalty);
+        nextPenaltyDate.setDate(nextPenaltyDate.getDate() + warningDays);
+
+        const now = new Date();
+        const diffTime = nextPenaltyDate.getTime() - now.getTime();
+
+        if (diffTime > 0) {
+          const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
+
+          setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+        } else {
+          setTimeRemaining("Penalty Due");
+        }
+      };
+
+      updateTimer();
+      const interval = setInterval(updateTimer, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [penaltyTimer]);
+
+  if (!penaltyTimer) return null;
+
+  return (
+    <div className="flex items-center justify-between p-2 bg-indigo-700 text-white rounded-md shadow-md">
+      <div className="flex items-center gap-2">
+        <MdAccessTime className="text-xl" />
+        <span className="font-semibold text-sm">Next Penalty In:</span>
+      </div>
+      <span className="text-sm font-mono font-semibold">{timeRemaining}</span>
+    </div>
+  );
+}
+{/* <PenaltyTimer />   use this for render timer*/ }
+
+//////////////////////////////////////////// Timer Component //////////////////////////////////////////
 // Penalty Settings Form Component
-function PenaltySettingsForm() {
+export function PenaltySettingsForm() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
-  const [penaltyPercentage, setPenaltyPercentage] = useState(3); // Default 3%
-  const [warningDays, setWarningDays] = useState(3); // Default 3 days
+  const [penaltyPercentage, setPenaltyPercentage] = useState<number>(3);
+  const [warningDays, setWarningDays] = useState<number>(3);
+
+
 
   // Fetch current settings
-  const { data: settings, isLoading } = useQuery<PenaltySettings>({
+  const { data: settings, isLoading, error } = useQuery<PenaltySettings>({
     queryKey: ["/api/penalty-settings"],
-    onSuccess: (data) => {
-      if (data) {
-        setPenaltyPercentage(data.contributionPenaltyPercentage);
-        setWarningDays(data.warningPeriodDays);
-      }
+    queryFn: async () => {
+
+      const res = await apiRequest("GET", "/api/penalty-settings");
+      return res.json();
     },
+    staleTime: 0, // Always fetch fresh data
   });
+
+
+  // Ensure state updates when settings load
+  useEffect(() => {
+    if (settings) {
+      setPenaltyPercentage(settings.contributionPenaltyPercentage);
+      setWarningDays(settings.warningPeriodDays);
+    }
+  }, [settings]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: { contributionPenaltyPercentage: number; warningPeriodDays: number }) => {
       const res = await apiRequest("PATCH", "/api/penalty-settings", data);
+      if (!res.ok) {
+        throw new Error("Failed to update settings");
+      }
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] }); // Refetch data
       toast({
         title: "Settings Updated",
-        description: "Penalty settings have been updated successfully."
+        description: "Penalty settings have been updated successfully.",
       });
-      setLoading(false);
     },
-    onError: () => {
+    onError: (err) => {
+
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
       setLoading(false);
     },
   });
@@ -86,19 +159,27 @@ function PenaltySettingsForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    // Optimistically update UI before API call
+    setPenaltyPercentage(penaltyPercentage);
+    setWarningDays(warningDays);
+
     updateSettingsMutation.mutate({
       contributionPenaltyPercentage: penaltyPercentage,
       warningPeriodDays: warningDays,
     });
   };
 
+  // Show loading state while fetching settings
   if (isLoading) {
+
     return <div className="p-4 text-center">Loading settings...</div>;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-4">
+        {/* Penalty Percentage Slider */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <Label htmlFor="penaltyPercentage">Contribution Penalty Percentage</Label>
@@ -118,6 +199,7 @@ function PenaltySettingsForm() {
           </p>
         </div>
 
+        {/* Warning Period Slider */}
         <div>
           <div className="flex justify-between items-center mb-2">
             <Label htmlFor="warningDays">Warning Period (Days)</Label>
@@ -144,6 +226,9 @@ function PenaltySettingsForm() {
     </form>
   );
 }
+
+
+
 
 // Create a separate component for editing a penalty
 function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
@@ -302,6 +387,7 @@ export default function PenaltiesPage() {
   const penaltiesPerPage = 6;
   const [selectedPenalties, setSelectedPenalties] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const isAdmin = user?.role === "ADMIN";
 
   const { data: penalties } = useQuery<Penalty[]>({
     queryKey: ["/api/penalties"]
@@ -480,7 +566,7 @@ export default function PenaltiesPage() {
                       Settings
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent aria-describedby="penalty-settings-description" className="max-w-md">
                     <DialogHeader>
                       <DialogTitle>Penalty Settings</DialogTitle>
                     </DialogHeader>
@@ -571,9 +657,17 @@ export default function PenaltiesPage() {
               </Dialog>
             </div>
           </div>
+
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
             <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
-              <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg">
+              <div
+                className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg"
+                style={{
+                  scrollbarWidth: "none", // Hide scrollbar for Firefox
+                  msOverflowStyle: "none", // Hide scrollbar for IE/Edge
+                }}
+              >
+
                 <div className="flex space-x-6 min-w-max ">
                   {penalties && Array.isArray(penalties) && penalties.length > 0 ? (
                     (() => {
@@ -682,6 +776,7 @@ export default function PenaltiesPage() {
               </CardHeader>
 
               <CardContent className="space-y-4">
+
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Total Amount:</span>
                   <div className="text-end sm:text-right">
@@ -763,7 +858,7 @@ export default function PenaltiesPage() {
                 </div>
 
                 {/* Flat Total */}
-                <div className="flex justify-between items-center">
+                {/* <div className="flex justify-between items-center">
                   <span className="text-white/80">Flat Total Penalties:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
@@ -773,7 +868,7 @@ export default function PenaltiesPage() {
                       {penalties?.length || 0} Penalties
                     </div>
                   </div>
-                </div>
+                </div> */}
 
                 {/* User Role & Status */}
                 <div className="mt-4 flex flex-col space-y-2">
@@ -786,6 +881,9 @@ export default function PenaltiesPage() {
                     <span className="font-semibold text-white">{user?.status || "Unknown"}</span>
                   </div>
                 </div>
+
+                <PenaltyTimer />
+
               </CardContent>
             </Card>
           </div>
@@ -812,34 +910,31 @@ export default function PenaltiesPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="w-10">
-                      <input
-                        type="checkbox"
-                        onChange={(e) => handleSelectAll(e.target.checked)}
-                        checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                    </TableHead>
+
                     <TableHead>User</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead>Actions</TableHead>
+
+                    {isAdmin && <TableHead>Actions</TableHead>}
+                    {isAdmin &&
+                      <TableHead className="w-10">
+                        <input
+                          type="checkbox"
+                          onChange={(e) => handleSelectAll(e.target.checked)}
+                          checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </TableHead>}
+
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginatedPenalties?.length > 0 ? (
                     paginatedPenalties.map((penalty) => (
                       <TableRow key={penalty._id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
-                            checked={selectedPenalties.includes(penalty._id)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </TableCell>
+
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <img
@@ -869,11 +964,21 @@ export default function PenaltiesPage() {
                         <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
                         <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
                         <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <div className="flex space-x-1">
-                            <EditPenaltyDialog penalty={penalty} />
-                          </div>
-                        </TableCell>
+                        {isAdmin &&
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <EditPenaltyDialog penalty={penalty} />
+                            </div>
+                          </TableCell>}
+                        {isAdmin &&
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+                              checked={selectedPenalties.includes(penalty._id)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </TableCell>}
                       </TableRow>
                     ))
                   ) : (

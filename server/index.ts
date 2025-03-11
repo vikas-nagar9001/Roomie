@@ -2,13 +2,11 @@ import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
-
+import "./penalty-checker"; // Import penalty checker
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-
-
 
 // Register API routes
 const server = registerRoutes(app);
@@ -43,7 +41,7 @@ const server = registerRoutes(app);
       serveStatic(app);
     }
 
-    const PORT = 1000;
+    const PORT = 5000;
     server.listen(PORT, "0.0.0.0", () => {
       log(`🚀 Server running on port ${PORT}`);
     });
