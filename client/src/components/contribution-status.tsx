@@ -63,46 +63,58 @@ function PenaltyTimer() {
 {/* <PenaltyTimer />   use this for render timer*/ }
 
 //////////////////////////////////////////// Timer Component //////////////////////////////////////////
+
 export function ContributionStatus({ userContribution, fairShare, userId, flatTotalEntry, totalUsers }: ContributionStatusProps) {
 
-   
+
     const [userPenaltyAmount, setUserPenaltyAmount] = useState(0);
     const [totalPenaltyAmount, setTotalPenaltyAmount] = useState(0);
 
     useEffect(() => {
         const fetchPenalties = async () => {
-          try {
-            const response = await fetch("/api/penalties");
-            const data = await response.json();
-    
-            // Calculate user-specific penalty amount
-            const userPenalties = data.filter((penalty: { userId: { _id: string } }) => penalty.userId._id === userId);
-            const userTotal = userPenalties.reduce((sum: number, penalty: { amount: number }) => sum + penalty.amount, 0);
-    
-            // Calculate total penalty amount for all users
-            const overallTotal = data.reduce((sum: number, penalty: { amount: number }) => sum + penalty.amount, 0);
-    
-            // Update state
-            setUserPenaltyAmount(userTotal);
-            setTotalPenaltyAmount(overallTotal);
-    
-          } catch (error) {
-            console.error("Error fetching penalties:", error);
-          }
+            try {
+                const response = await fetch("/api/penalties");
+                const data = await response.json();
+
+                // Calculate user-specific penalty amount
+                const userPenalties = data.filter((penalty: { userId: { _id: string } }) => penalty.userId._id === userId);
+                const userTotal = userPenalties.reduce((sum: number, penalty: { amount: number }) => sum + penalty.amount, 0);
+
+                // Calculate total penalty amount for all users
+                const overallTotal = data.reduce((sum: number, penalty: { amount: number }) => sum + penalty.amount, 0);
+
+                // Update state
+                setUserPenaltyAmount(userTotal);
+                setTotalPenaltyAmount(overallTotal);
+
+            } catch (error) {
+                console.error("Error fetching penalties:", error);
+            }
         };
-    
+
         fetchPenalties();
-      }, [userId]); // Re-fetch if userId changes
-    
+    }, [userId]); // Re-fetch if userId changes
 
-      const finalUserContribution = userContribution-userPenaltyAmount;
-      const finalFlatTotalEntry = flatTotalEntry-totalPenaltyAmount;
-      const finalFairShare = finalFlatTotalEntry/totalUsers;
 
-    const contributionPercentage = (finalUserContribution  / finalFlatTotalEntry) * 100;
-    const fairSharePercentage = ((finalFlatTotalEntry / totalUsers) / finalFlatTotalEntry) * 100;
+    const finalUserContribution = userContribution - userPenaltyAmount;
+    const finalFlatTotalEntry = flatTotalEntry - totalPenaltyAmount;
+    const finalFairShare = finalFlatTotalEntry / totalUsers;
+    //suppose 5 users then each user do 20% entry 
+    const fairSharePercentage = (1 / totalUsers) * 100;
+
+    const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
+
+
+
     const deficit = finalFairShare - finalUserContribution;
-    const isDeficit = deficit > 0;
+
+    //leave user if they do 75% entry of their 20% fair share
+    //not show warning 
+    // minimum required contribution (75% of the fair share) before a warning is triggered. 🚀
+    const fairShareThreshold = (75 * fairSharePercentage) / 100;
+
+    const isDeficit = userContributionPercentage < fairShareThreshold;
+    console.log("ft "+fairShareThreshold+"is de" + isDeficit);
 
     return (
         <Card className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-lg shadow-lg">
@@ -112,7 +124,7 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
                         <span>Your Contribution:</span>
-                        <span>₹{finalUserContribution.toFixed(2)} ({contributionPercentage.toFixed(1)}%)</span>
+                        <span>₹{finalUserContribution.toFixed(2)} ({userContributionPercentage.toFixed(1)}%)</span>
                     </div>
 
                     <div className="flex justify-between items-center">
@@ -124,7 +136,7 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                         <div
                             className={`h-full ${isDeficit ? 'bg-red-500' : 'bg-green-500'}`}
                             style={{
-                                width: `${Math.min((contributionPercentage / fairSharePercentage) * 100, 100)}%`
+                                width: `${Math.min((userContributionPercentage / fairSharePercentage) * 100, 100)}%`
                             }}
                         />
 
@@ -138,7 +150,9 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                                     <p className="text-sm font-medium">
                                         You're below your fair share by ₹{deficit.toFixed(2)} ({(deficit / finalFlatTotalEntry * 100).toFixed(1)}%)
                                     </p>
-
+                                    <p className="text-sm font-medium text-yellow-300">
+                                        Do minimum ${fairShareThreshold.toFixed(1)}% contribution to avoid penalty
+                                    </p>
 
                                     <p className="text-sm font-medium text-yellow-300">
                                         Penalty may be applied soon

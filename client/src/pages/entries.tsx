@@ -143,6 +143,8 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
   );
 }
 
+
+
 export default function EntriesPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
@@ -322,6 +324,16 @@ export default function EntriesPage() {
       amount: parseFloat(newEntry.amount),
     });
   };
+
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, []);
 
   const options = [
     { value: "Milk Morning", label: "Milk Morning" },
@@ -734,16 +746,18 @@ export default function EntriesPage() {
 
                 {/* Right Side: Date & Time */}
                 <div className="text-right text-sm mt-2 sm:mt-0">
+                  {/* Date */}
                   <div className="flex items-center space-x-1 text-white/80">
                     <MdOutlineDateRange className="text-lg text-blue-400" />
-                    <span className="font-medium">{new Date().toLocaleDateString()}</span>
+                    <span className="font-medium">{currentTime.toLocaleDateString()}</span>
                   </div>
+
+                  {/* Time (Live) */}
                   <div className="flex items-center space-x-1 text-white/70">
                     <MdAccessTime className="text-lg text-green-400" />
-                    <span className="font-medium">{new Date().toLocaleTimeString()}</span>
+                    <span className="font-medium">{currentTime.toLocaleTimeString()}</span>
                   </div>
                 </div>
-
               </div>
 
 

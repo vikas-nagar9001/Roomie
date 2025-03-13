@@ -525,12 +525,6 @@ export function registerRoutes(app: Express): Server {
       const users = await storage.getUsersByFlatId(req.user.flatId);
       const activeUsers = users.filter(user => user.status === "ACTIVE");
 
-      // Get penalty settings
-      const settings = await storage.getPenaltySettings(req.user.flatId);
-      if (!settings) {
-        return res.status(500).json({ message: "Penalty settings not found" });
-      }
-
       // Calculate total approved entries for the flat
       const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
       const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
@@ -543,7 +537,6 @@ export function registerRoutes(app: Express): Server {
         })
         .reduce((sum, entry) => sum + entry.amount, 0);
 
-
       // Calculate fair share percentage and amount
       const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
       const fairShareAmount = flatTotal * (fairSharePercentage / 100);
@@ -551,43 +544,6 @@ export function registerRoutes(app: Express): Server {
       // Calculate user's contribution percentage
       const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
 
-      // Check if user has contributed less than their fair share percentage
-      if (userContributionPercentage < fairSharePercentage) {
-        // Get user's latest penalty
-        const userPenalties = await storage.getPenaltiesByUserId(req.user._id);
-        const latestPenalty = userPenalties.length > 0 ?
-          userPenalties.reduce((latest, current) =>
-            new Date(current.createdAt) > new Date(latest.createdAt) ? current : latest
-          ) : null;
-
-        // Only create new penalty if there's no recent penalty or warning period has passed
-        const shouldCreatePenalty = !latestPenalty ||
-          (latestPenalty.nextPenaltyDate && new Date() > new Date(latestPenalty.nextPenaltyDate));
-
-        if (shouldCreatePenalty) {
-          // Calculate deficit amount
-          const fairShareAmount = flatTotal * (fairSharePercentage / 100);
-          const deficitAmount = fairShareAmount - userTotal;
-
-          // Calculate penalty amount based on settings
-          const penaltyAmount = Math.round(flatTotal * (settings.contributionPenaltyPercentage / 100));
-
-          // Set next penalty date
-          const nextPenaltyDate = new Date();
-          nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
-
-          // Create penalty
-          await storage.createPenalty({
-            userId: req.user._id,
-            type: "MINIMUM_ENTRY",
-            amount: penaltyAmount,
-            description: `User Entry ${userContributionPercentage.toFixed(2)}% < ${fairSharePercentage.toFixed(2)}%. Next penalty on ${nextPenaltyDate.toLocaleDateString()}`,
-            flatId: req.user.flatId,
-            createdBy: req.user._id,
-            nextPenaltyDate
-          });
-        }
-      }
 
       res.json({
         userTotal,

@@ -127,17 +127,24 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
   const penaltyEntries = await storage.getPenaltiesByFlatId(flat._id);
   const totalPenaltyAmount = penaltyEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
-
+  //flat data
   const entries = await storage.getEntriesByFlatId(flat._id);
   const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
   const fairShare = totalAmount / users.length;
+  const totalUsers = users.length;
 
   //after penalty subtract
-  const finalTotalAmount = totalAmount-totalPenaltyAmount;
-  const finalFairShare = finalTotalAmount / users.length;
+  const finalFlatTotalEntry = totalAmount-totalPenaltyAmount;
+  const finalFairShare = finalFlatTotalEntry / users.length;
+
+  //leave user if they do 75% entry of their 20% fair share
+    //not show warning 
+    // minimum required contribution (75% of the fair share) before a warning is triggered. 🚀
+    const fairSharePercentage = (1 / totalUsers) * 100;
+    const fairShareThreshold = (75 * fairSharePercentage) / 100;
 
 
-  console.log(`[INFO] Total amount contributed: ₹${finalTotalAmount.toFixed(2)}`);
+  console.log(`[INFO] Total amount contributed: ₹${finalFlatTotalEntry.toFixed(2)}`);
   console.log(`[INFO] Fair share per user: ₹${finalFairShare.toFixed(2)}`);
 
   for (const user of users) {
@@ -148,18 +155,20 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
     const userEntries = entries.filter(entry => entry.userId._id.toString() === user._id.toString());
     const userContribution = userEntries.reduce((sum, entry) => sum + entry.amount, 0);
     const finalUserContribution = userContribution - userPenaltyAmount;
-
+    const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
+    console.log(`[INFO] User ${user._id} contributed: ₹${finalUserContribution.toFixed(2)} (${userContributionPercentage.toFixed(2)}%)`)
+    console.log("Thresshold "+fairShareThreshold)
     console.log(`[INFO] User ${user._id} contributed: ₹${userContribution.toFixed(2)}`);
 
-    if (finalUserContribution < finalFairShare) {
+    if (userContributionPercentage < fairShareThreshold) {
       const deficit = finalFairShare - finalUserContribution;
-      const penaltyAmount = Math.round(finalTotalAmount * (settings.contributionPenaltyPercentage / 100));
+      const penaltyAmount = Math.round(finalFlatTotalEntry * (settings.contributionPenaltyPercentage / 100));
 
       console.log(`[WARN] User ${user._id} has a deficit of ₹${deficit.toFixed(2)}. Applying penalty of ₹${penaltyAmount.toFixed(2)}.`);
 
       const msg = extraParam ? extraParam :"Automatic" ;
       
-      const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000");
+      const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000"); 
       await storage.createPenalty({
         userId: user._id,
         flatId: flat._id,
