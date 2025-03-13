@@ -70,6 +70,7 @@ export interface PenaltySettingsDocument extends Document {
   updatedAt: Date;
   updatedBy: mongoose.Types.ObjectId;
   lastPenaltyAppliedAt: Date; // Ensure this is included
+  selectedUsers: mongoose.Types.ObjectId[]; // Array of user IDs who should receive penalties
 }
 
 const PenaltySettingsSchema = new Schema<PenaltySettingsDocument>({
@@ -79,6 +80,7 @@ const PenaltySettingsSchema = new Schema<PenaltySettingsDocument>({
   updatedAt: { type: Date, required: true, default: Date.now },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, required: true },
   lastPenaltyAppliedAt: { type: Date, default: Date.now }, // ✅ Default value ensures it gets stored
+  selectedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of user IDs who should receive penalties
 });
 
 export const PenaltySettingsModel = mongoose.model<PenaltySettingsDocument>(
@@ -104,6 +106,7 @@ export interface PenaltySettingsDocument extends Document {
   updatedAt: Date;
   updatedBy: mongoose.Types.ObjectId;
   lastPenaltyAppliedAt: Date; // Ensure this is included
+  selectedUsers: mongoose.Types.ObjectId[]; // Array of user IDs who should receive penalties
 }
 
 // Interface for inserting new settings (without _id and timestamps)

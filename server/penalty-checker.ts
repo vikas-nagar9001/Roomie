@@ -160,7 +160,14 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
     console.log("Thresshold "+fairShareThreshold)
     console.log(`[INFO] User ${user._id} contributed: ₹${userContribution.toFixed(2)}`);
 
-    if (userContributionPercentage < fairShareThreshold) {
+    // Check if user is selected for penalties or if no users are specifically selected
+  const isUserSelected = settings.selectedUsers && settings.selectedUsers.length > 0 ?
+    settings.selectedUsers.some(id => id?.toString() === user._id.toString()) :
+    true; // If no users are selected, apply to all
+
+    console.log("selected users "+settings.selectedUsers);
+
+  if (userContributionPercentage < fairShareThreshold && isUserSelected) {
       const deficit = finalFairShare - finalUserContribution;
       const penaltyAmount = Math.round(finalFlatTotalEntry * (settings.contributionPenaltyPercentage / 100));
 

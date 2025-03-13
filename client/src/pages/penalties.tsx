@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,32 +105,39 @@ export function PenaltySettingsForm() {
   const [loading, setLoading] = useState(false);
   const [penaltyPercentage, setPenaltyPercentage] = useState<number>(3);
   const [warningDays, setWarningDays] = useState<number>(3);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-
+  // Fetch users
+  const { data: users } = useQuery({
+    queryKey: ["/api/users"],
+  });
 
   // Fetch current settings
   const { data: settings, isLoading, error } = useQuery<PenaltySettings>({
     queryKey: ["/api/penalty-settings"],
     queryFn: async () => {
-
       const res = await apiRequest("GET", "/api/penalty-settings");
       return res.json();
     },
     staleTime: 0, // Always fetch fresh data
   });
 
-
   // Ensure state updates when settings load
   useEffect(() => {
     if (settings) {
       setPenaltyPercentage(settings.contributionPenaltyPercentage);
       setWarningDays(settings.warningPeriodDays);
+      setSelectedUsers(settings.selectedUsers?.map(id => id.toString()) || []);
     }
   }, [settings]);
 
   // Update settings mutation
   const updateSettingsMutation = useMutation({
-    mutationFn: async (data: { contributionPenaltyPercentage: number; warningPeriodDays: number }) => {
+    mutationFn: async (data: { 
+      contributionPenaltyPercentage: number; 
+      warningPeriodDays: number;
+      selectedUsers: string[];
+    }) => {
       const res = await apiRequest("PATCH", "/api/penalty-settings", data);
       if (!res.ok) {
         throw new Error("Failed to update settings");
@@ -144,7 +152,6 @@ export function PenaltySettingsForm() {
       });
     },
     onError: (err) => {
-
       toast({
         title: "Error",
         description: "Failed to update settings. Please try again.",
@@ -167,12 +174,12 @@ export function PenaltySettingsForm() {
     updateSettingsMutation.mutate({
       contributionPenaltyPercentage: penaltyPercentage,
       warningPeriodDays: warningDays,
+      selectedUsers: selectedUsers,
     });
   };
 
   // Show loading state while fetching settings
   if (isLoading) {
-
     return <div className="p-4 text-center">Loading settings...</div>;
   }
 
@@ -216,6 +223,37 @@ export function PenaltySettingsForm() {
           />
           <p className="text-sm text-gray-500 mt-1">
             Number of days to wait before applying another penalty if the user still hasn't contributed their fair share.
+          </p>
+        </div>
+
+        {/* User Selection */}
+        <div className="space-y-2">
+          <Label>Select Users for Penalties</Label>
+          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
+            {users?.map((user: any) => (
+              <div key={user._id} className="flex items-center space-x-2">
+                <Checkbox
+                  id={user._id}
+                  checked={selectedUsers.includes(user._id)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedUsers([...selectedUsers, user._id]);
+                    } else {
+                      setSelectedUsers(selectedUsers.filter(id => id !== user._id));
+                    }
+                  }}
+                />
+                <label
+                  htmlFor={user._id}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  {user.name}
+                </label>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500">
+            Select users who should be affected by penalties. If none are selected, penalties will apply to all users.
           </p>
         </div>
       </div>

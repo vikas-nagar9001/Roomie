@@ -344,7 +344,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { contributionPenaltyPercentage, warningPeriodDays } = req.body;
+      const { contributionPenaltyPercentage, warningPeriodDays, selectedUsers } = req.body;
       const flatId = req.user.flatId;
 
       // Fetch the current settings
@@ -354,6 +354,7 @@ export function registerRoutes(app: Express): Server {
       const settings = await storage.updatePenaltySettings(req.user.flatId, {
         contributionPenaltyPercentage: Number(contributionPenaltyPercentage),
         warningPeriodDays: Number(warningPeriodDays),
+        selectedUsers: selectedUsers || [], // Add selected users array
         updatedBy: req.user._id,
       });
 

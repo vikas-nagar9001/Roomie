@@ -96,7 +96,8 @@ const penaltySettingsSchema = new mongoose.Schema({
   warningPeriodDays: { type: Number, default: 3 }, // Default 3 days
   updatedAt: { type: Date, default: Date.now },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  lastPenaltyAppliedAt: { type: Date, default: Date.now } // Initialize with current date
+  lastPenaltyAppliedAt: { type: Date, default: Date.now }, // Initialize with current date
+  selectedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] // Array of selected users for penalties, empty array by default
 });
 
 const entrySchema = new mongoose.Schema({

@@ -31,7 +31,6 @@ export default function ProfilePage() {
     queryKey: ["/api/user/activities"],
     enabled: !!user,
   });
-
   const totalPages = Math.ceil(activities.length / itemsPerPage);
   const paginatedActivities = activities.slice(
     (currentPage - 1) * itemsPerPage,
@@ -327,7 +326,7 @@ export default function ProfilePage() {
                         <h3 className="text-2xl font-semibold text-black">Flat Settings</h3>
                         <div className="flex items-center space-x-4">
                           <Label className="text-black font-bold">Flat Username:</Label>
-                          <p className="text-sm font-semibold text-indigo-600">{user?.flatUsername}</p>
+                          <p className="text-sm font-semibold text-indigo-600">{user?.flatId.flatUsername}</p>
                         </div>
                       </div>
                     </TabsContent>
