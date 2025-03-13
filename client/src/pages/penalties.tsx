@@ -454,10 +454,11 @@ export default function PenaltiesPage() {
   };
 
   // Reverse penalties and apply pagination
-  const paginatedPenalties = penalties?.slice().reverse().slice(
+  const paginatedPenalties = penalties?.slice(
     (currentPage - 1) * penaltiesPerPage,
     currentPage * penaltiesPerPage
   );
+  
 
   const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
 
@@ -931,64 +932,78 @@ export default function PenaltiesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {paginatedPenalties?.length > 0 ? (
-                    paginatedPenalties.map((penalty) => (
-                      <TableRow key={penalty._id} className="hover:bg-gray-50">
+  {paginatedPenalties?.length > 0 ? (
+    paginatedPenalties.map((penalty) => (
+      <TableRow key={penalty._id} className="hover:bg-gray-50">
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <img
+              src={
+                typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                  ? penalty.userId.profilePicture
+                  : users?.find((u) =>
+                      u._id ===
+                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                    )?.profilePicture ||
+                    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
+              }
+              alt="User"
+              className="w-8 h-8 rounded-full object-cover"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src =
+                  "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+              }}
+            />
+            <span>
+              {typeof penalty.userId === "object" && penalty.userId?.name
+                ? penalty.userId.name
+                : users?.find((u) =>
+                    u._id ===
+                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                  )?.name || "User"}
+            </span>
+          </div>
+        </TableCell>
+        <TableCell>
+          <span
+            className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+          >
+            {formatPenaltyType(penalty.type)}
+          </span>
+        </TableCell>
+        <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
+        <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
+        <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
+        {isAdmin && (
+          <TableCell>
+            <div className="flex space-x-1">
+              <EditPenaltyDialog penalty={penalty} />
+            </div>
+          </TableCell>
+        )}
+        {isAdmin && (
+          <TableCell>
+            <input
+              type="checkbox"
+              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+              checked={selectedPenalties.includes(penalty._id)}
+              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+          </TableCell>
+        )}
+      </TableRow>
+    ))
+  ) : (
+    <TableRow>
+      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+        No penalties found
+      </TableCell>
+    </TableRow>
+  )}
+</TableBody>
 
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={typeof penalty.userId === 'object' && penalty.userId?.profilePicture ? penalty.userId.profilePicture :
-                                users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.profilePicture ||
-                                "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                              alt="User"
-                              className="w-8 h-8 rounded-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                              }}
-                            />
-                            <span>
-                              {typeof penalty.userId === 'object' && penalty.userId?.name ? penalty.userId.name :
-                                users?.find(u => u._id === (typeof penalty.userId === 'string' ? penalty.userId : penalty.userId?._id))?.name ||
-                                "User"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="px-2 py-1 rounded-full text-xs font-medium
-                            bg-indigo-100 text-indigo-800">
-                            {formatPenaltyType(penalty.type)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
-                        <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
-                        <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
-                        {isAdmin &&
-                          <TableCell>
-                            <div className="flex space-x-1">
-                              <EditPenaltyDialog penalty={penalty} />
-                            </div>
-                          </TableCell>}
-                        {isAdmin &&
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
-                              checked={selectedPenalties.includes(penalty._id)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                          </TableCell>}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
-                        No penalties found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
+
               </Table>
             </div>
 

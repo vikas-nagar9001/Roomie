@@ -12,34 +12,12 @@ import { mkdir, existsSync } from "fs";
 import { promisify } from "util";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import { startPenaltyCheckers } from "./penalty-checker"; // Make sure you import this
+import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
+import { applyPenaltiesForFlat } from "./penalty-checker";
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
-export async function updatePenaltyScheduler(flatId: string) {
-  console.log(`[INFO] Updating penalty scheduler for Flat ID: ${flatId}`);
 
-  // Clear existing interval for this flat (if exists)
-  if (penaltyIntervals[flatId]) {
-    clearInterval(penaltyIntervals[flatId]);
-    delete penaltyIntervals[flatId];
-    console.log(`[INFO] Cleared existing scheduler for Flat ID: ${flatId}`);
-  }
-
-  const settings = await storage.getPenaltySettings(flatId);
-  if (!settings) {
-    console.log(`[WARN] No penalty settings found for Flat ID: ${flatId}. Skipping scheduler.`);
-    return;
-  }
-
-  const warningPeriodMs = settings.warningPeriodDays * 24 * 60 * 60 * 1000; // Convert days to ms
-
-  console.log(`[INFO] Setting up scheduler for Flat ID: ${flatId} (Every ${settings.warningPeriodDays} days)`);
-
-  // Run check immediately and then at the interval
-  await checkAndApplyPenalties(); // Immediate run
-  penaltyIntervals[flatId] = setInterval(() => checkAndApplyPenalties(), warningPeriodMs); // New interval
-}
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -288,30 +266,30 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
 
     try {
-        let settings = await storage.getPenaltySettings(req.user.flatId);
+      let settings = await storage.getPenaltySettings(req.user.flatId);
 
-        if (!settings) {
-            return res.status(404).json({ error: "Penalty settings not found" });
-        }
+      if (!settings) {
+        return res.status(404).json({ error: "Penalty settings not found" });
+      }
 
-        res.json({
-            lastPenaltyAppliedAt: settings.lastPenaltyAppliedAt,
-            warningPeriodDays: settings.warningPeriodDays
-        });
+      res.json({
+        lastPenaltyAppliedAt: settings.lastPenaltyAppliedAt,
+        warningPeriodDays: settings.warningPeriodDays
+      });
 
     } catch (error) {
-        console.error("Error fetching penalty settings:", error);
-        res.status(500).json({ error: "Internal server error" });
+      console.error("Error fetching penalty settings:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-});
+  });
 
   // Get penalty settings
   app.get("/api/penalty-settings", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
-    
+
     try {
       let settings = await storage.getPenaltySettings(req.user.flatId);
-      
+
       // If no settings exist, create default settings
       if (!settings) {
         settings = await storage.createPenaltySettings({
@@ -326,21 +304,21 @@ export function registerRoutes(app: Express): Server {
         settings.lastPenaltyAppliedAt = new Date();
         await storage.updateLastPenaltyDate(settings.flatId, settings.lastPenaltyAppliedAt);
       }
-  
+
       res.json(settings);
     } catch (error) {
       console.error("Failed to get penalty settings:", error);
       res.status(500).json({ message: "Failed to get penalty settings" });
     }
   });
-  
+
 
   // Get penalty settings
   app.get("/api/penalty-settings", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     try {
       let settings = await storage.getPenaltySettings(req.user.flatId);
-      
+
       // If no settings exist, create default settings
       if (!settings) {
         settings = await storage.createPenaltySettings({
@@ -350,7 +328,7 @@ export function registerRoutes(app: Express): Server {
           updatedBy: req.user._id
         });
       }
-      
+
       res.json(settings);
     } catch (error) {
       console.error("Failed to get penalty settings:", error);
@@ -364,26 +342,26 @@ export function registerRoutes(app: Express): Server {
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
       return res.status(403).json({ message: "Only admins can update penalty settings" });
     }
-  
+
     try {
       const { contributionPenaltyPercentage, warningPeriodDays } = req.body;
       const flatId = req.user.flatId;
-  
+
       // Fetch the current settings
       const currentSettings = await storage.getPenaltySettings(req.user.flatId);
-  
+
       // Update the settings
       const settings = await storage.updatePenaltySettings(req.user.flatId, {
         contributionPenaltyPercentage: Number(contributionPenaltyPercentage),
         warningPeriodDays: Number(warningPeriodDays),
         updatedBy: req.user._id,
       });
-  
+
       // Restart scheduler only if `warningPeriodDays` is changed
       if (currentSettings.warningPeriodDays !== Number(warningPeriodDays)) {
         await updatePenaltyScheduler(flatId);
       }
-  
+
       // Log the activity
       await storage.logActivity({
         userId: req.user._id,
@@ -391,14 +369,14 @@ export function registerRoutes(app: Express): Server {
         description: `Updated penalty settings: ${contributionPenaltyPercentage}% penalty, ${warningPeriodDays} days warning period`,
         timestamp: new Date(),
       });
-  
+
       res.json(settings);
     } catch (error) {
       console.error("Failed to update penalty settings:", error);
       res.status(500).json({ message: "Failed to update penalty settings" });
     }
   });
-  
+
   // Create a new penalty
   app.post("/api/penalties", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
@@ -408,7 +386,7 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { userId, type, amount, description, image } = req.body;
-      
+
       const penalty = await storage.createPenalty({
         userId,
         type,
@@ -443,7 +421,7 @@ export function registerRoutes(app: Express): Server {
     try {
       const { penaltyId } = req.params;
       const { type, amount, description, image } = req.body;
-      
+
       const updatedPenalty = await storage.updatePenalty(penaltyId, {
         type,
         amount: Number(amount),
@@ -546,17 +524,17 @@ export function registerRoutes(app: Express): Server {
       const entries = await storage.getEntriesByFlatId(req.user.flatId);
       const users = await storage.getUsersByFlatId(req.user.flatId);
       const activeUsers = users.filter(user => user.status === "ACTIVE");
-      
+
       // Get penalty settings
       const settings = await storage.getPenaltySettings(req.user.flatId);
       if (!settings) {
         return res.status(500).json({ message: "Penalty settings not found" });
       }
-      
+
       // Calculate total approved entries for the flat
       const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
       const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      
+
       // Calculate user's total approved entries
       const userTotal = approvedEntries
         .filter(entry => {
@@ -565,14 +543,14 @@ export function registerRoutes(app: Express): Server {
         })
         .reduce((sum, entry) => sum + entry.amount, 0);
 
-      
+
       // Calculate fair share percentage and amount
       const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
       const fairShareAmount = flatTotal * (fairSharePercentage / 100);
-      
+
       // Calculate user's contribution percentage
       const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
-      
+
       // Check if user has contributed less than their fair share percentage
       if (userContributionPercentage < fairSharePercentage) {
         // Get user's latest penalty
@@ -590,14 +568,14 @@ export function registerRoutes(app: Express): Server {
           // Calculate deficit amount
           const fairShareAmount = flatTotal * (fairSharePercentage / 100);
           const deficitAmount = fairShareAmount - userTotal;
-          
+
           // Calculate penalty amount based on settings
           const penaltyAmount = Math.round(flatTotal * (settings.contributionPenaltyPercentage / 100));
-          
+
           // Set next penalty date
           const nextPenaltyDate = new Date();
           nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
-          
+
           // Create penalty
           await storage.createPenalty({
             userId: req.user._id,
@@ -610,7 +588,7 @@ export function registerRoutes(app: Express): Server {
           });
         }
       }
-      
+
       res.json({
         userTotal,
         flatTotal,
@@ -623,106 +601,23 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ message: "Failed to calculate totals" });
     }
   });
-  
+
   // Check and apply contribution deficit penalties
   app.post("/api/check-contribution-penalties", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
       return res.status(403).json({ message: "Only admins can run contribution checks" });
     }
-    
+  
     try {
-      const entries = await storage.getEntriesByFlatId(req.user.flatId);
-      const users = await storage.getUsersByFlatId(req.user.flatId);
-      const activeUsers = users.filter(user => user.status === "ACTIVE");
-      
-      // Get penalty settings
-      let settings = await storage.getPenaltySettings(req.user.flatId);
-      if (!settings) {
-        settings = await storage.createPenaltySettings({
-          flatId: req.user.flatId,
-          contributionPenaltyPercentage: 3, // Default 3%
-          warningPeriodDays: 3, // Default 3 days
-          updatedBy: req.user._id
-        });
-      }
-      
-      // Calculate total approved entries for the flat
-      const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
-
-     
-     const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      
-      // Calculate fair share percentage
-      const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
-      // Track users with deficit contributions
-      const deficitUsers = [];
-      
-      // Check each user's contribution
-      for (const user of activeUsers) {
-        // Skip admins if needed
-        if (user.role === "ADMIN" && req.body.skipAdmins) continue;
-      
-        // Calculate user's total approved entries
-       
-        const userEntries = approvedEntries.filter(entry => {
-          const entryUserId = entry.userId instanceof Object ? entry.userId._id?.toString() : entry.userId?.toString();
-          const userId = user._id instanceof Object ? user._id.toString() : user._id?.toString();
-            return entryUserId === userId;
-        });
-        
-           const userTotal = userEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      
-        // Calculate user's contribution percentage
-        const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
-
-        // Check if user has contributed less than their fair share percentage
-        if ((userContributionPercentage < fairSharePercentage)&&flatTotal!=0) {
-          // Calculate deficit amount
-          const fairShareAmount = flatTotal * (fairSharePercentage / 100);
-          const deficitAmount = fairShareAmount - userTotal;
-          
-          // Calculate penalty amount based on settings
-          const penaltyAmount = Math.round(flatTotal * (settings.contributionPenaltyPercentage / 100));
-          
-          // Set next penalty date
-          const nextPenaltyDate = new Date();
-          nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
-          
-          // Create penalty
-          await storage.createPenalty({
-            userId: user._id,
-            type: "MINIMUM_ENTRY",
-            amount: penaltyAmount,
-            description: `User Entry ${userContributionPercentage.toFixed(2)}% < ${fairSharePercentage.toFixed(2)}%. Next penalty on ${nextPenaltyDate.toLocaleDateString()}`,
-            flatId: req.user.flatId,
-            createdBy: req.user._id,
-            nextPenaltyDate
-          });
-          
-          deficitUsers.push({
-            userId: user._id,
-            name: user.name,
-            contributionPercentage: userContributionPercentage,
-            fairSharePercentage,
-            penaltyAmount
-          });
-          
-          // Log activity
-          await storage.logActivity({
-            userId: req.user._id,
-            type: "PENALTY_ADDED",
-            description: `Added contribution deficit penalty of ₹${penaltyAmount} to ${user.name}`,
-            timestamp: new Date(),
-          });
-        }
-      }
-      
-      // Update lastPenaltyAppliedAt in penalty settings
-      await storage.updateLastPenaltyDate(req.user.flatId, new Date());
-
+      const flatId = req.user.flatId;
+      const flat = await storage.getFlatById(flatId);
+      const settings = await storage.getPenaltySettings(flatId);
+  
+      const deficitUsers = await applyPenaltiesForFlat(flat, settings,'Manual');
+  
       res.json({
-        message: `Contribution check completed. ${deficitUsers.length} users penalized.`,
+        message: `Contribution check completed. ${deficitUsers} users penalized.`,
         deficitUsers
       });
     } catch (error) {
@@ -730,41 +625,41 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ message: "Failed to check contributions" });
     }
   });
-  
+
 
   // Check if user can add entry (not exceeding fair share)
   app.get("/api/can-add-entry", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
-    
+
     try {
       const entries = await storage.getEntriesByFlatId(req.user.flatId);
       const users = await storage.getUsersByFlatId(req.user.flatId);
       const activeUsers = users.filter(user => user.status === "ACTIVE");
-      
+
       // Calculate total approved entries for the flat
       const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
       const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
-      
+
       // Calculate user's total approved entries
       const userTotal = approvedEntries
         .filter(entry => entry.userId.toString() === req.user?._id.toString())
         .reduce((sum, entry) => sum + entry.amount, 0);
-      
+
       // Calculate fair share percentage
       const fairSharePercentage = activeUsers.length > 0 ? 100 / activeUsers.length : 0;
-      
+
       // Calculate user's contribution percentage
       const userContributionPercentage = flatTotal > 0 ? (userTotal / flatTotal) * 100 : 0;
-      
+
       // Check if user has contributed more than their fair share
       const canAddEntry = userContributionPercentage <= fairSharePercentage || fairSharePercentage === 0;
-      
-      res.json({ 
+
+      res.json({
         canAddEntry,
         userContributionPercentage,
         fairSharePercentage,
-        message: canAddEntry ? 
-          "You can add entries." : 
+        message: canAddEntry ?
+          "You can add entries." :
           `You've already contributed ${userContributionPercentage.toFixed(2)}% which exceeds your fair share of ${fairSharePercentage.toFixed(2)}%.`
       });
     } catch (error) {
