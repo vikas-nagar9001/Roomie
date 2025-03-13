@@ -360,6 +360,9 @@ export function registerRoutes(app: Express): Server {
 
       // Restart scheduler only if `warningPeriodDays` is changed
       if (currentSettings.warningPeriodDays !== Number(warningPeriodDays)) {
+        const now = new Date();
+        await storage.updateLastPenaltyDate(flatId, now);
+        console.log("Penalty Setting Updated LastAppliedDate updated to "+now)
         await updatePenaltyScheduler(flatId);
       }
 
