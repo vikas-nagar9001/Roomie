@@ -1,6 +1,8 @@
-# Roomie 🏠 - Roommate Expense Management Application
-
 <div align="center">
+
+# Roomie 🏠
+
+### Roommate Expense Management Application
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
@@ -10,19 +12,45 @@
 
 </div>
 
+---
+
+## 📑 Table of Contents
+
+- [📋 Overview](#-overview)
+- [🎯 Purpose](#-purpose)
+- [🚀 Use Cases](#-use-cases)
+- [✨ Features](#-features)
+- [📖 How to Use](#-how-to-use)
+- [🛠️ Technical Details](#️-technical-details)
+- [🔒 Security Features](#-security-features)
+- [🤝 Contribution Guidelines](#-contribution-guidelines)
+- [📄 License](#-license)
+
+---
+
 ## 📋 Overview
 
 Roomie is a comprehensive web application designed to simplify the management of shared living expenses among roommates. It provides a centralized platform for tracking expenses, managing bills, handling payments, and enforcing contribution rules through a penalty system.
+
+---
 
 ## 🎯 Purpose
 
 Managing finances in a shared living situation can be challenging and often leads to conflicts. Roomie aims to solve this problem by providing:
 
-- 📊 Transparent expense tracking
-- 💸 Automated bill splitting
-- 📈 Payment status monitoring
-- ⚖️ Fair penalty system for rule violations
-- 👥 User management with different permission levels
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| 📊 | Transparent expense tracking |
+| 💸 | Automated bill splitting |
+| 📈 | Payment status monitoring |
+| ⚖️ | Fair penalty system for rule violations |
+| 👥 | User management with different permission levels |
+
+</div>
+
+---
 
 ## 🚀 Use Cases
 
@@ -31,6 +59,8 @@ Managing finances in a shared living situation can be challenging and often lead
 - **Payment Tracking**: Monitor who has paid their share and who still owes money
 - **Penalty System**: Enforce house rules through financial penalties for violations
 - **User Management**: Admins can invite new roommates and manage user roles
+
+---
 
 ## ✨ Features
 
@@ -105,6 +135,8 @@ Admins can manage users in the flat:
 - Manage user profiles
 </details>
 
+---
+
 ## 📖 How to Use
 
 ### Getting Started
@@ -157,9 +189,13 @@ Admins can manage users in the flat:
 4. View your activity history
 </details>
 
+---
+
 ## 🛠️ Technical Details
 
 ### Technology Stack
+
+<div align="center">
 
 | Category | Technologies |
 |----------|-------------|
@@ -170,6 +206,8 @@ Admins can manage users in the flat:
 | **State Management** | React Query |
 | **Form Handling** | React Hook Form with Zod validation |
 | **Email Service** | SendGrid |
+
+</div>
 
 ### Project Structure
 
@@ -193,6 +231,8 @@ Admins can manage users in the flat:
 
 ### Installation and Setup
 
+<div align="center">
+
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/roomie.git
@@ -207,7 +247,11 @@ npm install
 npm run dev
 ```
 
+</div>
+
 ### Production Deployment
+
+<div align="center">
 
 ```bash
 # Build the application
@@ -217,14 +261,26 @@ npm run build
 npm start
 ```
 
+</div>
+
+---
+
 ## 🔒 Security Features
 
-- 🔑 JWT-based authentication
-- 🔐 Password hashing
-- 👮 Role-based access control
-- 🔄 Secure password reset mechanism
-- ✅ Input validation using Zod
-- 🛡️ Protection against common web vulnerabilities
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| 🔑 | JWT-based authentication |
+| 🔐 | Password hashing |
+| 👮 | Role-based access control |
+| 🔄 | Secure password reset mechanism |
+| ✅ | Input validation using Zod |
+| 🛡️ | Protection against common web vulnerabilities |
+
+</div>
+
+---
 
 ## 🤝 Contribution Guidelines
 
@@ -235,6 +291,14 @@ npm start
 5. Push to the branch (`git push origin feature/amazing-feature`)
 6. Submit a pull request
 
+---
+
 ## 📄 License
 
+<div align="center">
+
 MIT
+
+<p align="center">Made with ❤️ by the Roomie Team</p>
+
+</div>
