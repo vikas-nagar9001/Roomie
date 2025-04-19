@@ -1,6 +1,6 @@
 <div align="center">
 
-# Roomie 🏠
+# Roomie <img src="./client/favroomie.png" alt="Roomie Logo" height="30">
 
 ### Comprehensive Documentation for Developers
 
@@ -42,7 +42,7 @@ Roomie is a full-stack web application designed to simplify expense management f
 
 Roomie follows a client-server architecture with a clear separation of concerns:
 
-<div align="center">
+
 
 | Component | Description |
 |-----------|-------------|
@@ -51,7 +51,7 @@ Roomie follows a client-server architecture with a clear separation of concerns:
 | **Database** | MongoDB document database |
 | **Authentication** | JWT-based authentication system |
 
-</div>
+
 
 ### Technology Stack Details
 
@@ -123,7 +123,7 @@ Roomie follows a client-server architecture with a clear separation of concerns:
 
 ### Prerequisites
 
-<div align="center">
+
 
 | Requirement | Version |
 |-------------|----------|
@@ -131,7 +131,7 @@ Roomie follows a client-server architecture with a clear separation of concerns:
 | npm | v6 or higher |
 | MongoDB | Local or Atlas connection |
 
-</div>
+
 
 ### Environment Variables
 
@@ -452,7 +452,7 @@ interface Penalty {
 
 ## 🔐 Authentication Flow
 
-<div align="center">
+
 
 | Step | Description |
 |------|-------------|
@@ -461,7 +461,7 @@ interface Penalty {
 | **Invitation** | • Admin invites a user via email<br>• System generates a unique invitation link<br>• User clicks the link and completes registration<br>• User is added to the flat with the specified role |
 | **Authentication Middleware** | • JWT token is extracted from Authorization header<br>• Token is verified using the secret key<br>• User information is attached to the request object |
 
-</div>
+
 
 ---
 

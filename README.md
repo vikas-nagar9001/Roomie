@@ -1,6 +1,6 @@
 <div align="center">
 
-# Roomie 🏠
+# Roomie <img src="./client/favroomie.png" alt="Roomie Logo" height="30">
 
 ### Roommate Expense Management Application
 
@@ -38,7 +38,7 @@ Roomie is a comprehensive web application designed to simplify the management of
 
 Managing finances in a shared living situation can be challenging and often leads to conflicts. Roomie aims to solve this problem by providing:
 
-<div align="center">
+
 
 | Feature | Description |
 |---------|-------------|
@@ -48,7 +48,7 @@ Managing finances in a shared living situation can be challenging and often lead
 | ⚖️ | Fair penalty system for rule violations |
 | 👥 | User management with different permission levels |
 
-</div>
+
 
 ---
 
@@ -195,7 +195,7 @@ Admins can manage users in the flat:
 
 ### Technology Stack
 
-<div align="center">
+
 
 | Category | Technologies |
 |----------|-------------|
@@ -207,7 +207,7 @@ Admins can manage users in the flat:
 | **Form Handling** | React Hook Form with Zod validation |
 | **Email Service** | SendGrid |
 
-</div>
+
 
 ### Project Structure
 
@@ -267,7 +267,7 @@ npm start
 
 ## 🔒 Security Features
 
-<div align="center">
+
 
 | Feature | Description |
 |---------|-------------|
@@ -278,7 +278,7 @@ npm start
 | ✅ | Input validation using Zod |
 | 🛡️ | Protection against common web vulnerabilities |
 
-</div>
+
 
 ---
 
