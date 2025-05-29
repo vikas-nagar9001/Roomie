@@ -10,7 +10,7 @@ import { Types } from "mongoose";
 
 declare global {
   namespace Express {
-    interface User extends SelectUser {}
+    interface User extends SelectUser { }
   }
 }
 
@@ -30,16 +30,22 @@ async function comparePasswords(supplied: string, stored: string) {
 }
 
 export function setupAuth(app: Express) {
-  const sessionSettings: session.SessionOptions = {
-    secret: process.env.REPL_ID!,
-    resave: false,
-    saveUninitialized: false,
-    store: storage.sessionStore,
-    cookie: {
-      secure: app.get("env") === "production",
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    },
-  };
+ const sessionSettings: session.SessionOptions = {
+  secret: process.env.REPL_ID!,
+  resave: false,
+  saveUninitialized: false,
+  rolling: true, // Reset cookie maxAge on each request  //every request cookie extend to 30 days
+  store: storage.sessionStore,
+  cookie: {
+    secure: app.get("env") === "production",
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
+  },
+};
+
+//in storage.ts
+//we aslo store the session data in mongo and expire it in 30 days
+
+
 
   if (app.get("env") === "production") {
     app.set("trust proxy", 1);
@@ -195,7 +201,7 @@ export function setupAuth(app: Express) {
 
       req.login(updatedUser, (err) => {
         if (err) return next(err);
-        res.status(200).json(updatedUser); 
+        res.status(200).json(updatedUser);
       });
     } catch (err) {
       console.error('Set password error:', err);

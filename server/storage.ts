@@ -204,7 +204,11 @@ export class MongoStorage implements IStorage {
       ttl: 30 * 24 * 60 * 60, // 30 days
       autoRemove: 'native'
     });
-  }
+  }   
+  
+//in auth.ts
+//browser cookie will be set to expire in 30 days so in mongo the stored session will be removed after 30 days
+
 
   async getFlatById(flatId: string): Promise<Flat | undefined> {
     try {
