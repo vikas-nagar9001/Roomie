@@ -25,7 +25,29 @@ export default function ProfilePage() {
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 5;  // Fetch flat details
+  const { data: flat, isError: flatError, isLoading: flatLoading } = useQuery({
+    queryKey: ["/api/flats", user?.flatId],
+    queryFn: async () => {
+      if (!user?.flatId) return null;
+      console.log("Fetching flat with ID:", user.flatId);
+      try {
+        const res = await apiRequest("GET", `/api/flats/${user.flatId}`);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch flat: ${res.status}`);
+        }
+        const data = await res.json();
+        console.log("Flat API response:", data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching flat data:", error);
+        throw error;
+      }
+    },
+    enabled: !!user?.flatId,
+    retry: 3, // Retry failed requests up to 3 times
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+  });
 
   const { data: activities = [] } = useQuery({
     queryKey: ["/api/user/activities"],
@@ -320,18 +342,49 @@ export default function ProfilePage() {
                     </div>
                   </TabsContent>
 
-                  {user?.role === "ADMIN" && (
-                    <TabsContent value="flat" className="mt-4 p-6 bg-white rounded-lg shadow-md">
-                      <div className="space-y-6">
-                        <h3 className="text-2xl font-semibold text-black">Flat Settings</h3>
-                        <div className="flex items-center space-x-4">
-                          <Label className="text-black font-bold">Flat Username:</Label>
-                          <p className="text-sm font-semibold text-indigo-600">{user?.flatId.flatUsername}</p>
+                  {user?.role === "ADMIN" && (<TabsContent value="flat" className="mt-4 p-6 bg-white rounded-lg shadow-md">
+                    <div className="space-y-6">
+                      <h3 className="text-2xl font-semibold text-black">Flat Settings</h3>
+                      {flatError ? (
+                        <div className="text-red-600">Error loading flat details. Please try again later.</div>
+                      ) : flatLoading ? (
+                        <div className="text-indigo-600">Loading flat details...</div>
+                      ) : flat ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center space-x-4">
+                            <Label className="text-black font-bold">Flat ID:</Label>
+                            <p className="text-sm font-semibold text-indigo-600">{user?.flatId}</p>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <Label className="text-black font-bold">Flat Name:</Label>
+                            <p className="text-sm font-semibold text-indigo-600">{flat.name}</p>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <Label className="text-black font-bold">Flat Username:</Label>
+                            <p className="text-sm font-semibold text-indigo-600">{flat.flatUsername}</p>
+                          </div>
+                          <div className="flex items-center space-x-4">
+                            <Label className="text-black font-bold">Minimum Approval Amount:</Label>
+                            <p className="text-sm font-semibold text-indigo-600">₹{flat.minApprovalAmount || '0'}</p>
+                          </div>
+                          {/* {flat.paymentSettings && (
+                              <>
+                                <div className="flex items-center space-x-4">
+                                  <Label className="text-black font-bold">Default Due Date:</Label>
+                                  <p className="text-sm font-semibold text-indigo-600">Every {flat.paymentSettings.defaultDueDate || '1st'} of the month</p>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                  <Label className="text-black font-bold">Penalty Amount:</Label>
+                                  <p className="text-sm font-semibold text-indigo-600">₹{flat.paymentSettings.penaltyAmount || '0'}</p>
+                                </div>
+                              </>
+                            )} */}
                         </div>
-                      </div>
-                    </TabsContent>
-
-                  )}
+                      ) : (
+                        <div className="text-yellow-600">No flat details available</div>
+                      )}
+                    </div>
+                  </TabsContent>)}
                 </Tabs>
               </CardContent>
             </Card>

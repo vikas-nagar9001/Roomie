@@ -8,37 +8,33 @@ export function clearPenaltyInterval(flatId: string) {
   if (penaltyIntervals.has(flatId)) {
     clearInterval(penaltyIntervals.get(flatId)!);
     penaltyIntervals.delete(flatId);
-    console.log(`[INFO] Cleared existing scheduler for Flat ID: ${flatId}`);
   }
 }
 
 export async function checkAndApplyPenalties(flatId: string) {
   try {
     if (!flatId) {
-      console.error("[ERROR] Flat ID is undefined in checkAndApplyPenalties");
+   
       return;
     }
-    console.log("\n------------------------------------------------------------------------")
-    console.log(`[INFO] Checking and applying penalties for Flat ID: ${flatId}`);
+    
 
     const flat = await storage.getFlatById(flatId);
     if (!flat) {
-      console.warn(`[WARN] No flat found with ID: ${flatId}`);
+   
       return;
     }
 
     const settings = await storage.getPenaltySettings(flatId);
     if (!settings) {
-      console.warn(`[WARN] No penalty settings found for Flat ID: ${flatId}. Skipping.`);
+    
       return;
     }
 
     const lastPenalty = settings.lastPenaltyAppliedAt;
-    console.log(`[INFO] Last penalty applied on: ${lastPenalty || "Never"}`);
-
+   
     const warningPeriodDays = settings.warningPeriodDays;
-    console.log(`[INFO] Warning period for Flat ${flatId}: ${warningPeriodDays} days`);
-
+    
     const now = new Date();
     let nextPenaltyDate = lastPenalty ? new Date(lastPenalty) : null;
     if (nextPenaltyDate) {
@@ -46,22 +42,21 @@ export async function checkAndApplyPenalties(flatId: string) {
     }
 
     if (!lastPenalty || now >= nextPenaltyDate) {
-      console.log(`[INFO] Applying penalties for Flat ID: ${flatId}`);
+    
       await applyPenaltiesForFlat(flat, settings);
       await storage.updateLastPenaltyDate(flatId, now);
-      console.log(`[SUCCESS] Penalties applied and last penalty date updated.`);
+   
     } else {
-      console.log(`[INFO] No penalty needed. Next penalty date: ${nextPenaltyDate}`);
+    
     }
   } catch (error) {
-    console.error(`[ERROR] Error in penalty checker for Flat ID ${flatId}:`, error);
-  }
+    }
 }
 
 
 // Function to start penalty checker for all flats
 export async function startPenaltyCheckers() {
-  console.log(`[INFO] Starting penalty checkers for all flats...`);
+
 
   const flats = await storage.getAllFlats();
 
@@ -74,13 +69,13 @@ export async function startPenaltyCheckers() {
 // Function to set up the penalty scheduler
 export async function setupPenaltyChecker(flatId: string) {
   if (!flatId) {
-    console.error(`[ERROR] Flat ID is undefined in setupPenaltyChecker`);
+
     return;
   }
 
   const settings = await storage.getPenaltySettings(flatId);
   if (!settings) {
-    console.log(`[WARN] No penalty settings found for Flat ID: ${flatId}. Skipping scheduler.`);
+
     return;
   }
 
@@ -88,8 +83,6 @@ export async function setupPenaltyChecker(flatId: string) {
 
   // Clear existing interval if it exists
   clearPenaltyInterval(flatId);
-  console.log("\n:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::")
-  console.log(`[INFO] Setting up scheduler for Flat ID: ${flatId} (Every ${settings.warningPeriodDays} days)`);
 
   // Run penalty check immediately for this specific flat
   const flatId2 = flatId;
@@ -103,7 +96,6 @@ export async function setupPenaltyChecker(flatId: string) {
 
 // Function to update scheduler when settings change
 export async function updatePenaltyScheduler(flatId: string) {
-  console.log(`[INFO] Updating scheduler for Flat ID: ${flatId}`);
   await setupPenaltyChecker(flatId);
 
 }
@@ -112,15 +104,11 @@ export async function updatePenaltyScheduler(flatId: string) {
 // Apply penalties for a flat
 export async function applyPenaltiesForFlat(flat, settings, extraParam?: string) {
   let deficitUser = 0;
-  console.log(`[INFO] Applying penalties for Flat ID: ${flat._id}`);
 
   const users = await storage.getUsersByFlatId(flat._id);
   if (!users.length) {
-    console.log(`[WARN] No users found in Flat ID: ${flat._id}. Skipping.`);
     return;
   }
-
-  console.log(`[INFO] Found ${users.length} users in Flat ID: ${flat._id}`);
 
 
   //penalty data
@@ -129,13 +117,16 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
 
   //flat data
   const entries = await storage.getEntriesByFlatId(flat._id);
-  const totalAmount = entries.reduce((sum, entry) => sum + entry.amount, 0);
+  // Filter out entries with 'PENDING' or 'REJECTED' status
+  const approvedEntries = entries.filter(entry => entry.status !== 'PENDING' && entry.status !== 'REJECTED');
+  const totalAmount = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
   const fairShare = totalAmount / users.length;
   const totalUsers = users.length;
 
   //after penalty subtract
   const finalFlatTotalEntry = totalAmount-totalPenaltyAmount;
   const finalFairShare = finalFlatTotalEntry / users.length;
+
 
   //leave user if they do 75% entry of their 20% fair share
     //not show warning 
@@ -144,34 +135,28 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
     const fairShareThreshold = (75 * fairSharePercentage) / 100;
 
 
-  console.log(`[INFO] Total amount contributed: ₹${finalFlatTotalEntry.toFixed(2)}`);
-  console.log(`[INFO] Fair share per user: ₹${finalFairShare.toFixed(2)}`);
 
   for (const user of users) {
   
     const userPenaltyEntries = penaltyEntries.filter(entry => entry.userId._id.toString() === user._id.toString());
     const userPenaltyAmount = userPenaltyEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
-    const userEntries = entries.filter(entry => entry.userId._id.toString() === user._id.toString());
+    const userEntries = approvedEntries.filter(entry => entry.userId._id.toString() === user._id.toString());
     const userContribution = userEntries.reduce((sum, entry) => sum + entry.amount, 0);
     const finalUserContribution = userContribution - userPenaltyAmount;
     const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
-    console.log(`[INFO] User ${user._id} contributed: ₹${finalUserContribution.toFixed(2)} (${userContributionPercentage.toFixed(2)}%)`)
-    console.log("Thresshold "+fairShareThreshold)
-    console.log(`[INFO] User ${user._id} contributed: ₹${userContribution.toFixed(2)}`);
+
 
     // Check if user is selected for penalties or if no users are specifically selected
   const isUserSelected = settings.selectedUsers && settings.selectedUsers.length > 0 ?
     settings.selectedUsers.some(id => id?.toString() === user._id.toString()) :
     true; // If no users are selected, apply to all
 
-    console.log("selected users "+settings.selectedUsers);
+
 
   if (userContributionPercentage < fairShareThreshold && isUserSelected) {
       const deficit = finalFairShare - finalUserContribution;
       const penaltyAmount = Math.round(finalFlatTotalEntry * (settings.contributionPenaltyPercentage / 100));
-
-      console.log(`[WARN] User ${user._id} has a deficit of ₹${deficit.toFixed(2)}. Applying penalty of ₹${penaltyAmount.toFixed(2)}.`);
 
       const msg = extraParam ? extraParam :"Automatic" ;
       
@@ -188,10 +173,10 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
 
       deficitUser++;
 
-      console.log(`[SUCCESS] Applied penalty of ₹${penaltyAmount.toFixed(2)} to user ${user._id}`);
+ 
 
     } else {
-      console.log(`[INFO] No penalty for User ${user._id}. Contribution is sufficient.`);
+
     }
   }
   return deficitUser;

@@ -1041,6 +1041,24 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Add endpoint for retrieving flat by ID
+  app.get("/api/flats/:flatId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const { flatId } = req.params;
+      const flat = await storage.getFlatById(flatId);
+      
+      if (!flat) {
+        return res.status(404).json({ message: "Flat not found" });
+      }
+      
+      res.json(flat);
+    } catch (error) {
+      console.error("Failed to get flat details:", error);
+      res.status(500).json({ message: "Failed to get flat details" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
