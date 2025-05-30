@@ -352,7 +352,7 @@ export default function EntriesPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-8 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
+      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
