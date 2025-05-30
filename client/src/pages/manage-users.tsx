@@ -20,7 +20,7 @@ export default function ManageUsers() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-6 sm:p-8 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
+      <div className="min-h-screen p-6 sm:p-8 sm:pt-32 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Header Section */}
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-col sm:flex-row justify-between items-center gap-4">

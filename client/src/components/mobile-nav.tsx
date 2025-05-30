@@ -6,7 +6,7 @@ export function MobileNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-b from-[#241e95] to-indigo-900 py-3 px-6 flex justify-around items-center border-t border-indigo-700/50 shadow-lg z-50">
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f1f] py-3 px-6 flex justify-around items-center border-t  shadow-lg z-50">
         <Link href="/">
           <a className={`relative group flex flex-col items-center ${location === '/' ? 'text-white' : 'text-white/70'}`}>
             <div className={`absolute -inset-2 -top-4 rounded-xl transition-all ${location === '/' ? 'bg-white/10' : 'bg-white/5 opacity-0 group-hover:opacity-100'}`}></div>
@@ -35,15 +35,16 @@ export function MobileNav() {
             <span className="text-xs mt-1 relative font-medium">Penalties</span>
           </a>
         </Link>
-        <Link href="/profile">
+        {/* <Link href="/profile">
           <a className={`relative group flex flex-col items-center ${location === '/profile' ? 'text-white' : 'text-white/70'}`}>
             <div className={`absolute -inset-2 -top-4 rounded-xl transition-all ${location === '/profile' ? 'bg-white/10' : 'bg-white/5 opacity-0 group-hover:opacity-100'}`}></div>
             <FiUser className="w-6 h-6 relative" />
             <span className="text-xs mt-1 relative font-medium">Profile</span>
           </a>
-        </Link>
+        </Link> */}
       </nav>
       <div className="h-20" /> {/* Bottom Spacing */}
     </>
   );
 }
+  

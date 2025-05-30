@@ -26,11 +26,11 @@ export default function Dashboard() {
 
   // Mobile View Component
   const MobileView = () => (
-    <div className="pt-[100px] min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-[#241e95] to-[#0d0b2e]">
+    <div className="pt-[100px] min-h-screen bg-[#0f0f1f]">
       {/* Glass Morphism Effect */}
       <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-3xl"></div>
-        <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-indigo-600/20 to-transparent"></div>
+        <div className="absolute inset-0 bg-[#0f0f1f]"></div>
+        <div className="absolute top-0 left-0 right-0 h-96 bg-[#0f0f1f]"></div>
       </div>
 
       <Header />
@@ -46,7 +46,7 @@ export default function Dashboard() {
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
               <p className="text-indigo-200/60 text-sm">Total Entries</p>
               <p className="text-2xl font-bold text-white">
@@ -62,7 +62,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
               <p className="text-indigo-200/60 text-sm">Pending</p>
               <p className="text-2xl font-bold text-white">
@@ -83,7 +83,7 @@ export default function Dashboard() {
         <div className="grid gap-4">
           <Link href="/entries">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-indigo-900 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -100,7 +100,7 @@ export default function Dashboard() {
 
           <Link href="/payments">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-800 to-purple-900 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -117,7 +117,7 @@ export default function Dashboard() {
 
           <Link href="/penalties">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-700 to-purple-800 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -135,7 +135,7 @@ export default function Dashboard() {
           {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
             <Link href="/manage-users">
               <div className="relative group overflow-hidden rounded-xl">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900 to-purple-900 transition-all duration-300 group-hover:scale-105"></div>
+                <div className="absolute inset-0 bg-[#6636a3] transition-all duration-300 group-hover:scale-105"></div>
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative p-4 flex items-center justify-between bg-black/20">
                   <div>
@@ -162,11 +162,11 @@ export default function Dashboard() {
     <>
       <Header />
 
-      <div className="min-h-screen w-full relative flex flex-col bg-white pt-[80px]">
+      <div className="min-h-screen w-full relative flex flex-col bg-[#0f0f1f] pt-[80px]">
         {/* Background Blur Effect */}
         <div className="absolute inset-0 bg-[radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%)] opacity-30 blur-2xl"></div>
 
-        <div className="relative z-10 w-full flex-grow bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800 shadow-2xl p-6 md:p-8">
+        <div className="relative z-10 w-full flex-grow bg-[#0f0f1f] shadow-2xl p-6 md:p-8">
           {/* Cards Section */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Link href="/entries">

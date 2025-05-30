@@ -8,7 +8,7 @@ export function Header() {
   const { user } = useAuth();
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg">
+    <div className="fixed top-0 left-0 w-full z-50 bg-[#0f0f1f] p-6 shadow-lg">
       <div className="flex justify-between items-center">
         <Link to="/" className="flex items-center gap-3">
           <img src={favicon} alt="Roomie Logo" className="h-12" />
