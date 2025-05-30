@@ -177,7 +177,7 @@ export function PenaltySettingsForm() {
   }
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 to-white p-1 sm:p-6 rounded-2xl">
+    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 to-white p-1 sm:p-6 rounded-lg">
       {/* Decorative elements */}
       <div className="absolute top-0 left-0 w-32 h-32 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite]"></div>
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_2s]"></div>
@@ -196,7 +196,7 @@ export function PenaltySettingsForm() {
           </div>
 
           {/* Penalty Percentage Slider with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
             <div className="flex justify-between items-center mb-3">
               <Label htmlFor="penaltyPercentage" className="text-indigo-900 font-semibold">
                 Penalty Percentage
@@ -220,7 +220,7 @@ export function PenaltySettingsForm() {
           </div>
 
           {/* Warning Period Slider with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
             <div className="flex justify-between items-center mb-3">
               <Label htmlFor="warningDays" className="text-indigo-900 font-semibold">
                 Warning Period
@@ -244,19 +244,18 @@ export function PenaltySettingsForm() {
           </div>
 
           {/* User Selection with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
             <Label className="text-indigo-900 font-semibold mb-3 block">
               Select Users
             </Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-400 scrollbar-track-indigo-100 pr-2">
               {users.map((user) => (
-                <div 
-                  key={user._id} 
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${
-                    selectedUsers.includes(user._id)
-                      ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 shadow-md'
-                      : 'bg-white/50 hover:bg-white hover:shadow-md'
-                  } border`}
+                <div
+                  key={user._id}
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${selectedUsers.includes(user._id)
+                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 shadow-md'
+                    : 'bg-white/50 hover:bg-white hover:shadow-md'
+                    } border`}
                 >
                   <Checkbox
                     id={user._id}
@@ -301,14 +300,13 @@ export function PenaltySettingsForm() {
           </div>
         </div>
 
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={loading}
-          className={`w-full py-4 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-2xl ${
-            loading 
-              ? 'bg-gray-400'
-              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:-translate-y-0.5'
-          }`}
+          className={`w-full py-4 rounded-lg shadow-lg transition-all duration-300 transform hover:shadow-2xl ${loading
+            ? 'bg-gray-400'
+            : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:-translate-y-0.5'
+            }`}
         >
           {loading ? (
             <div className="flex items-center justify-center gap-2">
@@ -558,7 +556,7 @@ export default function PenaltiesPage() {
     (currentPage - 1) * penaltiesPerPage,
     currentPage * penaltiesPerPage
   );
-  
+
 
   const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
 
@@ -667,12 +665,19 @@ export default function PenaltiesPage() {
                       Settings
                     </Button>
                   </DialogTrigger>
-                  <DialogContent aria-describedby="penalty-settings-description" className="max-w-md">
-                    <DialogHeader>
-                      <DialogTitle>Penalty Settings</DialogTitle>
+                  <DialogContent
+                    aria-describedby="penalty-settings-description"
+                    className="max-w-3xl w-full p-0 rounded-lg border-none shadow-2xl bg-white sm:rounded-lg overflow-hidden"
+                  >
+                    <DialogHeader className="px-6 pt-6 pb-2 border-b">
+                      <DialogTitle className="text-xl font-semibold text-indigo-700">Penalty Settings</DialogTitle>
                     </DialogHeader>
-                    <PenaltySettingsForm />
+
+                    <div className="max-h-[80vh] overflow-y-auto p-6">
+                      <PenaltySettingsForm />
+                    </div>
                   </DialogContent>
+
                 </Dialog>
               )}
 
@@ -1032,76 +1037,76 @@ export default function PenaltiesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-  {paginatedPenalties?.length > 0 ? (
-    paginatedPenalties.map((penalty) => (
-      <TableRow key={penalty._id} className="hover:bg-gray-50">
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <img
-              src={
-                typeof penalty.userId === "object" && penalty.userId?.profilePicture
-                  ? penalty.userId.profilePicture
-                  : users?.find((u) =>
-                      u._id ===
-                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                    )?.profilePicture ||
-                    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
-              }
-              alt="User"
-              className="w-8 h-8 rounded-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src =
-                  "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-              }}
-            />
-            <span>
-              {typeof penalty.userId === "object" && penalty.userId?.name
-                ? penalty.userId.name
-                : users?.find((u) =>
-                    u._id ===
-                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                  )?.name || "User"}
-            </span>
-          </div>
-        </TableCell>
-        <TableCell>
-          <span
-            className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-          >
-            {formatPenaltyType(penalty.type)}
-          </span>
-        </TableCell>
-        <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
-        <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
-        <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
-        {isAdmin && (
-          <TableCell>
-            <div className="flex space-x-1">
-              <EditPenaltyDialog penalty={penalty} />
-            </div>
-          </TableCell>
-        )}
-        {isAdmin && (
-          <TableCell>
-            <input
-              type="checkbox"
-              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
-              checked={selectedPenalties.includes(penalty._id)}
-              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-            />
-          </TableCell>
-        )}
-      </TableRow>
-    ))
-  ) : (
-    <TableRow>
-      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
-        No penalties found
-      </TableCell>
-    </TableRow>
-  )}
-</TableBody>
+                  {paginatedPenalties?.length > 0 ? (
+                    paginatedPenalties.map((penalty) => (
+                      <TableRow key={penalty._id} className="hover:bg-gray-50">
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={
+                                typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                                  ? penalty.userId.profilePicture
+                                  : users?.find((u) =>
+                                    u._id ===
+                                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                  )?.profilePicture ||
+                                  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
+                              }
+                              alt="User"
+                              className="w-8 h-8 rounded-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src =
+                                  "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                              }}
+                            />
+                            <span>
+                              {typeof penalty.userId === "object" && penalty.userId?.name
+                                ? penalty.userId.name
+                                : users?.find((u) =>
+                                  u._id ===
+                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                )?.name || "User"}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+                          >
+                            {formatPenaltyType(penalty.type)}
+                          </span>
+                        </TableCell>
+                        <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
+                        <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
+                        <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <EditPenaltyDialog penalty={penalty} />
+                            </div>
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+                              checked={selectedPenalties.includes(penalty._id)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
+                        No penalties found
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
 
 
               </Table>
