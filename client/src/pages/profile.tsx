@@ -18,8 +18,7 @@ import axios from "axios";
 import { FiLogOut, FiUser } from "react-icons/fi";
 import favicon from "../../favroomie.png";
 import { Link } from "wouter";
-import ResponsivePagination from "react-responsive-pagination";
-import "react-responsive-pagination/themes/classic.css";
+import { CustomPagination } from "@/components/custom-pagination";
 import Cropper from 'react-easy-crop';
 import { Slider } from "@/components/ui/slider";
 import { MobileNav } from "@/components/mobile-nav";
@@ -459,10 +458,10 @@ export default function ProfilePage() {
                       )}
 
                       {activities.length > 0 && (
-                        <div className="mt-6">
-                          <ResponsivePagination
-                            current={currentPage}
-                            total={totalPages}
+                        <div className="flex justify-center mt-6">
+                          <CustomPagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
                             onPageChange={setCurrentPage}
                           />
                         </div>

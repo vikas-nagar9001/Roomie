@@ -19,7 +19,7 @@ export function MobileNav() {
           <Link key={href} href={href}>
             <a
               className={`relative group flex flex-col items-center justify-center text-xs font-medium transition-colors duration-300 ${
-                isActive(href) ? "text-white" : "text-white/70 hover:text-white"
+                isActive(href) ? "text-[#ab6cff]" : "text-white/70 hover:text-white"
               }`}
             >
               {/* Highlight Box */}

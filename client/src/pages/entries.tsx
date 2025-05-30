@@ -14,10 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 import CreatableSelect from "react-select/creatable";
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
-import ResponsivePagination from "react-responsive-pagination";
-import "react-responsive-pagination/themes/classic.css"; // Default theme
+import { CustomPagination } from "@/components/custom-pagination";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
+import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -60,24 +60,25 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen} >
-
-        <DialogTrigger asChild>
-          {/* ✏️ Edit Button with Icon */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <div className="flex items-center space-x-2">
+          <DialogTrigger asChild>
+            {/* ✏️ Edit Button with Icon */}
+            <button
+              className="p-1 text-blue-600 hover:bg-white/10 rounded-full transition"
+              onClick={() => setOpen(true)}
+            >
+              <FaEdit className="text-lg text-white" />
+            </button>
+          </DialogTrigger>
+          {/* 🗑️ Delete Button with Icon */}
           <button
-            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
-            onClick={() => setOpen(true)}
+            className="p-1 text-red-600 hover:bg-[#482575] rounded-full transition"
+            onClick={() => setDeleteDialogOpen(true)}
           >
-            <FaEdit className="text-lg" />
+            <FaTrash className="text-lg text-[#a263f5]" />
           </button>
-        </DialogTrigger>
-        {/* 🗑️ Delete Button with Icon */}
-        <button
-          className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
-          onClick={() => setDeleteDialogOpen(true)}
-        >
-          <FaTrash className="text-lg" />
-        </button>
+        </div>
 
         <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
           <DialogHeader>
@@ -111,14 +112,14 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
               name="name"
               defaultValue={entry.name}
               placeholder="Entry Name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
             />
             <Input
               name="amount"
               type="number"
               defaultValue={entry.amount}
               placeholder="Amount"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
             />
 
             <Button
@@ -350,114 +351,112 @@ export default function EntriesPage() {
 
 
   return (
-    <>
-      <Header />
-      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
-        <div className="max-w-7xl mx-auto">
-          <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
-            <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
+    <TooltipProvider>
+        <Header />
+        <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
+          <div className="max-w-7xl mx-auto">
+            <div className="relative group mb-8">
+              {/* Blurred border layer */}
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-            <div className="flex gap-2">
-              {/* Contribution Check Button for Admins */}
-              {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                <Button
-                  variant="outline"
-                  className="bg-white hover:bg-gray-100 text-indigo-600"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/check-contribution-penalties', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ skipAdmins: false })
-                      });
+            {/* Main content */}
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
+              <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
 
-                      const data = await res.json();
-
-                      toast({
-                        title: "Contribution Check Complete",
-                        description: data.message,
-                        variant: data.deficitUsers?.length > 0 ? "destructive" : "default"
-                      });
-
-                      // Refresh penalties data
-                      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-                    } catch (error) {
-                      toast({
-                        title: "Error",
-                        description: "Failed to run contribution check",
-                        variant: "destructive"
-                      });
-                    }
-                  }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Run Contribution
-                </Button>
-              )}
-
-              <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-
-                <DialogTrigger asChild>
+              <div className="flex gap-2">
+                {/* Contribution Check Button for Admins */}
+                {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <Button
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                    variant="outline"
+                    className="bg-white/80 hover:bg-white/90 text-gray-700"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/check-contribution-penalties', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ skipAdmins: false })
+                        });
+
+                        const data = await res.json();
+
+                        toast({
+                          title: "Contribution Check Complete",
+                          description: data.message,
+                          variant: data.deficitUsers?.length > 0 ? "destructive" : "default"
+                        });
+
+                        queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to run contribution check",
+                          variant: "destructive"
+                        });
+                      }
+                    }}
                   >
-                    <LuUserPlus className="h-5 w-5" />
-                    <span>Add Entry</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    Run Contribution
                   </Button>
-                </DialogTrigger>
+                )}
 
-                <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-
-                    {/* Dropdown with Custom Input */}
-                    <CreatableSelect
-                      options={options}
-                      isClearable
-                      placeholder="Select or type entry name"
-                      value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
-                      onChange={(selectedOption) => {
-                        setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
-                      }}
-                      onCreateOption={(inputValue) => {
-                        setNewEntry({ ...newEntry, name: inputValue });
-                      }}
-                      className="w-full bg-indigo-500"
-                    />
-
-                    <Input
-                      type="number"
-                      placeholder="Amount"
-                      value={newEntry.amount}
-                      onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                    />
-
+                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+                  <DialogTrigger asChild>
                     <Button
-                      type="submit"
-                      disabled={addEntryMutation.isPending}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                      className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
                     >
+                      <LuUserPlus className="h-5 w-5" />
                       <span>Add Entry</span>
                     </Button>
+                  </DialogTrigger>
 
-                  </form>
-                </DialogContent>
+                  <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <CreatableSelect
+                        options={options}
+                        isClearable
+                        placeholder="Select or type entry name"
+                        value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
+                        onChange={(selectedOption) => {
+                          setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
+                        }}
+                        onCreateOption={(inputValue) => {
+                          setNewEntry({ ...newEntry, name: inputValue });
+                        }}
+                        className="w-full bg-indigo-500"
+                      />
 
+                      <Input
+                        type="number"
+                        placeholder="Amount"
+                        value={newEntry.amount}
+                        onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                      />
 
-              </Dialog>
-
-
+                      <Button
+                        type="submit"
+                        disabled={addEntryMutation.isPending}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                      >
+                        <span>Add Entry</span>
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </div>
+
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
 
 
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               {/* Fair Share Information */}
 
               <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg" style={{
@@ -698,7 +697,7 @@ export default function EntriesPage() {
             </Card>
 
 
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg p-4">
+            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg p-4">
               {/* Header with Profile & Date-Time */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
 
@@ -945,7 +944,7 @@ export default function EntriesPage() {
                 variant="destructive"
                 size="sm"
                 onClick={handleBulkDelete}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaTrash className="text-sm" />
                 Delete Selected ({selectedEntries.length})
@@ -953,87 +952,114 @@ export default function EntriesPage() {
             </div>
           )}
 
-          <Table className="w-full overflow-x-auto bg-indigo-100">
+          <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
             <TableHeader>
-              <TableRow className="bg-slate-300">
-                <TableHead className="text-left text-gray-800 font-bold">User</TableHead>
-                <TableHead className="text-left text-gray-800 font-bold">Entry Name</TableHead>
-                <TableHead className="text-left text-gray-800 font-bold">Amount</TableHead>
-                <TableHead className="text-left text-gray-800 font-bold">Date & Time</TableHead>
-                <TableHead className="text-left text-gray-800 font-bold">Status</TableHead>
+              <TableRow className="border-none">
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">User</TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Entry Name</TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Amount</TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Date & Time</TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Status</TableHead>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <>
-                    <TableHead className="text-center text-gray-800 font-bold">Actions</TableHead>
-
-                    <TableHead className="w-10 text-center text-gray-800 font-bold">
+                    <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>
+                    <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#6636a3]">
                       <input
                         type="checkbox"
                         checked={entries?.length > 0 && selectedEntries.length === entries?.length}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
                       />
+
+
                     </TableHead>
                   </>
                 )}
               </TableRow>
             </TableHeader>
+
             <TableBody>
               {paginatedEntries?.map((entry) => (
-                <TableRow key={entry._id} className="border-b hover:bg-gray-50">
-                  <TableCell className="min-w-[200px]">
-                    <div className="flex items-center gap-3">
+                <TableRow
+                  key={entry._id}
+                  className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
+                >
+                  <TableCell className="min-w-[200px] py-4 px-3">
+                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
                       <img
-                        src={typeof entry.userId === 'object' && entry.userId?.profilePicture ? entry.userId.profilePicture :
-                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture ||
-                          entry.user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                        alt={typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name :
-                          users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
-                          entry.user?.name || "User"}
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover bg-gray-200"
+                        src={
+                          typeof entry.userId === 'object' && entry.userId?.profilePicture
+                            ? entry.userId.profilePicture
+                            : users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture ||
+                            entry.user?.profilePicture ||
+                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
+                        }
+                        alt="User"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
                         }}
                       />
                       <div className="truncate max-w-[140px] sm:max-w-[180px]">
-                        <span className="font-medium text-gray-800">
-                          {typeof entry.userId === 'object' && entry.userId?.name ? entry.userId.name :
-                            users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
-                            entry.user?.name || "Unknown User"}
+                        <span className="font-medium text-white">{typeof entry.userId === 'object' && entry.userId?.name
+                          ? entry.userId.name
+                          : users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
+                          entry.user?.name || "Unknown User"}
                         </span>
                       </div>
                     </div>
+
                   </TableCell>
-                  <TableCell className="font-medium min-w-[180px] truncate">
-                    {entry.name}
+
+                  <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
+                    {entry.name.length > 20 ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="block truncate cursor-help">
+                            {entry.name.substring(0, 20)}
+                            <span className="text-indigo-400">...</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="bg-[#6636a3] text-white border-white/10">
+                          <p className="max-w-xs break-words">{entry.name}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="block">{entry.name}</span>
+                    )}
                   </TableCell>
-                  <TableCell className="font-semibold text-blue-600"> ₹{entry.amount.toFixed(2)}</TableCell>
-                  <TableCell className="min-w-[160px] text-gray-600">
+
+                  <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
+                    ₹{entry.amount.toFixed(2)}
+                  </TableCell>
+
+                  <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
                     {new Intl.DateTimeFormat("en-IN", {
                       dateStyle: "medium",
                       timeStyle: "short",
                     }).format(new Date(entry.dateTime))}
                   </TableCell>
-                  <TableCell>
+
+                  <TableCell className="py-4 px-3">
                     <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${entry.status === "APPROVED"
-                        ? "bg-green-100 text-green-800"
-                        : entry.status === "PENDING"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-red-100 text-red-800"
-                        }`}
+                      className={`px-3 py-1 rounded-full text-sm font-medium
+              ${entry.status === "APPROVED" ? "bg-white/10 text-[#ab6bff]" :
+                          entry.status === "PENDING" ? "bg-yellow-200/10 text-yellow-300" :
+                            "bg-red-200/10 text-red-400"}`}
                     >
                       {entry.status}
                     </span>
                   </TableCell>
+
                   {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                    <TableCell className="min-w-[180px] text-center">
+                    <TableCell className="text-center py-4 px-3">
                       {entry.status === "PENDING" ? (
                         <div className="flex justify-center sm:justify-start gap-2">
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-green-600 border-green-600 hover:bg-green-100"
+                            className="text-white bg-[#6636a3] border-[#6636a3] hover:bg-[#8e4be4] hover:text-white"
                             onClick={() => {
                               fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                                 .then(() => {
@@ -1051,7 +1077,7 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-red-600 border-red-600 hover:bg-red-100"
+                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"
                             onClick={() => {
                               fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
                                 .then(() => {
@@ -1072,14 +1098,16 @@ export default function EntriesPage() {
                       )}
                     </TableCell>
                   )}
+
                   {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                    <TableCell className="w-10 text-center">
+                    <TableCell className="text-center py-4 px-3">
                       <input
                         type="checkbox"
                         checked={selectedEntries.includes(entry._id)}
                         onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
                       />
+
                     </TableCell>
                   )}
                 </TableRow>
@@ -1087,13 +1115,13 @@ export default function EntriesPage() {
             </TableBody>
           </Table>
 
+
           {/* Pagination Component */}
-          <div className="flex justify-center mt-4">
-            <ResponsivePagination
-              current={currentPage}
-              total={totalPages}
-              onPageChange={setCurrentPage}
-            />
+          <div className="flex justify-center mt-4">          <CustomPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
           </div>
 
         </div>
@@ -1114,6 +1142,6 @@ export default function EntriesPage() {
       <div className="block md:hidden">
         <MobileNav />
       </div>
-    </>
+    </TooltipProvider>
   );
 }

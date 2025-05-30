@@ -19,8 +19,7 @@ import { Mail, MoreVertical, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { User } from "@shared/schema";
-import ResponsivePagination from "react-responsive-pagination";
-import "react-responsive-pagination/themes/classic.css"; // Default pagination style
+import { CustomPagination } from "@/components/custom-pagination";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -225,9 +224,9 @@ export function UserTable({ search }: UserTableProps) {
       {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex justify-center mt-4">
-          <ResponsivePagination
-            current={currentPage}
-            total={totalPages}
+          <CustomPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
             onPageChange={setCurrentPage}
           />
         </div>

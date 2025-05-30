@@ -21,8 +21,7 @@ import { FiUser } from "react-icons/fi";
 import { Settings } from "lucide-react";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
-import ResponsivePagination from "react-responsive-pagination";
-import "react-responsive-pagination/themes/classic.css"; // Pagination styling
+import { CustomPagination } from "@/components/custom-pagination";
 
 interface Payment {
   _id: string;
@@ -317,9 +316,9 @@ export default function PaymentsPage() {
               </Card>
               {/* Pagination for Payments */}
               <div className="flex justify-center mt-4">
-                <ResponsivePagination
-                  current={currentPage}
-                  total={Math.ceil(payments.length / itemsPerPage)}
+                <CustomPagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(payments.length / itemsPerPage)}
                   onPageChange={setCurrentPage}
                 />
               </div>
@@ -357,9 +356,9 @@ export default function PaymentsPage() {
               </Card>
               {/* Pagination for Bills */}
               <div className="flex justify-center mt-4">
-                <ResponsivePagination
-                  current={currentBillsPage}
-                  total={Math.ceil(bills.length / itemsPerPage)}
+                <CustomPagination
+                  currentPage={currentBillsPage}
+                  totalPages={Math.ceil(bills.length / itemsPerPage)}
                   onPageChange={setCurrentBillsPage}
                 />
               </div>

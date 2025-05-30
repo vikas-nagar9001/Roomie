@@ -51,12 +51,14 @@ function PenaltyTimer() {
     if (!penaltyTimer) return null;
 
     return (
-        <div className="flex items-center justify-between p-2 bg-white/10 text-white rounded-md shadow-md">
-            <div className="flex items-center gap-2">
-                <MdAccessTime className="text-xl" />
-                <span className="font-semibold text-sm">Next Penalty In:</span>
+        <div className="flex items-center justify-between p-3 bg-gradient-to-r from-[#6636a3]/20 to-purple-500/10 rounded-lg border border-white/10">
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-500/20 rounded-full">
+                    <MdAccessTime className="text-xl text-indigo-300" />
+                </div>
+                <span className="font-medium text-sm text-indigo-200">Next Penalty In:</span>
             </div>
-            <span className="text-sm font-mono font-semibold">{timeRemaining}</span>
+            <span className="text-sm font-mono font-bold bg-black/30 px-3 py-1 rounded-full text-indigo-300">{timeRemaining}</span>
         </div>
     );
 }
@@ -114,58 +116,100 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
     const fairShareThreshold = (75 * fairSharePercentage) / 100;
 
     const isDeficit = userContributionPercentage < fairShareThreshold;
-    console.log("ft "+fairShareThreshold+"is de" + isDeficit);
+    console.log("ft " + fairShareThreshold + "is de" + isDeficit);
 
     return (
-        <Card className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white p-6 rounded-lg shadow-lg">
-            <div className="space-y-4">
-                <h3 className="text-xl font-semibold">Contribution Status</h3>
+        <Card className="relative group">
+            {/* Blurred border layer */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span>Your Contribution:</span>
-                        <span>₹{finalUserContribution.toFixed(2)} ({userContributionPercentage.toFixed(1)}%)</span>
+            {/* Main content */}
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-6 border border-white/10">
+                <div className="space-y-6">
+                    {/* Simple header */}
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        <span className="p-1.5 rounded-lg bg-[#6636a3] inline-block">
+                            💰
+                        </span>
+                        Contribution Status
+                    </h3>
+
+                    {/* Two simple cards for contribution amounts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Your contribution card */}
+                        <div className="bg-[#6636a3] p-4 rounded-lg border border-white/10">
+                            <div className="text-white/80 text-sm">Your Contribution</div>
+                            <div className="text-2xl font-bold text-white mt-1">₹{finalUserContribution.toFixed(2)}</div>
+                            <div className="text-white/80 text-sm mt-1">({userContributionPercentage.toFixed(1)}%)</div>
+                        </div>
+
+                        {/* Fair share card */}
+                        <div className="bg-[#6636a3] p-4 rounded-lg border border-white/10">
+                            <div className="text-white/80 text-sm">Expected Fair Share</div>
+                            <div className="text-2xl font-bold text-white mt-1">₹{finalFairShare.toFixed(2)}</div>
+                            <div className="text-white/80 text-sm mt-1">({fairSharePercentage.toFixed(1)}%)</div>
+                        </div>
                     </div>
 
                     <div className="flex justify-between items-center">
-                        <span>Fair Share:</span>
+                        <span className="text-white font-medium">Fair Share:</span>
                         <span>₹{finalFairShare.toFixed(2)} ({fairSharePercentage.toFixed(1)}%)</span>
                     </div>
 
-                    <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full ${isDeficit ? 'bg-red-500' : 'bg-green-500'}`}
-                            style={{
-                                width: `${Math.min((userContributionPercentage / fairSharePercentage) * 100, 100)}%`
-                            }}
-                        />
-
+                    {/* Progress indicator */}
+                    <div className="mt-2">
+                        <div className="flex justify-between text-sm mb-2">
+                            <span className="text-white/80">Progress</span>
+                            <span className={`font-medium ${isDeficit ? 'text-red-400' : 'text-[#a86ff4]'}`}>
+                                {Math.min((userContributionPercentage / fairSharePercentage) * 100, 100).toFixed(0)}%
+                            </span>
+                        </div>
+                        <div className="h-3 bg-[#151525] rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-500 ${isDeficit
+                                        ? 'bg-gradient-to-r from-[#ff6b6b] to-[#ff8585]'
+                                        : 'bg-gradient-to-r from-[#5433a7] to-[#6636a3]'
+                                    }`}
+                                style={{
+                                    width: `${Math.min((userContributionPercentage / fairSharePercentage) * 100, 100)}%`
+                                }}
+                            />
+                        </div>
                     </div>
 
+                    {/* Warning section when deficit */}
                     {isDeficit && (
-                        <div className="mt-4 p-4 bg-red-500/20 rounded-lg border border-red-400/50">
-                            <div className="flex items-start space-x-3">
-                                <div className="mt-1 text-red-300">⚠️</div>
-                                <div className="space-y-2 flex-1">
-                                    <p className="text-sm font-medium">
-                                        You're below your fair share by ₹{deficit.toFixed(2)} ({(deficit / finalFlatTotalEntry * 100).toFixed(1)}%)
-                                    </p>
-                                    <p className="text-sm font-medium text-yellow-300">
-                                        Do minimum ${fairShareThreshold.toFixed(1)}% contribution to avoid penalty
-                                    </p>
+                        <div className="mt-6 bg-black/30 rounded-lg border border-red-500/20 overflow-hidden">
+                            {/* Warning header */}
+                            <div className="bg-gradient-to-r from-red-500/20 to-[#6636a3]/20 p-4 border-b border-red-500/20">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl">⚠️</span>
+                                    <div>
+                                        <h4 className="font-semibold text-red-400">Low Contribution Alert</h4>
+                                        <p className="text-sm text-white/80 mt-1">
+                                            You're behind by ₹{deficit.toFixed(2)} ({(deficit / finalFlatTotalEntry * 100).toFixed(1)}%)
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
 
-                                    <p className="text-sm font-medium text-yellow-300">
-                                        Penalty may be applied soon
-                                    </p>
-                                    <PenaltyTimer />
-
-
+                            {/* Warning content */}
+                            <div className="p-4 space-y-4">
+                                {/* Target info */}
+                                <div className="bg-[#151525] rounded-lg p-3">
+                                    <div className="text-sm text-white/80">
+                                        Make minimum {fairShareThreshold.toFixed(1)}% contribution to avoid penalty
+                                    </div>
                                 </div>
 
+                                {/* Timer */}
+                                <div className="space-y-2">
+                                    <div className="text-sm text-white/80">Penalty Timer</div>
+                                    <PenaltyTimer />
+                                </div>
                             </div>
                         </div>
                     )}
-
                 </div>
             </div>
         </Card>
