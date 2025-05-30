@@ -434,7 +434,7 @@ export default function ProfilePage() {
                         onClick={() => clearCacheMutation.mutate()}
                         disabled={clearCacheMutation.isPending}
                         variant="outline"
-                        className="border-white/20 text-white hover:bg-white/10"
+                        className="bg-white/10 hover:bg-white/20 text-white border-0"
                       >
                         <MdOutlineCached className="mr-2" />
                         Clear Cache
