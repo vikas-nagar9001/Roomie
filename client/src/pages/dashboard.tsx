@@ -1,61 +1,172 @@
 import { useAuth } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FiUsers, FiList, FiLogOut, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
-import { Link } from "wouter";
-import favicon from "../../favroomie.png";
+import { FiUsers, FiList, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
+import { Link, useLocation } from "wouter";
+import { useState, useEffect } from "react";
+import { MobileNav } from "@/components/mobile-nav";
+import { Header } from "@/components/header";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Dashboard() {
-  const { user, logoutMutation } = useAuth();
+  const { user } = useAuth();
+  const [greeting, setGreeting] = useState("");
+  const [location] = useLocation();
 
-  return (
-    <>
-      {/* Header Section  */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex flex-col md:flex-row justify-between items-center">
-        {/* Logo */}
-        <a href="/">
-          <div className="flex items-center gap-3">
-            <img src={favicon} alt="Roomie Logo" className="h-12" /> {/* Adjust the path accordingly */}
-            <h1 className="text-3xl font-bold text-white">Roomie</h1>
-          </div>
-          </a>
+  // Fetch entries data
+  const { data: entries } = useQuery<any[]>({
+    queryKey: ["/api/entries"],
+  });
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 mt-4 md:mt-0">
-          <Link href="/profile">
-            <Button className="flex items-center gap-2 px-5 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:bg-indigo-50 transition-all">
-              <FiUser className="h-5 w-5 text-indigo-600" />
-              {user?.name ? user.name.split(" ")[0] : "Profile"}
-            </Button>
-          </Link>
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) setGreeting("Good morning");
+    else if (hour < 18) setGreeting("Good afternoon");
+    else setGreeting("Good evening");
+  }, []);
 
-          <Button
-            onClick={() => logoutMutation.mutate()}
-            disabled={logoutMutation.isPending}
-            className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-all"
-          >
-            <FiLogOut className="h-5 w-5 text-white" />
-            Logout
-          </Button>
-        </div>
+  // Mobile View Component
+  const MobileView = () => (
+    <div className="pt-[100px] min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900 via-[#241e95] to-[#0d0b2e]">
+      {/* Glass Morphism Effect */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 backdrop-blur-3xl"></div>
+        <div className="absolute top-0 left-0 right-0 h-96 bg-gradient-to-b from-indigo-600/20 to-transparent"></div>
       </div>
 
+      <Header />
 
-      <div className="min-h-screen w-full relative flex flex-col bg-white ">
+      {/* Mobile Main Content */}
+      <main className="relative px-4 py-6">
+        {/* Welcome Section */}
+        <div className="mb-8">
+          <h2 className="text-lg text-indigo-200/80">{greeting},</h2>
+          <h1 className="text-3xl font-bold text-white tracking-tight">{user?.name?.split(" ")[0]} 👋</h1>
+        </div>
 
+        {/* Quick Stats Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
+              <p className="text-indigo-200/60 text-sm">Total Entries</p>
+              <p className="text-2xl font-bold text-white">
+                {entries?.filter((e) => {
+                  const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                    ? (e.userId._id || e.userId.id || e.userId)
+                    : e.userId;
+                  const userIdStr = entryUserId?.toString();
+                  const currentUserIdStr = user?._id?.toString();
+                  return userIdStr === currentUserIdStr;
+                }).length || 0}
+              </p>
+            </div>
+          </div>
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl blur opacity-50 group-hover:opacity-75 transition"></div>
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
+              <p className="text-indigo-200/60 text-sm">Pending</p>
+              <p className="text-2xl font-bold text-white">
+                {entries?.filter((e) => {
+                  const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                    ? (e.userId._id || e.userId.id || e.userId)
+                    : e.userId;
+                  const userIdStr = entryUserId?.toString();
+                  const currentUserIdStr = user?._id?.toString();
+                  return userIdStr === currentUserIdStr && e.status === "PENDING";
+                }).length || 0}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Menu Cards */}
+        <div className="grid gap-4">
+          <Link href="/entries">
+            <div className="relative group overflow-hidden rounded-xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-indigo-900 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative p-4 flex items-center justify-between bg-black/20">
+                <div>
+                  <h3 className="text-lg font-semibold mb-1 text-white">Entries</h3>
+                  <p className="text-sm text-indigo-200/80">Manage your flat's entries</p>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-white/20 rounded-full blur-sm group-hover:bg-white/30 transition-all"></div>
+                  <FiList className="relative w-8 h-8 text-white" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/payments">
+            <div className="relative group overflow-hidden rounded-xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-800 to-purple-900 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative p-4 flex items-center justify-between bg-black/20">
+                <div>
+                  <h3 className="text-lg font-semibold mb-1 text-white">Payments</h3>
+                  <p className="text-sm text-indigo-200/80">Track bills and payments</p>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-white/20 rounded-full blur-sm group-hover:bg-white/30 transition-all"></div>
+                  <FiCreditCard className="relative w-8 h-8 text-white" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/penalties">
+            <div className="relative group overflow-hidden rounded-xl">
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-700 to-purple-800 transition-all duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="relative p-4 flex items-center justify-between bg-black/20">
+                <div>
+                  <h3 className="text-lg font-semibold mb-1 text-white">Penalties</h3>
+                  <p className="text-sm text-indigo-200/80">View and manage penalties</p>
+                </div>
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-white/20 rounded-full blur-sm group-hover:bg-white/30 transition-all"></div>
+                  <FiAlertTriangle className="relative w-8 h-8 text-white" />
+                </div>
+              </div>
+            </div>
+          </Link>
+
+          {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+            <Link href="/manage-users">
+              <div className="relative group overflow-hidden rounded-xl">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900 to-purple-900 transition-all duration-300 group-hover:scale-105"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                <div className="relative p-4 flex items-center justify-between bg-black/20">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-1 text-white">Manage Users</h3>
+                    <p className="text-sm text-indigo-200/80">Handle user access and roles</p>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute -inset-1 bg-white/20 rounded-full blur-sm group-hover:bg-white/30 transition-all"></div>
+                    <FiUsers className="relative w-8 h-8 text-white" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+          )}
+        </div>
+
+        <MobileNav />
+      </main>
+    </div>
+  );
+
+  // Desktop View Component
+  const DesktopView = () => (
+    <>
+      <Header />
+
+      <div className="min-h-screen w-full relative flex flex-col bg-white pt-[80px]">
         {/* Background Blur Effect */}
         <div className="absolute inset-0 bg-[radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%)] opacity-30 blur-2xl"></div>
 
-        <div className="relative z-10 w-full flex-grow bg-gradient-to-r from-indigo-600  via-[#241e95]  to-indigo-800 shadow-2xl p-6 md:p-8">
-
-
-          {/* Welcome Message */}
-          {/* <h1 className="text-3xl font-bold text-white">
-            Welcome, {user?.name} 👋
-          </h1>
-          <br /> */}
-
-
+        <div className="relative z-10 w-full flex-grow bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800 shadow-2xl p-6 md:p-8">
           {/* Cards Section */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Link href="/entries">
@@ -117,6 +228,20 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Show Mobile View for screens smaller than md breakpoint */}
+      <div className="block md:hidden">
+        <MobileView />
+      </div>
+
+      {/* Show Desktop View for md and larger screens */}
+      <div className="hidden md:block">
+        <DesktopView />
       </div>
     </>
   );

@@ -1,9 +1,10 @@
-
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { MobileNav } from "@/components/mobile-nav";
+import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,6 +23,29 @@ import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css"; // Pagination styling
+
+interface Payment {
+  _id: string;
+  userId: {
+    name: string;
+    profilePicture?: string;
+  };
+  amount: number;
+  status: "PAID" | "PENDING";
+}
+
+interface Bill {
+  _id: string;
+  month: string;
+  year: number;
+  items: Array<{
+    name: string;
+    amount: number;
+  }>;
+  totalAmount: number;
+  splitAmount: number;
+  dueDate: string;
+}
 
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
@@ -53,15 +77,18 @@ export default function PaymentsPage() {
     }
   });
 
-  const { data: payments = [] } = useQuery({
+  const { data: payments = [] } = useQuery<Payment[]>({
     queryKey: ["/api/payments"],
   });
 
-  const { data: bills = [] } = useQuery({
+  const { data: bills = [] } = useQuery<Bill[]>({
     queryKey: ["/api/bills"],
   });
 
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<{
+    _id: string;
+    name: string;
+  }[]>({
     queryKey: ["/api/users"],
   });
 
@@ -138,33 +165,10 @@ export default function PaymentsPage() {
   const paginatedBills = bills.slice((currentBillsPage - 1) * itemsPerPage, currentBillsPage * itemsPerPage);
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
+      <Header />
 
-      {/* Header Section  */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex justify-between items-center">
-        {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
-        <div className="flex items-center gap-4 w-full">
-          {/* Roomie Logo */}
-          <Link to="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <img src={favicon} alt="Roomie Logo" className="h-12" />
-              <h1 className="text-3xl font-bold text-white">Roomie</h1>
-            </div>
-          </Link>
-
-          {/* Profile Button (aligned to the right on desktop) */}
-          <div className="ml-auto">
-            <Link href="/profile">
-              <Button className="flex items-center gap-2 px-5 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:bg-indigo-50 transition-all">
-                <FiUser className="h-5 w-5 text-indigo-600" />
-                {user?.name ? user.name.split(" ")[0] : "Profile"}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="min-h-screen p-8">
+      <div className="min-h-screen p-8 pt-[130px]">
         <div className=" max-w-7xl mx-auto space-y-6">
           <div className=" rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-col sm:flex-row justify-between gap-4">
             <h1 className="text-3xl font-bold text-white">Payments</h1>
@@ -400,7 +404,7 @@ export default function PaymentsPage() {
                     Add Item
                   </Button>
                   <Button
-                    className="flex items-center w-28 px-4 gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                    className="flex items-center w-28 gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                     onClick={handleCreateBill}
                     disabled={!newBillItems.some(item => item.name && item.amount)}
                   >
@@ -464,8 +468,12 @@ export default function PaymentsPage() {
             </DialogContent>
           </Dialog>
 
+          {/* Mobile Navigation - Only visible on mobile */}
+          <div className="block md:hidden">
+            <MobileNav />
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

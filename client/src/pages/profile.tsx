@@ -22,6 +22,8 @@ import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css";
 import Cropper from 'react-easy-crop';
 import { Slider } from "@/components/ui/slider";
+import { MobileNav } from "@/components/mobile-nav";
+import { Header } from "@/components/header";
 
 interface Activity {
   _id: string;
@@ -288,30 +290,9 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-600 via-[#241e95] to-indigo-800">
-      {/* Header Section */}
-      <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 shadow-lg border-b border-indigo-700/50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition">
-              <img src={favicon} alt="Roomie Logo" className="h-10 sm:h-12 w-auto" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-white">Roomie</h1>
-            </Link>
-
-            <Link href="/profile">
-              <Button 
-                variant="ghost" 
-                className="flex items-center gap-2 bg-white/10 text-white hover:bg-white/20 transition-all"
-              >
-                <FiUser className="h-4 w-4" />
-                <span className="hidden sm:inline">{user?.name ? user.name.split(" ")[0] : "Profile"}</span>
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      <Header />
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 space-y-8">
+      <main className="container mx-auto px-4 pt-32 pb-8 space-y-8">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Profile Settings</h1>
         </div>
@@ -630,6 +611,11 @@ export default function ProfilePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Mobile Navigation */}
+      <div className="block md:hidden">
+        <MobileNav />
+      </div>
     </div>
   );
 }

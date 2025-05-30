@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
-import favicon from "../../favroomie.png";
 import { Button } from "@/components/ui/button";
+import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -14,12 +14,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
-import { FiUser } from "react-icons/fi";
+import { FiUser, FiList, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import ResponsivePagination from "react-responsive-pagination";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { MobileNav } from "@/components/mobile-nav";
 
 interface User {
   _id: string;
@@ -623,31 +624,8 @@ export default function PenaltiesPage() {
 
   return (
     <>
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex justify-between items-center">
-        {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
-        <div className="flex items-center gap-4 w-full">
-          {/* Roomie Logo */}
-          <Link to="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <img src={favicon} alt="Roomie Logo" className="h-12" />
-              <h1 className="text-3xl font-bold text-white">Roomie</h1>
-            </div>
-          </Link>
-
-          {/* Profile Button (aligned to the right on desktop) */}
-          <div className="ml-auto">
-            <Link href="/profile">
-              <Button className="flex items-center gap-2 px-5 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:bg-indigo-50 transition-all">
-                <FiUser className="h-5 w-5 text-indigo-600" />
-                {user?.name ? user.name.split(" ")[0] : "Profile"}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="min-h-screen p-8">
+      <Header />
+      <div className="min-h-screen p-8 pb-24 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Penalties</h1>
@@ -995,7 +973,7 @@ export default function PenaltiesPage() {
           </div>
 
           {/* Penalties Table */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+          <div className=" rounded-lg shadow-md overflow-hidden ">
             <div className="p-4 bg-indigo-50 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2">
               <h2 className="text-lg font-semibold text-gray-800">All Penalties</h2>
 
@@ -1012,10 +990,10 @@ export default function PenaltiesPage() {
               )}
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto bg-indigo-100">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-gray-50">
+                  <TableRow className="bg-slate-300">
 
                     <TableHead>User</TableHead>
                     <TableHead>Type</TableHead>
@@ -1137,6 +1115,11 @@ export default function PenaltiesPage() {
           />
 
         </div >
+      </div>
+
+      {/* Mobile Navigation */}
+      <div className="block md:hidden">
+        <MobileNav />
       </div>
     </>
 

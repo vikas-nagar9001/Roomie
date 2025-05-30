@@ -16,6 +16,8 @@ import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css"; // Default theme
+import { Header } from "@/components/header";
+import { MobileNav } from "@/components/mobile-nav";
 import {
   Table,
   TableBody,
@@ -349,35 +351,8 @@ export default function EntriesPage() {
 
   return (
     <>
-
-      {/* Header Section */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex justify-between items-center">
-        {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
-        <div className="flex items-center gap-4 w-full">
-          {/* Roomie Logo */}
-          <Link to="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <img src={favicon} alt="Roomie Logo" className="h-12" />
-              <h1 className="text-3xl font-bold text-white">Roomie</h1>
-            </div>
-          </Link>
-
-          {/* Profile Button (aligned to the right on desktop) */}
-          <div className="ml-auto">
-            <Link href="/profile">
-              <Button className="flex items-center gap-2 px-5 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:bg-indigo-50 transition-all">
-                <FiUser className="h-5 w-5 text-indigo-600" />
-                {user?.name ? user.name.split(" ")[0] : "Profile"}
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-
-
-
-      <div className="min-h-screen p-8">
+      <Header />
+      <div className="min-h-screen p-8 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
         <div className="max-w-7xl mx-auto">
           <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
             <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
@@ -1134,6 +1109,11 @@ export default function EntriesPage() {
         confirmText="Delete All"
         cancelText="Cancel"
       />
+
+      {/* Mobile Navigation */}
+      <div className="block md:hidden">
+        <MobileNav />
+      </div>
     </>
   );
 }
