@@ -1059,6 +1059,33 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Update flat settings
+  app.patch("/api/flats/:flatId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ message: "Only admins can update flat settings" });
+    }
+
+    try {
+      const { flatId } = req.params;
+      const { name, minApprovalAmount } = req.body;
+
+      const flat = await storage.updateFlat(flatId, {
+        name,
+        minApprovalAmount: Number(minApprovalAmount)
+      });
+      
+      if (!flat) {
+        return res.status(404).json({ message: "Flat not found" });
+      }
+      
+      res.json(flat);
+    } catch (error) {
+      console.error("Failed to update flat settings:", error);
+      res.status(500).json({ message: "Failed to update flat settings" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

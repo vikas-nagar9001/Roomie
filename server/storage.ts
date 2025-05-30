@@ -540,6 +540,16 @@ async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.
       return false;
     }
   }
+
+  async updateFlat(flatId: string, update: Partial<Flat>) {
+    const updatedFlat = await FlatModel.findByIdAndUpdate(
+      flatId,
+      { $set: update },
+      { new: true }
+    ).exec();
+    
+    return updatedFlat ? this.convertId(updatedFlat.toObject()) : undefined;
+  }
 }
 
 export const storage = new MongoStorage();

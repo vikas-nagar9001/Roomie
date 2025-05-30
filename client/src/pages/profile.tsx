@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
-import { FaCamera } from "react-icons/fa";
+import { FaCamera, FaEdit } from "react-icons/fa";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
 import { FiLogOut, FiUser } from "react-icons/fi";
@@ -19,13 +20,37 @@ import favicon from "../../favroomie.png";
 import { Link } from "wouter";
 import ResponsivePagination from "react-responsive-pagination";
 import "react-responsive-pagination/themes/classic.css";
+import Cropper from 'react-easy-crop';
+import { Slider } from "@/components/ui/slider";
+
+interface Activity {
+  _id: string;
+  description: string;
+  timestamp: string;
+}
+
+interface CropArea {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export default function ProfilePage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;  // Fetch flat details
+  const itemsPerPage = 5;
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
+  const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
+
+  // Flat data query
   const { data: flat, isError: flatError, isLoading: flatLoading } = useQuery({
     queryKey: ["/api/flats", user?.flatId],
     queryFn: async () => {
@@ -45,11 +70,23 @@ export default function ProfilePage() {
       }
     },
     enabled: !!user?.flatId,
-    retry: 3, // Retry failed requests up to 3 times
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    retry: 3,
+    staleTime: 5 * 60 * 1000,
   });
 
-  const { data: activities = [] } = useQuery({
+  // Initialize form states after flat data is available
+  const [flatName, setFlatName] = useState("");
+  const [minApprovalAmount, setMinApprovalAmount] = useState("");
+
+  // Update form values when flat data changes or edit mode is enabled
+  useEffect(() => {
+    if (flat && isEditingFlatSettings) {
+      setFlatName(flat.name || "");
+      setMinApprovalAmount(flat.minApprovalAmount?.toString() || "");
+    }
+  }, [flat, isEditingFlatSettings]);
+
+  const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
     queryKey: ["/api/user/activities"],
     enabled: !!user,
   });
@@ -58,6 +95,86 @@ export default function ProfilePage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Function to convert base64 to blob
+  const dataURLtoBlob = (dataurl: string) => {
+    const arr = dataurl.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1];
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  };
+
+  const onCropComplete = useCallback((croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const getCroppedImage = async () => {
+    if (!imageSrc || !croppedAreaPixels) return null;
+    
+    const image = new Image();
+    image.src = imageSrc;
+    
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    
+    canvas.width = croppedAreaPixels.width;
+    canvas.height = croppedAreaPixels.height;
+    
+    await new Promise((resolve) => {
+      image.onload = resolve;
+    });
+    
+    ctx.drawImage(
+      image,
+      croppedAreaPixels.x,
+      croppedAreaPixels.y,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height,
+      0,
+      0,
+      croppedAreaPixels.width,
+      croppedAreaPixels.height
+    );
+    
+    return canvas.toDataURL('image/jpeg');
+  };
+
+  const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImageSrc(reader.result as string);
+        setIsCropperOpen(true);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCropSave = async () => {
+    try {
+      const croppedImageUrl = await getCroppedImage();
+      if (!croppedImageUrl) return;
+
+      const blob = dataURLtoBlob(croppedImageUrl);
+      const file = new File([blob], "profile-picture.jpg", { type: "image/jpeg" });
+      uploadProfilePictureMutation.mutate(file);
+      setIsCropperOpen(false);
+    } catch (error) {
+      console.error("Error saving cropped image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save cropped image",
+        variant: "destructive",
+      });
+    }
+  };
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
@@ -110,13 +227,6 @@ export default function ProfilePage() {
     },
   });
 
-  const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      uploadProfilePictureMutation.mutate(file);
-    }
-  };
-
   const handleClearCache = async () => {
     try {
       const response = await axios.post("/api/set-version-new");
@@ -154,127 +264,151 @@ export default function ProfilePage() {
     },
   });
 
+  const updateFlatSettingsMutation = useMutation({
+    mutationFn: async (data: { name?: string; minApprovalAmount?: number }) => {
+      const res = await apiRequest("PATCH", `/api/flats/${user?.flatId}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/flats", user?.flatId] });
+      toast({
+        title: "Settings updated",
+        description: "Flat settings have been updated successfully",
+      });
+      setIsEditingFlatSettings(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
-    <>
+    <div className="min-h-screen bg-gradient-to-b from-indigo-600 via-[#241e95] to-indigo-800">
+      {/* Header Section */}
+      <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 shadow-lg border-b border-indigo-700/50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition">
+              <img src={favicon} alt="Roomie Logo" className="h-10 sm:h-12 w-auto" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-white">Roomie</h1>
+            </Link>
 
-      {/* Header Section  */}
-      <div className="bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-800 p-6 shadow-lg flex justify-between items-center">
-        {/* Logo and Profile Button (Logo on the left, Profile Button on the right) */}
-        <div className="flex items-center gap-4 w-full">
-          {/* Roomie Logo */}
-          <Link to="/">
-            <div className="flex items-center gap-3 cursor-pointer">
-              <img src={favicon} alt="Roomie Logo" className="h-12" />
-              <h1 className="text-3xl font-bold text-white">Roomie</h1>
-            </div>
-          </Link>
-
-          {/* Profile Button (aligned to the right on desktop) */}
-          <div className="ml-auto">
             <Link href="/profile">
-              <Button className="flex items-center gap-2 px-5 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:bg-indigo-50 transition-all">
-                <FiUser className="h-5 w-5 text-indigo-600" />
-                {user?.name ? user.name.split(" ")[0] : "Profile"}
+              <Button 
+                variant="ghost" 
+                className="flex items-center gap-2 bg-white/10 text-white hover:bg-white/20 transition-all"
+              >
+                <FiUser className="h-4 w-4" />
+                <span className="hidden sm:inline">{user?.name ? user.name.split(" ")[0] : "Profile"}</span>
               </Button>
             </Link>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="min-h-screen p-8 bg-gradient-to-b from-indigo-600 via-[#241e95] to-indigo-800  text-white">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold">Profile Settings</h1>
-          </div>
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">Profile Settings</h1>
+        </div>
 
-          <div className="grid gap-8 md:grid-cols-[240px,1fr]">
-            {/* Sidebar */}
-
-            <Card>
-              <CardContent className="p-6 relative">
-                <div className="flex flex-col items-center space-y-4">
-                  {/* Avatar with Camera Icon Overlay */}
-                  <div className="relative">
-                    <Avatar className="h-24 w-24 border-2">
-                      <AvatarImage
-                        src={user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                      />
-                      <AvatarFallback>
-                        {user?.name?.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    {/* Camera Icon Overlay */}
-                    <div
-                      onClick={() => document.getElementById("profile-picture")?.click()}
-                      className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-full cursor-pointer hover:bg-opacity-80"
-                    >
-                      <FaCamera className="text-xm" /> {/* React Camera Icon */}
-                    </div>
-
-                    {/* Hidden File Input for Profile Picture Change */}
-                    <input
-                      type="file"
-                      id="profile-picture"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={(e) => handleProfilePictureChange(e)} // Function to handle the file input change
+        {/* Profile Grid */}
+        <div className="grid gap-6 lg:grid-cols-[280px,1fr] xl:gap-8">
+          {/* Sidebar */}
+          <Card className="h-fit bg-white/5 backdrop-blur-lg border-white/10">
+            <CardContent className="p-6">
+              <div className="flex flex-col items-center space-y-6">
+                {/* Avatar with Camera Icon */}
+                <div className="relative group">
+                  <Avatar className="h-24 w-24 border-2 border-white/20 group-hover:border-white/40 transition-all">
+                    <AvatarImage
+                      src={user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
+                      className="object-cover"
                     />
+                    <AvatarFallback className="bg-indigo-600 text-xl font-semibold">
+                      {user?.name?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+
+                  {/* Camera Icon Overlay */}
+                  <div
+                    onClick={() => document.getElementById("profile-picture")?.click()}
+                    className="absolute bottom-0 right-0 p-2.5 bg-indigo-600 text-white rounded-full cursor-pointer 
+                             hover:bg-indigo-700 transform hover:scale-105 transition-all shadow-lg"
+                  >
+                    <FaCamera className="h-4 w-4" />
                   </div>
 
-                  <p className="text-sm font-semibold text-white">{user?.name}</p>
-                  <p className="text-sm text-muted-foreground text-slate-100">{user?.email}</p>
+                  <input
+                    type="file"
+                    id="profile-picture"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                  />
                 </div>
-              </CardContent>
 
-              <div className="flex justify-center py-4 gap-4">
-                {/* Logout Button */}
+                <div className="text-center space-y-1.5">
+                  <p className="text-base font-medium text-white">{user?.name}</p>
+                  <p className="text-sm text-white/70">{user?.email}</p>
+                </div>
+
                 <Button
                   onClick={() => logoutMutation.mutate()}
                   disabled={logoutMutation.isPending}
-                  className="flex items-center gap-2 px-5 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-all"
+                  className="w-full flex items-center justify-center gap-2 bg-red-600/90 hover:bg-red-700 text-white 
+                           font-medium py-2 rounded-lg shadow-md transition-all"
                 >
-                  <FiLogOut className="h-5 w-5 text-white" />
+                  <FiLogOut className="h-4 w-4" />
                   Logout
                 </Button>
-
-
               </div>
-            </Card>
+            </CardContent>
+          </Card>
 
-
-
-
-
-            {/* Main Content */}
-            <Card>
-              <CardContent className="p-6">
-                <Tabs defaultValue="profile">
-                  <TabsList className="grid w-full grid-cols-3 bg-white/80">
-                    <TabsTrigger value="profile" className="flex items-center gap-2 text-slate-700 ">
-                      <LuUser className="h-4 w-4" />
-                      Profile
+          {/* Main Content */}
+          <Card className="bg-white/5 backdrop-blur-lg border-white/10">
+            <CardContent className="p-6">
+              <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-white/10 rounded-lg p-1">
+                  <TabsTrigger 
+                    value="profile" 
+                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                  >
+                    <LuUser className="h-4 w-4 mr-2" />
+                    Profile
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="activity"
+                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                  >
+                    <LuHistory className="h-4 w-4 mr-2" />
+                    Activity
+                  </TabsTrigger>
+                  {user?.role === "ADMIN" && (
+                    <TabsTrigger 
+                      value="flat"
+                      className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                    >
+                      <LuSettings className="h-4 w-4 mr-2" />
+                      Flat Settings
                     </TabsTrigger>
-                    <TabsTrigger value="activity" className="flex items-center gap-2 text-slate-700">
-                      <LuHistory className="h-4 w-4" />
-                      Activity
-                    </TabsTrigger>
-                    {user?.role === "ADMIN" && (
-                      <TabsTrigger value="flat" className="flex items-center gap-2 text-slate-700">
-                        <LuSettings className="h-4 w-4" />
-                        Flat Settings
-                      </TabsTrigger>
-                    )}
-                  </TabsList>
+                  )}
+                </TabsList>
 
-                  <TabsContent value="profile" className="space-y-4 mt-4">
+                <TabsContent value="profile" className="space-y-6 mt-6">
+                  <div className="space-y-4">
                     <div>
                       <Label htmlFor="name" className="text-white">Name</Label>
                       <Input
                         id="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white"
                       />
                     </div>
                     <div>
@@ -284,13 +418,14 @@ export default function ProfilePage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        className="bg-white/10 border-white/20 text-white"
                       />
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
                       <Button
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                         onClick={() => updateProfileMutation.mutate({ name, email })}
                         disabled={updateProfileMutation.isPending}
+                        className="bg-indigo-600 hover:bg-indigo-700"
                       >
                         Save Changes
                       </Button>
@@ -298,40 +433,52 @@ export default function ProfilePage() {
                       <Button
                         onClick={() => clearCacheMutation.mutate()}
                         disabled={clearCacheMutation.isPending}
-                        className="flex items-center gap-1 px-3 py-1.5 text-sm bg-slate-600 text-white font-medium rounded-md shadow-md hover:bg-slate-500 transition-all"
+                        variant="outline"
+                        className="border-white/20 text-white hover:bg-white/10"
                       >
-                        <MdOutlineCached className="h-4 w-4 text-white" />
+                        <MdOutlineCached className="mr-2" />
                         Clear Cache
                       </Button>
                     </div>
+                  </div>
+                </TabsContent>
 
-                  </TabsContent>
+                <TabsContent value="activity" className="mt-6">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
+                      <Button
+                        onClick={() => clearActivitiesMutation.mutate()}
+                        disabled={clearActivitiesMutation.isPending}
+                        variant="destructive"
+                        size="sm"
+                      >
+                        Clear All
+                      </Button>
+                    </div>
 
-                  <TabsContent value="activity" className="mt-4">
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
-                        <Button
-                          onClick={() => clearActivitiesMutation.mutate()}
-                          disabled={clearActivitiesMutation.isPending}
-                          className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition"
-                        >
-                          Clear All
-                        </Button>
-                      </div>
-                      {paginatedActivities.map((activity: any) => (
+                      {paginatedActivities.map((activity) => (
                         <div
                           key={activity._id}
-                          className="p-4 rounded-lg border bg-card text-card-foreground"
+                          className="p-4 rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm 
+                                   hover:bg-white/10 transition-all"
                         >
-                          <p className="font-medium">{activity.description}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="font-medium text-white">{activity.description}</p>
+                          <p className="text-sm text-white/70 mt-1">
                             {new Date(activity.timestamp).toLocaleString()}
                           </p>
                         </div>
                       ))}
+
+                      {activities.length === 0 && (
+                        <div className="text-center py-8 text-white/70">
+                          No recent activity
+                        </div>
+                      )}
+
                       {activities.length > 0 && (
-                        <div className="mt-4">
+                        <div className="mt-6">
                           <ResponsivePagination
                             current={currentPage}
                             total={totalPages}
@@ -340,57 +487,149 @@ export default function ProfilePage() {
                         </div>
                       )}
                     </div>
-                  </TabsContent>
+                  </div>
+                </TabsContent>
 
-                  {user?.role === "ADMIN" && (<TabsContent value="flat" className="mt-4 p-6 bg-white rounded-lg shadow-md">
+                {user?.role === "ADMIN" && (
+                  <TabsContent value="flat" className="mt-6">
                     <div className="space-y-6">
-                      <h3 className="text-2xl font-semibold text-black">Flat Settings</h3>
-                      {flatError ? (
-                        <div className="text-red-600">Error loading flat details. Please try again later.</div>
-                      ) : flatLoading ? (
-                        <div className="text-indigo-600">Loading flat details...</div>
-                      ) : flat ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center space-x-4">
-                            <Label className="text-black font-bold">Flat ID:</Label>
-                            <p className="text-sm font-semibold text-indigo-600">{user?.flatId}</p>
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-semibold text-white">Flat Settings</h3>
+                        {!isEditingFlatSettings && (
+                          <Button
+                            onClick={() => setIsEditingFlatSettings(true)}
+                            variant="outline"
+                            className="border-white/20 bg-white/70 hover:bg-white/10"
+                          >
+                            <FaEdit className="mr-2" />
+                            Edit Settings
+                          </Button>
+                        )}
+                      </div>
+
+                      {isEditingFlatSettings ? (
+                        <div className="space-y-4 bg-white/5 rounded-lg p-4">
+                          <div>
+                            <Label htmlFor="flatName" className="text-white">Flat Name</Label>
+                            <Input
+                              id="flatName"
+                              value={flatName}
+                              onChange={(e) => setFlatName(e.target.value)}
+                              className="bg-white/10 border-white/20 text-white"
+                              placeholder="Enter flat name"
+                            />
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <Label className="text-black font-bold">Flat Name:</Label>
-                            <p className="text-sm font-semibold text-indigo-600">{flat.name}</p>
+                          <div>
+                            <Label htmlFor="minApproval" className="text-white">Minimum Approval Amount (₹)</Label>
+                            <Input
+                              id="minApproval"
+                              type="number"
+                              value={minApprovalAmount}
+                              onChange={(e) => setMinApprovalAmount(e.target.value)}
+                              className="bg-white/10 border-white/20 text-white"
+                              placeholder="Enter minimum amount"
+                            />
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <Label className="text-black font-bold">Flat Username:</Label>
-                            <p className="text-sm font-semibold text-indigo-600">{flat.flatUsername}</p>
+                          <div className="flex gap-3">
+                            <Button
+                              onClick={() => updateFlatSettingsMutation.mutate({
+                                name: flatName,
+                                minApprovalAmount: Number(minApprovalAmount)
+                              })}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                            >
+                              Save Settings
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                setIsEditingFlatSettings(false);
+                                // Reset form values
+                                setFlatName(flat?.name || "");
+                                setMinApprovalAmount(flat?.minApprovalAmount?.toString() || "");
+                              }}
+                              className="bg-white/10 hover:bg-white/20 text-white border-0"
+                            >
+                              Cancel
+                            </Button>
                           </div>
-                          <div className="flex items-center space-x-4">
-                            <Label className="text-black font-bold">Minimum Approval Amount:</Label>
-                            <p className="text-sm font-semibold text-indigo-600">₹{flat.minApprovalAmount || '0'}</p>
-                          </div>
-                          {/* {flat.paymentSettings && (
-                              <>
-                                <div className="flex items-center space-x-4">
-                                  <Label className="text-black font-bold">Default Due Date:</Label>
-                                  <p className="text-sm font-semibold text-indigo-600">Every {flat.paymentSettings.defaultDueDate || '1st'} of the month</p>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                  <Label className="text-black font-bold">Penalty Amount:</Label>
-                                  <p className="text-sm font-semibold text-indigo-600">₹{flat.paymentSettings.penaltyAmount || '0'}</p>
-                                </div>
-                              </>
-                            )} */}
                         </div>
                       ) : (
-                        <div className="text-yellow-600">No flat details available</div>
+                        <div className="space-y-4">
+                          <div className="bg-white/5 p-4 rounded-lg">
+                            <Label className="text-white/70">Flat ID</Label>
+                            <p className="text-white font-medium mt-1">{user?.flatId}</p>
+                          </div>
+                          {flat && (
+                            <>
+                              <div className="bg-white/5 p-4 rounded-lg">
+                                <Label className="text-white/70">Flat Name</Label>
+                                <p className="text-white font-medium mt-1">{flat.name}</p>
+                              </div>
+                              <div className="bg-white/5 p-4 rounded-lg">
+                                <Label className="text-white/70">Minimum Approval Amount</Label>
+                                <p className="text-white font-medium mt-1">₹{flat.minApprovalAmount || '0'}</p>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       )}
                     </div>
-                  </TabsContent>)}
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
+                  </TabsContent>
+                )}
+              </Tabs>
+            </CardContent>
+          </Card>
         </div>
-      </div>
-    </>
+      </main>
+
+      {/* Image Cropping Dialog */}
+      <Dialog open={isCropperOpen} onOpenChange={setIsCropperOpen}>
+        <DialogContent className="bg-white/10 backdrop-blur-lg border-white/20">
+          <div className="h-[400px] relative">
+            {imageSrc && (
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={onCropComplete}
+              />
+            )}
+          </div>
+          
+          <div className="space-y-4 pt-4">
+            <div className="space-y-1.5">
+              <Label className="text-white">Zoom</Label>
+              <Slider
+                value={[zoom]}
+                min={1}
+                max={3}
+                step={0.1}
+                onValueChange={([value]) => setZoom(value)}
+                className="py-4"
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setIsCropperOpen(false)}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCropSave}
+                className="bg-indigo-600 hover:bg-indigo-700"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

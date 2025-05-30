@@ -1,67 +1,71 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FiUser } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
-import { Input } from "@/components/ui/input";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Penalty, PenaltyType, PenaltySettings } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
-import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
-import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
-import ResponsivePagination from "react-responsive-pagination";
-import "react-responsive-pagination/themes/classic.css";
-import { useEffect } from "react";
-
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
+import { FiUser } from "react-icons/fi";
+import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
+import ResponsivePagination from "react-responsive-pagination";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
+interface User {
+  _id: string;
+  name: string;
+  profilePicture?: string;
+  role?: string;
+  status?: string;
+  email?: string;
+}
 
-//////////////////////////////////////////// Timer Component //////////////////////////////////////////
+enum PenaltyType {
+  LATE_PAYMENT = "LATE_PAYMENT",
+  DAMAGE = "DAMAGE",
+  RULE_VIOLATION = "RULE_VIOLATION",
+  OTHER = "OTHER"
+}
+
+interface Penalty {
+  _id: string;
+  userId: string | User;
+  type: PenaltyType;
+  amount: number;
+  description: string;
+  createdAt: string;
+  image?: string;
+}
+
+interface PenaltyTimerData {
+  lastPenaltyAppliedAt: string;
+  warningPeriodDays: number;
+}
+
+// Penalty Timer Component
 function PenaltyTimer() {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
-
-  const { data: penaltyTimer } = useQuery({
+  const { data: timerData } = useQuery<PenaltyTimerData>({
     queryKey: ["/api/penalty-timers"],
   });
 
   useEffect(() => {
-    if (penaltyTimer) {
+    if (timerData) {
       const updateTimer = () => {
-        const lastPenalty = new Date(penaltyTimer.lastPenaltyAppliedAt);
-        const warningDays = penaltyTimer.warningPeriodDays;
-
+        const lastPenalty = new Date(timerData.lastPenaltyAppliedAt);
+        const warningDays = timerData.warningPeriodDays;
         const nextPenaltyDate = new Date(lastPenalty);
         nextPenaltyDate.setDate(nextPenaltyDate.getDate() + warningDays);
-
         const now = new Date();
         const diffTime = nextPenaltyDate.getTime() - now.getTime();
 
@@ -70,7 +74,6 @@ function PenaltyTimer() {
           const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
-
           setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`);
         } else {
           setTimeRemaining("Penalty Due");
@@ -81,9 +84,9 @@ function PenaltyTimer() {
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
     }
-  }, [penaltyTimer]);
+  }, [timerData]);
 
-  if (!penaltyTimer) return null;
+  if (!timerData) return null;
 
   return (
     <div className="flex items-center justify-between p-2 bg-indigo-700 text-white rounded-md shadow-md">
@@ -95,9 +98,7 @@ function PenaltyTimer() {
     </div>
   );
 }
-{/* <PenaltyTimer />   use this for render timer*/ }
 
-//////////////////////////////////////////// Timer Component //////////////////////////////////////////
 // Penalty Settings Form Component
 export function PenaltySettingsForm() {
   const { toast } = useToast();
@@ -107,69 +108,34 @@ export function PenaltySettingsForm() {
   const [warningDays, setWarningDays] = useState<number>(3);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
-  // Fetch users
-  const { data: users } = useQuery({
+  // Fetch users with proper typing
+  const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
 
   // Fetch current settings
-  const { data: settings, isLoading, error } = useQuery<PenaltySettings>({
+  const { data: settings, isLoading } = useQuery<PenaltySettings>({
     queryKey: ["/api/penalty-settings"],
     queryFn: async () => {
       const res = await apiRequest("GET", "/api/penalty-settings");
+      if (!res.ok) throw new Error("Failed to fetch settings");
       return res.json();
     },
-    staleTime: 0, // Always fetch fresh data
+    staleTime: 0,
   });
 
-  // Ensure state updates when settings load
+  // Update settings when they load
   useEffect(() => {
     if (settings) {
       setPenaltyPercentage(settings.contributionPenaltyPercentage);
       setWarningDays(settings.warningPeriodDays);
-      setSelectedUsers(settings.selectedUsers?.map(id => id.toString()) || []);
+      setSelectedUsers(settings.selectedUsers.map(id => id.toString()));
     }
   }, [settings]);
-
-  // Update settings mutation
-  const updateSettingsMutation = useMutation({
-    mutationFn: async (data: { 
-      contributionPenaltyPercentage: number; 
-      warningPeriodDays: number;
-      selectedUsers: string[];
-    }) => {
-      const res = await apiRequest("PATCH", "/api/penalty-settings", data);
-      if (!res.ok) {
-        throw new Error("Failed to update settings");
-      }
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] }); // Refetch data
-      toast({
-        title: "Settings Updated",
-        description: "Penalty settings have been updated successfully.",
-      });
-    },
-    onError: (err) => {
-      toast({
-        title: "Error",
-        description: "Failed to update settings. Please try again.",
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setLoading(false);
-    },
-  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
-    // Optimistically update UI before API call
-    setPenaltyPercentage(penaltyPercentage);
-    setWarningDays(warningDays);
 
     updateSettingsMutation.mutate({
       contributionPenaltyPercentage: penaltyPercentage,
@@ -178,90 +144,186 @@ export function PenaltySettingsForm() {
     });
   };
 
-  // Show loading state while fetching settings
+  const updateSettingsMutation = useMutation({
+    mutationFn: async (data: PenaltySettings) => {
+      const res = await apiRequest("PATCH", "/api/penalty-settings", data);
+      if (!res.ok) throw new Error("Failed to update settings");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] });
+      toast({
+        title: "Settings Updated",
+        description: "Penalty settings have been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update settings. Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => setLoading(false),
+  });
+
   if (isLoading) {
-    return <div className="p-4 text-center">Loading settings...</div>;
+    return (
+      <div className="p-8 text-center">
+        <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+        <p className="mt-2 text-gray-600">Loading settings...</p>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        {/* Penalty Percentage Slider */}
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="penaltyPercentage">Contribution Penalty Percentage</Label>
-            <span className="text-sm font-medium">{penaltyPercentage}%</span>
-          </div>
-          <Slider
-            id="penaltyPercentage"
-            min={1}
-            max={10}
-            step={0.5}
-            value={[penaltyPercentage]}
-            onValueChange={(value) => setPenaltyPercentage(value[0])}
-            className="py-4"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            Percentage of total flat entry amount to charge as penalty for users who contribute less than their fair share.
-          </p>
-        </div>
+    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 to-white p-1 sm:p-6 rounded-2xl">
+      {/* Decorative elements */}
+      <div className="absolute top-0 left-0 w-32 h-32 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite]"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_2s]"></div>
+      <div className="absolute -bottom-8 left-20 w-32 h-32 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_4s]"></div>
 
-        {/* Warning Period Slider */}
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="warningDays">Warning Period (Days)</Label>
-            <span className="text-sm font-medium">{warningDays} days</span>
+      <form onSubmit={handleSubmit} className="relative space-y-8">
+        <div className="space-y-6">
+          {/* Title and Description */}
+          <div className="text-center space-y-2 mb-6">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              Penalty Configuration
+            </h2>
+            <p className="text-sm text-gray-500">
+              Configure penalty settings for your flat members
+            </p>
           </div>
-          <Slider
-            id="warningDays"
-            min={1}
-            max={7}
-            step={1}
-            value={[warningDays]}
-            onValueChange={(value) => setWarningDays(value[0])}
-            className="py-4"
-          />
-          <p className="text-sm text-gray-500 mt-1">
-            Number of days to wait before applying another penalty if the user still hasn't contributed their fair share.
-          </p>
-        </div>
 
-        {/* User Selection */}
-        <div className="space-y-2">
-          <Label>Select Users for Penalties</Label>
-          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto p-2 border rounded-lg">
-            {users?.map((user: any) => (
-              <div key={user._id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={user._id}
-                  checked={selectedUsers.includes(user._id)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedUsers([...selectedUsers, user._id]);
-                    } else {
-                      setSelectedUsers(selectedUsers.filter(id => id !== user._id));
-                    }
-                  }}
-                />
-                <label
-                  htmlFor={user._id}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          {/* Penalty Percentage Slider with Glass Effect */}
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+            <div className="flex justify-between items-center mb-3">
+              <Label htmlFor="penaltyPercentage" className="text-indigo-900 font-semibold">
+                Penalty Percentage
+              </Label>
+              <span className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1 rounded-full shadow-sm">
+                {penaltyPercentage}%
+              </span>
+            </div>
+            <Slider
+              id="penaltyPercentage"
+              min={1}
+              max={10}
+              step={0.5}
+              value={[penaltyPercentage]}
+              onValueChange={(value) => setPenaltyPercentage(value[0])}
+              className="py-4"
+            />
+            <p className="text-xs text-gray-500 mt-2 italic">
+              Percentage applied as penalty for contributions below fair share
+            </p>
+          </div>
+
+          {/* Warning Period Slider with Glass Effect */}
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+            <div className="flex justify-between items-center mb-3">
+              <Label htmlFor="warningDays" className="text-indigo-900 font-semibold">
+                Warning Period
+              </Label>
+              <span className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1 rounded-full shadow-sm">
+                {warningDays} days
+              </span>
+            </div>
+            <Slider
+              id="warningDays"
+              min={1}
+              max={7}
+              step={1}
+              value={[warningDays]}
+              onValueChange={(value) => setWarningDays(value[0])}
+              className="py-4"
+            />
+            <p className="text-xs text-gray-500 mt-2 italic">
+              Grace period before applying the next penalty
+            </p>
+          </div>
+
+          {/* User Selection with Glass Effect */}
+          <div className="backdrop-blur-md bg-white/80 p-6 rounded-2xl shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
+            <Label className="text-indigo-900 font-semibold mb-3 block">
+              Select Users
+            </Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-400 scrollbar-track-indigo-100 pr-2">
+              {users.map((user) => (
+                <div 
+                  key={user._id} 
+                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${
+                    selectedUsers.includes(user._id)
+                      ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 shadow-md'
+                      : 'bg-white/50 hover:bg-white hover:shadow-md'
+                  } border`}
                 >
-                  {user.name}
-                </label>
-              </div>
-            ))}
+                  <Checkbox
+                    id={user._id}
+                    checked={selectedUsers.includes(user._id)}
+                    onCheckedChange={(checked: boolean) => {
+                      if (checked) {
+                        setSelectedUsers([...selectedUsers, user._id]);
+                      } else {
+                        setSelectedUsers(selectedUsers.filter(id => id !== user._id));
+                      }
+                    }}
+                    className="border-indigo-300"
+                  />
+                  <label
+                    htmlFor={user._id}
+                    className="flex items-center gap-3 text-sm font-medium text-gray-700 hover:text-indigo-600 cursor-pointer flex-1"
+                  >
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                        <img
+                          src={user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
+                          alt={user.name}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                        />
+                      </div>
+                      {selectedUsers.includes(user._id) && (
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-4 h-4 border-2 border-white flex items-center justify-center">
+                          <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <span className="flex-1 truncate">{user.name}</span>
+                  </label>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-3 italic">
+              Leave unselected to apply penalties to all users
+            </p>
           </div>
-          <p className="text-sm text-gray-500">
-            Select users who should be affected by penalties. If none are selected, penalties will apply to all users.
-          </p>
         </div>
-      </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Updating..." : "Save Settings"}
-      </Button>
-    </form>
+        <Button 
+          type="submit" 
+          disabled={loading}
+          className={`w-full py-4 rounded-xl shadow-lg transition-all duration-300 transform hover:shadow-2xl ${
+            loading 
+              ? 'bg-gray-400'
+              : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:-translate-y-0.5'
+          }`}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <span className="text-white font-medium">Updating...</span>
+            </div>
+          ) : (
+            <span className="text-white font-medium">Save Settings</span>
+          )}
+        </Button>
+      </form>
+    </div>
   );
 }
 
