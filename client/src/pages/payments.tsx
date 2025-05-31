@@ -1,27 +1,27 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Plus } from "lucide-react";
+import { FaClipboardList } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MobileNav } from "@/components/mobile-nav";
-import { Header } from "@/components/header";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { CustomPagination } from "@/components/custom-pagination";
+import { Settings } from "lucide-react";
+import { Header } from "@/components/header";
+import { MobileNav } from "@/components/mobile-nav";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { LuMail, LuCheck, LuX, } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
-import { Settings } from "lucide-react";
-import { Link } from "wouter";
 import favicon from "../../favroomie.png";
-import { CustomPagination } from "@/components/custom-pagination";
 
 interface Payment {
   _id: string;
@@ -164,42 +164,45 @@ export default function PaymentsPage() {
   const paginatedBills = bills.slice((currentBillsPage - 1) * itemsPerPage, currentBillsPage * itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
+    <TooltipProvider>
       <Header />
+      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
+        <div className="max-w-7xl mx-auto">
+          <div className="relative group mb-8">
+            {/* Blurred border layer */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-      <div className="min-h-screen p-8 pt-[130px]">
-        <div className=" max-w-7xl mx-auto space-y-6">
-          <div className=" rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-col sm:flex-row justify-between gap-4">
-            <h1 className="text-3xl font-bold text-white">Payments</h1>
-            {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-              <div className="flex gap-3">
-                {/* Create Bill Button */}
-                <Button
-                  onClick={() => setIsCreateBillOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  Create Bill
-                </Button>
+            {/* Main content */}
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
+              <h1 className="text-2xl sm:text-3xl text-white font-bold">Payments</h1>
 
-                {/* Settings Button with User Profile Icon */}
-                <Button
-                  variant="outline"
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="flex items-center gap-2 border-gray-300 hover:bg-gray-100 text-gray-700 px-4 py-2 rounded-lg shadow-md transition-all"
-                >
-                  <Settings className="w-5 h-5 text-gray-700" />
-                  Settings
-                </Button>
+              <div className="flex gap-2">
+                {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                  <>
+                    <Button
+                      onClick={() => setIsCreateBillOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
+                    >
+                      <Plus className="h-5 w-5" />
+                      <span>Create Bill</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsSettingsOpen(true)}
+                      className="flex items-center gap-2 bg-white/80 hover:bg-white/90 text-gray-700"
+                    >
+                      <Settings className="h-5 w-5" />
+                      Settings
+                    </Button>
+                  </>
+                )}
               </div>
-            )}
+            </div>
           </div>
 
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Total Received</CardTitle>
                 <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -207,272 +210,343 @@ export default function PaymentsPage() {
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-extrabold text-green-300">₹{totalReceived}</div>
+                <div className="text-3xl font-extrabold text-green-400">₹{totalReceived}</div>
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Total Pending</CardTitle>
-                <svg className="w-10 h-10 text-yellow-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2 2m-2-6a4 4 0 11-4 4"></path>
+                <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                 </svg>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-extrabold text-yellow-300">₹{totalPending}</div>
+                <div className="text-3xl font-extrabold text-yellow-400">₹{totalPending}</div>
               </CardContent>
             </Card>
           </div>
 
+          <div className="mb-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="flex flex-wrap gap-2 p-2 border-b border-[#6636a3]/30 justify-start bg-[#151525]">
+                <TabsTrigger 
+                  value="status" 
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === "status" 
+                      ? "bg-[#6636a3] text-white" 
+                      : "text-white/70 hover:bg-[#6636a3]/20"
+                  }`}
+                >
+                  Payment Status
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="bills" 
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === "bills" 
+                      ? "bg-[#6636a3] text-white" 
+                      : "text-white/70 hover:bg-[#6636a3]/20"
+                  }`}
+                >
+                  Bills
+                </TabsTrigger>
+              </TabsList>
 
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="flex flex-wrap gap-2 p-2 border-b justify-start bg-gray-200">
-              <TabsTrigger value="status" className="px-4 py-2 text-gray-500 font-bold">Payment Status</TabsTrigger>
-              <TabsTrigger value="bills" className="px-4 py-2 text-gray-500 font-bold">Bills</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="status">
-              <Card className="overflow-x-auto bg-slate-300">
-                <Table>
+              <TabsContent value="status" className="mt-4">
+                <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
                   <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-left text-gray-800 font-bold">User</TableHead>
-                      <TableHead className="text-left text-gray-800 font-bold">Split Amount</TableHead>
-                      <TableHead className="text-left text-gray-800 font-bold">Left Amount</TableHead>
-                      <TableHead className="text-left text-gray-800 font-bold">Status</TableHead>
+                    <TableRow className="border-none">
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
+                        <span className="block">User</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                        <span className="block">Split Amount</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                        <span className="block">Left Amount</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">
+                        <span className="block">Status</span>
+                      </TableHead>
                       {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                        <TableHead className="text-left text-gray-800 font-bold">Actions</TableHead>
+                        <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">
+                          <span className="block">Actions</span>
+                        </TableHead>
                       )}
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="bg-indigo-100">
+
+                  <TableBody>
                     {paginatedPayments?.map((payment: any) => (
-                      <TableRow key={payment._id} className="hover:bg-white">
-                        <TableCell className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage
+                      <TableRow
+                        key={payment._id}
+                        className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
+                      >
+                        <TableCell className="min-w-[200px] py-4 px-3">
+                          <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                            <img
                               src={payment.userId?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                              alt={payment.userId?.name}
+                              alt="User"
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                              }}
                             />
-                            <AvatarFallback>
-                              <img
-                                src="https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg"
-                                alt={user?.name?.charAt(0).toUpperCase()}
-                                className="w-full h-full object-cover"
-                              />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="truncate max-w-[120px] sm:max-w-[160px]">
-                            {payment.userId?.name}
+                            <div className="truncate max-w-[140px] sm:max-w-[180px]">
+                              <span className="font-medium text-white">{payment.userId?.name || "Unknown User"}</span>
+                            </div>
                           </div>
                         </TableCell>
-                        <TableCell>₹{payment.amount}</TableCell>
-                        <TableCell>₹{payment.status === "PENDING" ? payment.amount : 0}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={`border ${payment.status === "PAID"
-                              ? "bg-green-100 text-green-700 border-green-300 hover:bg-green-200"
-                              : "bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200"
-                              }`}
+
+                        <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
+                          ₹{payment.amount.toFixed(2)}
+                        </TableCell>
+
+                        <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
+                          ₹{payment.leftAmount?.toFixed(2) || "0.00"}
+                        </TableCell>
+
+                        <TableCell className="py-4 px-3">
+                          <span
+                            className={`px-3 py-1 rounded-full text-sm font-medium
+                              ${payment.status === "PAID" ? "bg-white/10 text-[#ab6bff]" :
+                                payment.status === "PENDING" ? "bg-yellow-200/10 text-yellow-300" :
+                                  "bg-red-200/10 text-red-400"}`}
                           >
                             {payment.status}
-                          </Badge>
+                          </span>
                         </TableCell>
-                        {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                          <TableCell className="flex gap-3 justify-center sm:justify-start">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="p-2 rounded-full text-indigo-800 hover:bg-indigo-100  transition-all duration-200"
-                              onClick={() => sendReminderMutation.mutate(payment._id)}
-                            >
 
-                              <LuMail className="h-5 w-5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className={`p-2 rounded-full ${payment.status === "PAID"
-                                ? "text-red-500 hover:text-red-700"
-                                : "text-green-500 hover:text-green-700"
-                                } transition-all duration-200`}
-                              onClick={() =>
-                                updatePaymentStatusMutation.mutate({
-                                  paymentId: payment._id,
-                                  status: payment.status === "PAID" ? "PENDING" : "PAID",
-                                  amount: payment.amount
-                                })
-                              }
-                            >
-                              {payment.status === "PAID" ? <LuX className="h-5 w-5" /> : <LuCheck className="h-5 w-5" />}
-                            </Button>
+                        {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                          <TableCell className="text-center py-4 px-3">
+                            <div className="flex justify-center sm:justify-start gap-2">
+                              {payment.status === "PENDING" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-white bg-[#6636a3] border-[#6636a3] hover:bg-[#8e4be4] hover:text-white"
+                                  onClick={() => updatePaymentStatusMutation.mutate({
+                                    paymentId: payment._id,
+                                    status: "PAID",
+                                    amount: payment.amount
+                                  })}
+                                >
+                                  Mark as Paid
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-[#151525] text-[#a86ff4] border-[#6636a3] hover:bg-[#6636a3]/20"
+                                onClick={() => sendReminderMutation.mutate(payment._id)}
+                              >
+                                Send Reminder
+                              </Button>
+                            </div>
                           </TableCell>
                         )}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </Card>
-              {/* Pagination for Payments */}
-              <div className="flex justify-center mt-4">
-                <CustomPagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(payments.length / itemsPerPage)}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-            </TabsContent>
 
-            <TabsContent value="bills">
-              <Card className="overflow-x-auto">
-                <Table>
+                {(!payments || payments.length === 0) && (
+                  <div className="py-8 text-center text-white/60">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                      <p className="text-lg font-medium">No payments found</p>
+                      <p className="text-sm text-white/40">Start by creating a new bill!</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-center mt-4 mb-20 md:mb-4">
+                  <CustomPagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(payments.length / itemsPerPage)}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="bills" className="mt-4">
+                <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
                   <TableHeader>
-                    <TableRow className="bg-slate-300">
-                      <TableHead className="text-gray-800 font-bold">Month</TableHead>
-                      <TableHead className="text-gray-800 font-bold">Items</TableHead>
-                      <TableHead className="text-gray-800 font-bold">Total Amount</TableHead>
-                      <TableHead className="text-gray-800 font-bold">Split Amount</TableHead>
-                      <TableHead className="text-gray-800 font-bold">Due Date</TableHead>
+                    <TableRow className="border-none">
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Month</TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Total Amount</TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Split Amount</TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Due Date</TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Items</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody className="bg-indigo-100">
-                    {paginatedBills?.map((bill: any) => (
-                      <TableRow key={bill._id} className="hover:bg-white">
-                        <TableCell>{bill.month} {bill.year}</TableCell>
-                        <TableCell>
-                          {bill.items.map((item: any) => (
-                            <div key={item.name} className="truncate">{item.name}: ₹{item.amount.toFixed(2)}</div>
-                          ))}
-                        </TableCell>
-                        <TableCell>₹{bill.totalAmount.toFixed(2)}</TableCell>
-                        <TableCell>₹{bill.splitAmount.toFixed(2)}</TableCell>
 
-                        <TableCell>{format(new Date(bill.dueDate), "PPP")}</TableCell>
+                  <TableBody>
+                    {paginatedBills?.map((bill) => (
+                      <TableRow
+                        key={bill._id}
+                        className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
+                      >
+                        <TableCell className="py-4 px-3 text-white">
+                          {bill.month} {bill.year}
+                        </TableCell>
+                        <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
+                          ₹{bill.totalAmount.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
+                          ₹{bill.splitAmount.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-gray-400 py-4 px-3">
+                          {format(new Date(bill.dueDate), "MMM d, yyyy")}
+                        </TableCell>
+                        <TableCell className="py-4 px-3">
+                          <div className="space-y-1">
+                            {bill.items.map((item, index) => (
+                              <div key={index} className="text-sm">
+                                <span className="text-white/70">{item.name}:</span>{" "}
+                                <span className="text-[#9f5bf7]">₹{item.amount.toFixed(2)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </Card>
-              {/* Pagination for Bills */}
-              <div className="flex justify-center mt-4">
-                <CustomPagination
-                  currentPage={currentBillsPage}
-                  totalPages={Math.ceil(bills.length / itemsPerPage)}
-                  onPageChange={setCurrentBillsPage}
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
 
+                {(!bills || bills.length === 0) && (
+                  <div className="py-8 text-center text-white/60">
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                      <p className="text-lg font-medium">No bills found</p>
+                      <p className="text-sm text-white/40">Create your first bill!</p>
+                    </div>
+                  </div>
+                )}
 
+                <div className="flex justify-center mt-4 mb-20 md:mb-4">
+                  <CustomPagination
+                    currentPage={currentBillsPage}
+                    totalPages={Math.ceil(bills.length / itemsPerPage)}
+                    onPageChange={setCurrentBillsPage}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
 
           <Dialog open={isCreateBillOpen} onOpenChange={setIsCreateBillOpen}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-300">
+            <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
               <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-gray-900">Create Monthly Bill</DialogTitle>
+                <DialogTitle className="text-lg font-semibold text-white">Create Monthly Bill</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateBill();
+              }} className="space-y-4">
                 {newBillItems.map((item, index) => (
-                  <div key={index} className="flex gap-3 items-center">
-                    <Input
-                      placeholder="Item name"
-                      value={item.name}
-                      onChange={(e) => {
-                        const updated = [...newBillItems];
-                        updated[index].name = e.target.value;
-                        setNewBillItems(updated);
+                  <div key={index} className="space-y-2">              <Input
+                    type="text"
+                    placeholder="Item name"
+                    value={item.name}
+                    onChange={(e) => {
+                        const newItems = [...newBillItems];
+                        newItems[index].name = e.target.value;
+                        setNewBillItems(newItems);
                       }}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
-                    />
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                  />
                     <Input
                       type="number"
                       placeholder="Amount"
                       value={item.amount}
                       onChange={(e) => {
-                        const updated = [...newBillItems];
-                        updated[index].amount = e.target.value;
-                        setNewBillItems(updated);
+                        const newItems = [...newBillItems];
+                        newItems[index].amount = e.target.value;
+                        setNewBillItems(newItems);
                       }}
-                      className="w-28 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                      className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                     />
                   </div>
                 ))}
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={addBillItem} className=" px-4 py-2 flex-1 border-black bg-gray-200 hover:bg-gray-100 transition">
+                  <Button
+                    type="button"
+                    onClick={addBillItem}
+                    variant="outline"
+                    className="flex-1 text-white bg-[#151525] border-[#6636a3] hover:bg-[#6636a3]/20"
+                  >
                     Add Item
                   </Button>
                   <Button
-                    className="flex items-center w-28 gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                    onClick={handleCreateBill}
-                    disabled={!newBillItems.some(item => item.name && item.amount)}
+                    type="submit"
+                    className="flex-1 bg-[#6636a3] hover:bg-[#542d87] text-white"
                   >
                     Create Bill
                   </Button>
                 </div>
-              </div>
+              </form>
             </DialogContent>
           </Dialog>
 
-
           <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-            <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-indigo-100 border border-gray-300">
+            <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
               <DialogHeader>
-                <DialogTitle className="text-lg font-semibold text-gray-900">Payment Settings</DialogTitle>
+                <DialogTitle className="text-lg font-semibold text-white">Payment Settings</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Default Due Date</Label>
+                  <Label className="text-sm text-white/70">Default Due Days</Label>
                   <Input
                     type="number"
                     value={settings.defaultDueDate}
                     onChange={(e) => setSettings({ ...settings, defaultDueDate: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Penalty Amount (₹ per day)</Label>
+                  <Label className="text-sm text-white/70">Penalty Amount (₹)</Label>
                   <Input
                     type="number"
                     value={settings.penaltyAmount}
                     onChange={(e) => setSettings({ ...settings, penaltyAmount: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-gray-700 font-medium">Reminder Frequency (days)</Label>
+                  <Label className="text-sm text-white/70">Reminder Frequency (days)</Label>
                   <Input
                     type="number"
                     value={settings.reminderFrequency}
                     onChange={(e) => setSettings({ ...settings, reminderFrequency: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={settings.customSplitEnabled}
                     onCheckedChange={(checked) => setSettings({ ...settings, customSplitEnabled: checked as boolean })}
-                    className="w-5 h-5 border-gray-400 rounded focus:ring-2 focus:ring-purple-500 transition"
+                    className="h-5 w-5 rounded-md bg-[#1c1b2d] border border-[#6636a3] checked:bg-[#6636a3] checked:border-[#6636a3] focus:ring-2 focus:ring-[#6636a3] focus:ring-offset-0 transition duration-150 cursor-pointer hover:bg-[#1f1f2e]"
                   />
-                  <Label className="text-gray-700 font-medium">Enable Custom Split</Label>
+                  <Label className="text-sm text-white/70">Enable Custom Split</Label>
                 </div>
                 <Button
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                   onClick={() => updateSettingsMutation.mutate(settings)}
+                  className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white"
                 >
-                  <Settings className="w-5 h-5 text-white" />
                   Save Settings
                 </Button>
               </div>
             </DialogContent>
           </Dialog>
-
-          {/* Mobile Navigation - Only visible on mobile */}
-          <div className="block md:hidden">
-            <MobileNav />
-          </div>
         </div>
       </div>
-    </div>
+
+      {/* Mobile Navigation */}
+      <div className="block md:hidden fixed bottom-0 left-0 right-0 z-50">
+        <MobileNav />
+      </div>
+    </TooltipProvider>
   );
 }

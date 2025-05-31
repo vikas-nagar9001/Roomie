@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { FiUser, FiList, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
-import { CustomPagination } from "@/components/custom-pagination";
+import ResponsivePagination from "react-responsive-pagination";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -1092,11 +1092,12 @@ export default function PenaltiesPage() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex justify-center mt-4">
-                <CustomPagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+              <div className="p-4 border-t border-gray-200">
+                <ResponsivePagination
+                  current={currentPage}
+                  total={totalPages}
                   onPageChange={setCurrentPage}
+                  maxWidth={42}
                 />
               </div>
             )}

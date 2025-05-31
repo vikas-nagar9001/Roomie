@@ -99,14 +99,14 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
 
 
     const finalUserContribution = userContribution - userPenaltyAmount;
-    const finalFlatTotalEntry = flatTotalEntry - totalPenaltyAmount;
+    const finalFlatTotalEntry = Math.max(flatTotalEntry - totalPenaltyAmount, 0.01); // Prevent division by zero
     const finalFairShare = finalFlatTotalEntry / totalUsers;
-    //suppose 5 users then each user do 20% entry 
     const fairSharePercentage = (1 / totalUsers) * 100;
 
-    const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
-
-
+    // Calculate contribution percentage safely
+    const userContributionPercentage = finalFlatTotalEntry > 0 
+        ? (finalUserContribution / finalFlatTotalEntry) * 100 
+        : 0;
 
     const deficit = finalFairShare - finalUserContribution;
 
@@ -115,8 +115,8 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
     // minimum required contribution (75% of the fair share) before a warning is triggered. 🚀
     const fairShareThreshold = (75 * fairSharePercentage) / 100;
 
-    const isDeficit = userContributionPercentage < fairShareThreshold;
-    console.log("ft " + fairShareThreshold + "is de" + isDeficit);
+    // Only show deficit if there are entries and user's contribution is below threshold
+    const isDeficit = finalFlatTotalEntry > 0 && userContributionPercentage < fairShareThreshold;
 
     return (
         <Card className="relative group">
@@ -151,29 +151,74 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                         </div>
                     </div>
 
-                    <div className="flex justify-between items-center">
-                        <span className="text-white font-medium">Fair Share:</span>
-                        <span>₹{finalFairShare.toFixed(2)} ({fairSharePercentage.toFixed(1)}%)</span>
-                    </div>
 
-                    {/* Progress indicator */}
-                    <div className="mt-2">
-                        <div className="flex justify-between text-sm mb-2">
-                            <span className="text-white/80">Progress</span>
-                            <span className={`font-medium ${isDeficit ? 'text-red-400' : 'text-[#a86ff4]'}`}>
-                                {Math.min((userContributionPercentage / fairSharePercentage) * 100, 100).toFixed(0)}%
-                            </span>
-                        </div>
-                        <div className="h-3 bg-[#151525] rounded-full overflow-hidden">
-                            <div
-                                className={`h-full transition-all duration-500 ${isDeficit
-                                        ? 'bg-gradient-to-r from-[#ff6b6b] to-[#ff8585]'
-                                        : 'bg-gradient-to-r from-[#5433a7] to-[#6636a3]'
+                    {/* Premium Progress indicator */}
+                    <div className="mt-6">
+                        <div className="bg-[#151525]/50 p-4 rounded-xl border border-[#6636a3]/30 backdrop-blur-sm">
+                            <div className="flex justify-between items-center mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-[#a86ff4] animate-pulse"></div>
+                                    <span className="text-white/80 text-sm font-medium">Contribution Progress</span>
+                                </div>
+                                <span className={`font-bold text-lg ${
+                                    isDeficit ? 'text-red-400' 
+                                    : userContributionPercentage >= 100 ? 'text-green-400'
+                                    : 'text-[#a86ff4]'
+                                }`}>
+                                    {Math.min((userContributionPercentage / fairSharePercentage) * 100, 100).toFixed(0)}%
+                                </span>
+                            </div>
+                            
+                            {/* Premium Progress Bar */}
+                            <div className="relative h-4 bg-[#1a1a2e] rounded-lg overflow-hidden">
+                                {/* Animated Background */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#2a2a4e] to-[#1a1a2e] animate-shimmer"></div>
+                                
+                                {/* Main Progress Bar */}
+                                <div
+                                    className={`relative h-full transition-all duration-1000 ease-out ${
+                                        isDeficit
+                                            ? 'bg-gradient-to-r from-red-500 to-red-400'
+                                            : userContributionPercentage >= 100
+                                            ? 'bg-gradient-to-r from-emerald-500 to-green-400'
+                                            : 'bg-gradient-to-r from-[#5433a7] to-[#a86ff4]'
                                     }`}
-                                style={{
-                                    width: `${Math.min((userContributionPercentage / fairSharePercentage) * 100, 100)}%`
-                                }}
-                            />
+                                    style={{
+                                        width: `${Math.min((userContributionPercentage / fairSharePercentage) * 100, 100)}%`
+                                    }}
+                                >
+                                    {/* Shine Effect */}
+                                    <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 rounded-t-lg"></div>
+                                </div>
+                                
+                                {/* Progress Markers */}
+                                <div className="absolute inset-0 flex justify-between px-2">
+                                    {[25, 50, 75, 100].map((marker) => (
+                                        <div 
+                                            key={marker} 
+                                            className="h-full w-px bg-white/10"
+                                            style={{ left: `${marker}%` }}
+                                        >
+                                            <div className="absolute -top-5 left-1/2 transform -translate-x-1/2 text-[10px] text-white/40">
+                                                {marker}%
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            {/* Status Text */}
+                            <div className="mt-2 text-xs text-white/60">
+                                {finalFlatTotalEntry === 0 ? (
+                                    <span className="text-white/60">No entries yet. Start contributing! 🚀</span>
+                                ) : isDeficit ? (
+                                    <span className="text-red-400">Need more contribution to reach target</span>
+                                ) : userContributionPercentage >= 100 ? (
+                                    <span className="text-green-400">Target achieved! Great job! 🎉</span>
+                                ) : (
+                                    <span>Keep going, you're making good progress!</span>
+                                )}
+                            </div>
                         </div>
                     </div>
 

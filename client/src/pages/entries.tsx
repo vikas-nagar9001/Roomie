@@ -8,11 +8,12 @@ import { FiUser } from "react-icons/fi";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import CreatableSelect from "react-select/creatable";
-import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
+import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import { CustomPagination } from "@/components/custom-pagination";
 import { Header } from "@/components/header";
@@ -80,9 +81,9 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           </button>
         </div>
 
-        <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+        <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-gray-900">Edit Entry</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -124,9 +125,9 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
 
             <Button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+              className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg"
             >
-              <span> Update Entry</span>
+              Update Entry
             </Button>
           </form>
         </DialogContent>
@@ -412,9 +413,9 @@ export default function EntriesPage() {
                     </Button>
                   </DialogTrigger>
 
-                  <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                  <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
                     <DialogHeader>
-                      <DialogTitle className="text-lg font-semibold text-gray-800">Add New Entry</DialogTitle>
+                      <DialogTitle className="text-lg font-semibold text-white">Add New Entry</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
                       <CreatableSelect
@@ -428,7 +429,43 @@ export default function EntriesPage() {
                         onCreateOption={(inputValue) => {
                           setNewEntry({ ...newEntry, name: inputValue });
                         }}
-                        className="w-full bg-indigo-500"
+                        className="w-full"
+                        styles={{
+                          control: (base) => ({
+                            ...base,
+                            backgroundColor: '#151525',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            '&:hover': {
+                              borderColor: '#6636a3'
+                            }
+                          }),
+                          menu: (base) => ({
+                            ...base,
+                            backgroundColor: '#151525',
+                            border: '1px solid rgba(102, 54, 163, 0.3)'
+                          }),
+                          option: (base, { isFocused, isSelected }) => ({
+                            ...base,
+                            backgroundColor: isSelected ? '#6636a3' : isFocused ? 'rgba(102, 54, 163, 0.3)' : '#151525',
+                            color: 'white',
+                            cursor: 'pointer'
+                          }),
+                          singleValue: (base) => ({
+                            ...base,
+                            color: 'white',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: 'calc(100% - 20px)'
+                          }),
+                          input: (base) => ({
+                            ...base,
+                            color: 'white',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          })
+                        }}
                       />
 
                       <Input
@@ -436,15 +473,15 @@ export default function EntriesPage() {
                         placeholder="Amount"
                         value={newEntry.amount}
                         onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                        className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                       />
 
                       <Button
                         type="submit"
                         disabled={addEntryMutation.isPending}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+                        className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg"
                       >
-                        <span>Add Entry</span>
+                        Add Entry
                       </Button>
                     </form>
                   </DialogContent>
@@ -955,10 +992,19 @@ export default function EntriesPage() {
           <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
             <TableHeader>
               <TableRow className="border-none">
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">User</TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Entry Name</TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Amount</TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Date & Time</TableHead>
+
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
+                  <span className="block">User</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[180px]">
+                  <span className="block">Entry Name</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                  <span className="block">Amount</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                  <span className="block whitespace-nowrap">Date & Time</span>
+                </TableHead>
                 <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Status</TableHead>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <>
@@ -1013,21 +1059,28 @@ export default function EntriesPage() {
                   </TableCell>
 
                   <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
-                    {entry.name.length > 20 ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="block truncate cursor-help">
-                            {entry.name.substring(0, 20)}
-                            <span className="text-indigo-400">...</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="bg-[#6636a3] text-white border-white/10">
-                          <p className="max-w-xs break-words">{entry.name}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <span className="block">{entry.name}</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="block truncate">
+                        {entry.name.length > 20 
+                          ? `${entry.name.substring(0, 12)}...`
+                          : entry.name
+                        }
+                      </span>
+                      {entry.name.length > 20 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="w-5 h-5 rounded-full bg-[#6636a3]/30 hover:bg-[#6636a3]/50 flex items-center justify-center transition-colors group">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-[#a86ff4] group-hover:text-white transition-colors">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-xs">
+                            <p className="text-sm text-white break-words">{entry.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                   </TableCell>
 
                   <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
@@ -1115,6 +1168,17 @@ export default function EntriesPage() {
             </TableBody>
           </Table>
 
+
+          {/* No Entries Found Message */}
+          {(!entries || entries.length === 0) && (
+            <div className="py-8 text-center text-white/60">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                <p className="text-lg font-medium">No entries found</p>
+                <p className="text-sm text-white/40">Start by adding your first entry!</p>
+              </div>
+            </div>
+          )}
 
           {/* Pagination Component */}
           <div className="flex justify-center mt-4">          <CustomPagination
