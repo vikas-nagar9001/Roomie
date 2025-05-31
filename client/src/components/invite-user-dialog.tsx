@@ -29,9 +29,9 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+      <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-gray-900">Invite User</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-white">Invite User</DialogTitle>
         </DialogHeader>
         <form
           onSubmit={(e) => {
@@ -41,30 +41,30 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
           className="space-y-4"
         >
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-gray-700 font-medium">Name</Label>
+            <Label htmlFor="name" className="text-white/80">Name</Label>
             <Input
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-gray-700 font-medium">Email</Label>
+            <Label htmlFor="email" className="text-white/80">Email</Label>
             <Input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
             />
           </div>
           <Button
             type="submit"
             disabled={inviteUserMutation.isPending}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg transition"
             >
             Send Invite
           </Button>

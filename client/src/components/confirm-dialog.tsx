@@ -26,25 +26,27 @@ export function ConfirmDialog({
   title,
   description,
   onConfirm,
-  confirmText = "Delete",
+  confirmText = "Continue",
   cancelText = "Cancel",
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="top-40 max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="text-lg font-semibold text-gray-800">{title}</AlertDialogTitle>
-          <AlertDialogDescription className="text-sm text-gray-600">
+      <AlertDialogContent className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] max-w-[400px] p-8 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+        <AlertDialogHeader className="space-y-4">
+          <AlertDialogTitle className="text-lg font-semibold text-white">
+            {title}
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-white/70 text-sm leading-relaxed">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors">
+        <AlertDialogFooter className="flex gap-4 mt-8">
+          <AlertDialogCancel className="flex-1 px-6 py-2.5 bg-white/5 text-white hover:bg-white/10 border-white/10 transition-colors">
             {cancelText}
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+            className="flex-1 px-6 py-2.5 bg-[#6636a3] hover:bg-[#542d87] text-white border-none transition-colors"
           >
             {confirmText}
           </AlertDialogAction>

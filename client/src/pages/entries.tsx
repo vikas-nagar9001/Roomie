@@ -66,18 +66,18 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           <DialogTrigger asChild>
             {/* ✏️ Edit Button with Icon */}
             <button
-              className="p-1 text-blue-600 hover:bg-white/10 rounded-full transition"
+              className="p-1.5 text-[#6636a3] hover:bg-white/5 rounded-full transition-all duration-200"
               onClick={() => setOpen(true)}
             >
-              <FaEdit className="text-lg text-white" />
+              <FaEdit className="text-lg" />
             </button>
           </DialogTrigger>
           {/* 🗑️ Delete Button with Icon */}
           <button
-            className="p-1 text-red-600 hover:bg-[#482575] rounded-full transition"
+            className="p-1.5 text-red-500/80 hover:bg-white/5 hover:text-red-500 rounded-full transition-all duration-200"
             onClick={() => setDeleteDialogOpen(true)}
           >
-            <FaTrash className="text-lg text-[#a263f5]" />
+            <FaTrash className="text-lg" />
           </button>
         </div>
 
@@ -138,9 +138,9 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         title="Delete Entry"
-        description={`Are you sure you want to delete entry "${entry.name}"? This action cannot be undone.`}
+        description={`Are you sure you want to delete the entry "${entry.name.length > 15 ? entry.name.substring(0, 15) + '...' : entry.name}"?\nThis action cannot be undone and the entry will be permanently removed.`}
         onConfirm={handleDelete}
-        confirmText="Delete"
+        confirmText="Delete Entry"
         cancelText="Cancel"
       />
     </>
@@ -1196,9 +1196,9 @@ export default function EntriesPage() {
         open={bulkDeleteDialogOpen}
         onOpenChange={setBulkDeleteDialogOpen}
         title="Delete Multiple Entries"
-        description={`Are you sure you want to delete ${selectedEntries.length} selected entries? This action cannot be undone.`}
+        description={`Are you sure you want to delete ${selectedEntries.length} selected entries?\nThis action cannot be undone and all selected entries will be permanently removed.`}
         onConfirm={confirmBulkDelete}
-        confirmText="Delete All"
+        confirmText="Delete Selected"
         cancelText="Cancel"
       />
 

@@ -20,33 +20,36 @@ export default function ManageUsers() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-6 sm:p-8 sm:pt-32 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header Section */}
-          <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">
-              Manage Users
-            </h1>
+      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
+        <div className="max-w-7xl mx-auto">
+          <div className="relative group mb-8">
+            {/* Blurred border layer */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-            <div className="flex items-center gap-4">
-              {/* Search Bar */}
-              <div className="relative w-full max-w-xs">
-                <Input
-                  placeholder="Search users..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+            {/* Main content */}
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
+              <h1 className="text-2xl sm:text-3xl text-white font-bold">Manage Users</h1>
+
+              <div className="flex items-center gap-4">
+                {/* Search Bar */}
+                <div className="relative w-full max-w-xs">
+                  <Input
+                    placeholder="Search users..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                  />
+                </div>
+
+                {/* Invite Button */}
+                <Button
+                  onClick={() => setIsInviteOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
+                >
+                  <LuUserPlus className="h-5 w-5" />
+                  <span>Invite User</span>
+                </Button>
               </div>
-
-              {/* Invite Button */}
-              <Button
-                onClick={() => setIsInviteOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-              >
-                <LuUserPlus className="h-5 w-5" />
-                <span>Invite User</span>
-              </Button>
             </div>
           </div>
 
