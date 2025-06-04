@@ -116,7 +116,8 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
     const fairShareThreshold = (75 * fairSharePercentage) / 100;
 
     // Only show deficit if there are entries and user's contribution is below threshold
-    const isDeficit = finalFlatTotalEntry > 0 && userContributionPercentage < fairShareThreshold;
+    // Don't show deficit warning if contribution or fair share is 0
+    const isDeficit = finalFlatTotalEntry > 0 && finalFairShare > 0 && userContribution > 0 && userContributionPercentage < fairShareThreshold;
 
     return (
         <Card className="relative group">
@@ -209,8 +210,8 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                             
                             {/* Status Text */}
                             <div className="mt-2 text-xs text-white/60">
-                                {finalFlatTotalEntry === 0 ? (
-                                    <span className="text-white/60">No entries yet. Start contributing! 🚀</span>
+                                {finalFlatTotalEntry === 0 || finalFairShare === 0 ? (
+                                    <span className="text-white/60">Waiting for entries to calculate contributions 📊</span>
                                 ) : isDeficit ? (
                                     <span className="text-red-400">Need more contribution to reach target</span>
                                 ) : userContributionPercentage >= 100 ? (

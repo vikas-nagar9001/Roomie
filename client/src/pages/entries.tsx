@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributionStatus } from "@/components/contribution-status";
+import { LuMoreHorizontal } from "react-icons/lu";
+import { BsThreeDots } from "react-icons/bs";
 
 
 // Create a separate component for editing an entry.
@@ -864,6 +866,7 @@ export default function EntriesPage() {
                         const userIdStr = entryUserId?.toString();
                         const currentUserIdStr = user?._id?.toString();
 
+
                         return userIdStr === currentUserIdStr && e.status === "PENDING";
                       })
                         .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
@@ -1059,27 +1062,36 @@ export default function EntriesPage() {
                   </TableCell>
 
                   <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
-                    <div className="flex items-center gap-2">
-                      <span className="block truncate">
-                        {entry.name.length > 20 
-                          ? `${entry.name.substring(0, 12)}...`
-                          : entry.name
-                        }
+                    <div className="flex sm:justify-start justify-center items-center gap-2 group/tooltip relative">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="max-w-[120px] sm:max-w-[180px] cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] transition-colors relative">
+                            <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap">{entry.name}</span>
+                            {entry.name.length > 15 && <span className="opacity-60"></span>}
+                            <BsThreeDots className="w-4 h-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity text-[#9f5bf7]" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent 
+                          side="bottom"
+                          align="center"
+                          sideOffset={5}
+                          className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 sm:hidden"
+                        >
+                          <p className="text-sm text-white whitespace-normal">{entry.name}</p>
+                        </TooltipContent>
+                        <TooltipContent 
+                          side="right"
+                          align="start"
+                          className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 hidden sm:block"
+                        >
+                          <p className="text-sm text-white whitespace-normal">{entry.name}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      {/* Touch hint text */}
+                      <span className="text-xs text-[#9f5bf7]/60 sm:hidden absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
+                        Tap to view full name
                       </span>
-                      {entry.name.length > 20 && (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="w-5 h-5 rounded-full bg-[#6636a3]/30 hover:bg-[#6636a3]/50 flex items-center justify-center transition-colors group">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-[#a86ff4] group-hover:text-white transition-colors">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" clipRule="evenodd" />
-                              </svg>
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-xs">
-                            <p className="text-sm text-white break-words">{entry.name}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      )}
                     </div>
                   </TableCell>
 
@@ -1170,7 +1182,7 @@ export default function EntriesPage() {
 
 
           {/* No Entries Found Message */}
-          {(!entries || entries.length === 0) && (
+          {(!entries || entries.length === 0) ? (
             <div className="py-8 text-center text-white/60">
               <div className="flex flex-col items-center justify-center space-y-3">
                 <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
@@ -1178,15 +1190,16 @@ export default function EntriesPage() {
                 <p className="text-sm text-white/40">Start by adding your first entry!</p>
               </div>
             </div>
+          ) : (
+            /* Pagination Component - Only shown when entries exist */
+            <div className="flex justify-center mt-4">
+              <CustomPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
           )}
-
-          {/* Pagination Component */}
-          <div className="flex justify-center mt-4">          <CustomPagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-          </div>
 
         </div>
       </div>
