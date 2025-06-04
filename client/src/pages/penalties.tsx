@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
 import { FiUser, FiList, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
+import { Settings , Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import ResponsivePagination from "react-responsive-pagination";
 import { apiRequest } from "@/lib/queryClient";
@@ -625,125 +626,132 @@ export default function PenaltiesPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-8 pb-24 pt-32 bg-gradient-to-r from-indigo-600 via-[#241e95] to-indigo-800">
+      <div className="min-h-screen p-8 pb-24 pt-32 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
-          <div className="rounded-lg bg-gradient-to-r from-slate-900 via-[#241e95] to-indigo-100 p-5 flex flex-wrap justify-between items-center gap-4 mb-8">
-            <h1 className="text-2xl sm:text-3xl text-white font-bold">Penalties</h1>
 
 
-            <div className="flex gap-2">
-              {/* Settings Button */}
-              {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" className="bg-white hover:bg-gray-100 text-indigo-600">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                      </svg>
-                      Settings
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent
-                    aria-describedby="penalty-settings-description"
-                    className="max-w-3xl w-full p-0 rounded-lg border-none shadow-2xl bg-white sm:rounded-lg overflow-hidden"
-                  >
-                    <DialogHeader className="px-6 pt-6 pb-2 border-b">
-                      <DialogTitle className="text-xl font-semibold text-indigo-700">Penalty Settings</DialogTitle>
-                    </DialogHeader>
+          <div className="relative group mb-8">
+            {/* Blurred border layer */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-                    <div className="max-h-[80vh] overflow-y-auto p-6">
-                      <PenaltySettingsForm />
-                    </div>
-                  </DialogContent>
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4 mb-8">
+              <h1 className="text-2xl sm:text-3xl text-white font-bold">Penalties</h1>
 
-                </Dialog>
-              )}
 
-              <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-                <DialogTrigger asChild>
-                  <Button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition">
-                    <span>Add Penalty</span>
-                  </Button>
-                </DialogTrigger>
-
-                <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
-                  <DialogHeader>
-                    <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="userId">Select User</Label>
-                      <Select
-                        value={newPenalty.userId}
-                        onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {users?.map((user: any) => (
-                            <SelectItem key={user._id} value={user._id}>
-                              {user.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="type">Penalty Type</Label>
-                      <Select
-                        value={newPenalty.type}
-                        onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select penalty type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
-                          <SelectItem value="DAMAGE">Damage</SelectItem>
-                          <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
-                          <SelectItem value="OTHER">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="amount">Amount</Label>
-                      <Input
-                        type="number"
-                        placeholder="Amount"
-                        value={newPenalty.amount}
-                        onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        placeholder="Description"
-                        value={newPenalty.description}
-                        onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
-                      />
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={addPenaltyMutation.isPending}
-                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+              <div className="flex gap-2">
+                {/* Settings Button */}
+                {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="flex items-center gap-2 bg-white/80 hover:bg-white/90 text-gray-700">
+                        <Settings className="h-5 w-5" />
+                        Settings
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent
+                      aria-describedby="penalty-settings-description"
+                      className="max-w-3xl w-full p-0 rounded-lg border-none shadow-2xl bg-white sm:rounded-lg overflow-hidden"
                     >
+                      <DialogHeader className="px-6 pt-6 pb-2 border-b">
+                        <DialogTitle className="text-xl font-semibold text-indigo-700">Penalty Settings</DialogTitle>
+                      </DialogHeader>
+
+                      <div className="max-h-[80vh] overflow-y-auto p-6">
+                        <PenaltySettingsForm />
+                      </div>
+                    </DialogContent>
+
+                  </Dialog>
+                )}
+
+                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]">
+                      <Plus className="h-5 w-5" />
                       <span>Add Penalty</span>
                     </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+
+                  <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                    <DialogHeader>
+                      <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="userId">Select User</Label>
+                        <Select
+                          value={newPenalty.userId}
+                          onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a user" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {users?.map((user: any) => (
+                              <SelectItem key={user._id} value={user._id}>
+                                {user.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="type">Penalty Type</Label>
+                        <Select
+                          value={newPenalty.type}
+                          onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select penalty type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
+                            <SelectItem value="DAMAGE">Damage</SelectItem>
+                            <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
+                            <SelectItem value="OTHER">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="amount">Amount</Label>
+                        <Input
+                          type="number"
+                          placeholder="Amount"
+                          value={newPenalty.amount}
+                          onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea
+                          placeholder="Description"
+                          value={newPenalty.description}
+                          onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                        />
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={addPenaltyMutation.isPending}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
+                      >
+                        <span>Add Penalty</span>
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </div>
           </div>
 
+
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#6636a3] text-white shadow-xl border border-white/10 rounded-lg">
               <div
                 className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg"
                 style={{
@@ -883,7 +891,7 @@ export default function PenaltiesPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-to-br from-indigo-600 to-indigo-900 text-white shadow-xl border border-white/10 rounded-lg p-4">
+            <Card className="bg-[#6636a3] text-white shadow-xl border border-white/10 rounded-lg p-4">
               {/* Header with Profile & Date-Time */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
                 {/* Left Side: User Profile */}
@@ -990,7 +998,7 @@ export default function PenaltiesPage() {
               )}
             </div>
 
-            <div className="overflow-x-auto bg-indigo-100">
+            <div className="overflow-x-auto bg-[#151525] rounded-xl">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-300">
