@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
 import { Settings, Plus } from "lucide-react";
-import { MdOutlineDateRange, MdAccessTime, MdAttachMoney } from "react-icons/md";
+import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -92,7 +92,7 @@ function PenaltyTimer() {
     <div className="relative group">
       {/* Animated gradient border with glow */}
       <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-500 animate-gradient-x"></div>
-      
+
       {/* Main content with glass effect */}
       <div className="relative flex items-center justify-between p-4 bg-black/50 backdrop-blur-lg rounded-lg border border-white/10 shadow-xl transition-all duration-300 group-hover:bg-black/60 group-hover:scale-[1.02]">
         <div className="flex items-center gap-4">
@@ -186,92 +186,152 @@ export function PenaltySettingsForm() {
   if (isLoading) {
     return (
       <div className="p-8 text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto"></div>
+        <div className="animate-spin h-8 w-8 border-4 border-[#6636a3] border-t-transparent rounded-full mx-auto"></div>
         <p className="mt-2 text-gray-600">Loading settings...</p>
       </div>
     );
   }
 
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-indigo-50 to-white p-1 sm:p-6 rounded-lg">
+    <div className="relative overflow-hidden bg-[#151525] p-4 sm:p-6 rounded-lg">
       {/* Decorative elements */}
-      <div className="absolute top-0 left-0 w-32 h-32 bg-indigo-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite]"></div>
-      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_2s]"></div>
-      <div className="absolute -bottom-8 left-20 w-32 h-32 bg-pink-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_4s]"></div>
+      <div className="absolute top-0 left-0 w-32 h-32 bg-[#6636a3]/20 rounded-full mix-blend-multiply filter blur opacity-70 animate-[blob_7s_infinite]"></div>
+      <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_2s]"></div>
+      <div className="absolute -bottom-8 left-20 w-32 h-32 bg-[#6636a3]/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_4s]"></div>
 
-      <form onSubmit={handleSubmit} className="relative space-y-8">
-        <div className="space-y-6">
-          {/* Title and Description */}
-          <div className="text-center space-y-2 mb-6">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Penalty Configuration
-            </h2>
-            <p className="text-sm text-gray-500">
-              Configure penalty settings for your flat members
-            </p>
-          </div>
 
-          {/* Penalty Percentage Slider with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
-            <div className="flex justify-between items-center mb-3">
-              <Label htmlFor="penaltyPercentage" className="text-indigo-900 font-semibold">
-                Penalty Percentage
-              </Label>
-              <span className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1 rounded-full shadow-sm">
-                {penaltyPercentage}%
-              </span>
+
+      <form onSubmit={handleSubmit} className="relative space-y-6 overflow-hidden">
+
+        {/* Title */}
+        <div className="text-center space-y-2 mb-6">
+          <h2 className="text-2xl font-bold text-white">Penalty Configuration</h2>
+          <p className="text-sm text-gray-400">Configure penalty settings for your flat members</p>
+        </div>
+
+        {/* Penalty Percentage */}
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+
+          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
+                    <MdAttachMoney className="text-xl text-[#6636a3]" />
+                  </div>
+                </div>
+                <Label htmlFor="penaltyPercentage" className="text-lg font-semibold text-white">Penalty Percentage</Label>
+              </div>
+              <span className="text-lg font-bold text-white px-4 py-1.5 rounded-full bg-[#6636a3]/30 border border-[#6636a3]/50">{penaltyPercentage}%</span>
             </div>
-            <Slider
-              id="penaltyPercentage"
-              min={1}
-              max={10}
-              step={0.5}
-              value={[penaltyPercentage]}
-              onValueChange={(value) => setPenaltyPercentage(value[0])}
-              className="py-4"
-            />
-            <p className="text-xs text-gray-500 mt-2 italic">
-              Percentage applied as penalty for contributions below fair share
-            </p>
-          </div>
-
-          {/* Warning Period Slider with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
-            <div className="flex justify-between items-center mb-3">
-              <Label htmlFor="warningDays" className="text-indigo-900 font-semibold">
-                Warning Period
-              </Label>
-              <span className="text-sm font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-1 rounded-full shadow-sm">
-                {warningDays} days
-              </span>
+            <div className="space-y-4">
+              <Slider
+                id="penaltyPercentage"
+                min={1}
+                max={10}
+                step={0.5}
+                value={[penaltyPercentage]}
+                onValueChange={(value) => setPenaltyPercentage(value[0])}
+                className="py-4"
+              />
+              <p className="text-sm text-gray-400 italic">Percentage applied as penalty for contributions below fair share</p>
             </div>
-            <Slider
-              id="warningDays"
-              min={1}
-              max={7}
-              step={1}
-              value={[warningDays]}
-              onValueChange={(value) => setWarningDays(value[0])}
-              className="py-4"
-            />
-            <p className="text-xs text-gray-500 mt-2 italic">
-              Grace period before applying the next penalty
-            </p>
+          </div>
+        </div>
+
+        {/* Warning Period */}
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+
+
+          <div className="relative backdrop-blur-md bg-black/40 p-4 sm:p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50 transition-all duration-300">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
+                    <MdTimerOff className="text-xl text-[#6636a3]" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="warningDays" className="text-base sm:text-lg font-semibold text-white">
+                    Warning Period
+                  </Label>
+                  <p className="text-xs sm:text-sm text-gray-400">
+                    Set grace period before penalties
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-[#6636a3]/10 p-1 rounded-lg border border-[#6636a3]/20 w-full sm:w-auto">
+                <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg">
+                  <MdCalendarToday className="text-[#6636a3] flex-shrink-0" />
+                  <span className="text-white/80 hidden sm:inline">Days:</span>
+                </span>
+                <span className="text-lg font-bold text-white px-4 py-1.5 rounded-lg bg-[#6636a3]/30 border border-[#6636a3]/50 flex-grow text-center sm:text-left sm:flex-grow-0">
+                  {warningDays}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4 sm:space-y-4">
+              <div className="relative py-3">
+                <Slider
+                  id="warningDays"
+                  min={1}
+                  max={7}
+                  step={1}
+                  value={[warningDays]}
+                  onValueChange={(value) => setWarningDays(value[0])}
+                  className="py-4"
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-gray-400 px-1">
+                <span>Min: 1 day</span>
+                <span>Max: 7 days</span>
+              </div>
+            </div>
           </div>
 
-          {/* User Selection with Glass Effect */}
-          <div className="backdrop-blur-md bg-white/80 p-6 rounded-lg shadow-xl border border-white/50 transition-all duration-300 hover:shadow-2xl hover:bg-white/90">
-            <Label className="text-indigo-900 font-semibold mb-3 block">
-              Select Users
-            </Label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-indigo-400 scrollbar-track-indigo-100 pr-2">
-              {users.map((user) => (
+
+        </div>
+
+
+
+        {/* Select Users */}
+        <div className="relative group">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+
+          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
+                    <MdGroup className="text-xl text-[#6636a3]" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-lg font-semibold text-white">Select Users</Label>
+                  <p className="text-sm text-gray-400">Choose users for penalty application</p>
+                </div>
+              </div>
+              <div className="hidden sm:flex items-center gap-2 bg-[#6636a3]/10 px-3 py-1.5 rounded-lg border border-[#6636a3]/20">
+                <MdPersonAdd className="text-[#6636a3]" />
+                <span className="text-white/80 text-sm">{selectedUsers.length} Selected</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[280px] overflow-y-auto custom-scrollbar pr-1 sm:pr-2">
+              {users?.map((user) => (
                 <div
                   key={user._id}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-300 ${selectedUsers.includes(user._id)
-                    ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200 shadow-md'
-                    : 'bg-white/50 hover:bg-white hover:shadow-md'
-                    } border`}
+                  className={`group/card relative flex items-center gap-3 flex-wrap sm:flex-nowrap p-4 rounded-xl w-full transition-all duration-300 ${selectedUsers.includes(user._id)
+                    ? 'bg-[#6636a3]/20 border-[#6636a3]/50 shadow-lg'
+                    : 'bg-black/30 hover:bg-black/40 hover:shadow-lg'
+                    } border border-[#6636a3]/30`}
                 >
                   <Checkbox
                     id={user._id}
@@ -283,45 +343,73 @@ export function PenaltySettingsForm() {
                         setSelectedUsers(selectedUsers.filter(id => id !== user._id));
                       }
                     }}
-                    className="border-indigo-300"
+                    className="peer hidden"
                   />
-                  <label
-                    htmlFor={user._id}
-                    className="flex items-center gap-3 text-sm font-medium text-gray-700 hover:text-indigo-600 cursor-pointer flex-1"
-                  >
+                  <label htmlFor={user._id} className="flex items-center gap-4 cursor-pointer w-full min-w-0">
                     <div className="relative">
-                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#6636a3]/30 shadow-sm transition-transform duration-300 group-hover/card:scale-105">
                         <img
-                          src={user.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                          alt={user.name}
-                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-110"
+                          src={
+                            user?.profilePicture
+                            || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
+                          }
+                          alt={user?.name || "User"}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                          }}
                         />
                       </div>
+
                       {selectedUsers.includes(user._id) && (
-                        <div className="absolute -bottom-1 -right-1 bg-green-500 rounded-full w-4 h-4 border-2 border-white flex items-center justify-center">
-                          <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <div className="absolute -bottom-1 -right-1 bg-[#6636a3] rounded-lg w-5 h-5 border-2 border-black flex items-center justify-center shadow-lg">
+                          <MdCheck className="text-white text-sm" />
                         </div>
                       )}
                     </div>
-                    <span className="flex-1 truncate">{user.name}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white/90 truncate">{user.name}</p>
+                      <p className="text-xs text-gray-400 break-words whitespace-normal">{user.email}</p>
+                    </div>
+                    <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${selectedUsers.includes(user._id)
+                      ? 'bg-[#6636a3] border-[#6636a3]'
+                      : 'border-[#6636a3]/30 group-hover/card:border-[#6636a3]/50'
+                      }`}>
+                      <MdCheck className={`text-lg transition-all duration-300 ${selectedUsers.includes(user._id)
+                        ? 'text-white scale-100'
+                        : 'text-[#6636a3]/30 scale-75'
+                        }`} />
+                    </div>
                   </label>
                 </div>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-3 italic">
-              Leave unselected to apply penalties to all users
-            </p>
+
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#6636a3]/20">
+              <p className="text-xs text-gray-400 italic">
+                Leave unselected to apply penalties to all users
+              </p>
+              <div className="sm:hidden flex items-center space-x-2 bg-[#6636a3]/10 px-3 py-1.5 rounded-lg border border-[#6636a3]/20">
+                <MdPersonAdd className="text-[#6636a3]" />
+                <span className="text-white/80 text-[15px] whitespace-nowrap">
+                  {selectedUsers.length} Selected
+                </span>
+              </div>
+
+            </div>
           </div>
         </div>
 
+
+
+        {/* Submit Button */}
         <Button
           type="submit"
           disabled={loading}
           className={`w-full py-4 rounded-lg shadow-lg transition-all duration-300 transform hover:shadow-2xl ${loading
-            ? 'bg-gray-400'
-            : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:-translate-y-0.5'
+            ? 'bg-gray-600'
+            : 'bg-[#6636a3] hover:bg-[#542d87] hover:-translate-y-0.5'
             }`}
         >
           {loading ? (
@@ -330,13 +418,17 @@ export function PenaltySettingsForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-              <span className="text-white font-medium">Updating...</span>
+              <span>Updating...</span>
             </div>
           ) : (
-            <span className="text-white font-medium">Save Settings</span>
+            <span className="font-medium">Save Settings</span>
           )}
         </Button>
+
       </form>
+
+
+
     </div>
   );
 }
@@ -1200,3 +1292,39 @@ export default function PenaltiesPage() {
 
   );
 }
+
+/* Add this at the top of your file */
+const globalStyles = `
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(102, 54, 163, 0.5);
+    border-radius: 4px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 54, 163, 0.7);
+  }
+
+  @keyframes blob {
+    0% {
+      transform: translate(0px, 0px) scale(1);
+    }
+    33% {
+      transform: translate(30px, -50px) scale(1.1);
+    }
+    66% {
+      transform: translate(-20px, 20px) scale(0.9);
+    }
+    100% {
+      transform: translate(0px, 0px) scale(1);
+    }
+  }
+`;
