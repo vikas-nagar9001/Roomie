@@ -230,23 +230,21 @@ export default function PaymentsPage() {
           <div className="mb-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="flex flex-wrap gap-2 p-2 border-b border-[#6636a3]/30 justify-start bg-[#151525]">
-                <TabsTrigger 
-                  value="status" 
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === "status" 
-                      ? "bg-[#6636a3] text-white" 
+                <TabsTrigger
+                  value="status"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "status"
+                      ? "bg-[#6636a3] text-white"
                       : "text-white/70 hover:bg-[#6636a3]/20"
-                  }`}
+                    }`}
                 >
                   Payment Status
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="bills" 
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === "bills" 
-                      ? "bg-[#6636a3] text-white" 
+                <TabsTrigger
+                  value="bills"
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "bills"
+                      ? "bg-[#6636a3] text-white"
                       : "text-white/70 hover:bg-[#6636a3]/20"
-                  }`}
+                    }`}
                 >
                   Bills
                 </TabsTrigger>
@@ -388,22 +386,34 @@ export default function PaymentsPage() {
                         key={bill._id}
                         className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
                       >
-                        <TableCell className="py-4 px-3 text-white">
+                        {/* Month + Year — one line only */}
+                        <TableCell className="py-4 px-3 text-white whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
                           {bill.month} {bill.year}
                         </TableCell>
+
+                        {/* Total Amount */}
                         <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
                           ₹{bill.totalAmount.toFixed(2)}
                         </TableCell>
+
+                        {/* Split Amount */}
                         <TableCell className="font-semibold text-[#9f5bf7] py-4 px-3">
                           ₹{bill.splitAmount.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-gray-400 py-4 px-3">
+
+                        {/* Due Date — fixed */}
+                        <TableCell className="text-gray-400 py-4 px-3 whitespace-nowrap">
                           {format(new Date(bill.dueDate), "MMM d, yyyy")}
                         </TableCell>
+
+                        {/* Items — one line per item, no wrap */}
                         <TableCell className="py-4 px-3">
                           <div className="space-y-1">
                             {bill.items.map((item, index) => (
-                              <div key={index} className="text-sm">
+                              <div
+                                key={index}
+                                className="text-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[180px]"
+                              >
                                 <span className="text-white/70">{item.name}:</span>{" "}
                                 <span className="text-[#9f5bf7]">₹{item.amount.toFixed(2)}</span>
                               </div>
@@ -413,6 +423,7 @@ export default function PaymentsPage() {
                       </TableRow>
                     ))}
                   </TableBody>
+
                 </Table>
 
                 {(!bills || bills.length === 0) && (
@@ -451,10 +462,10 @@ export default function PaymentsPage() {
                     placeholder="Item name"
                     value={item.name}
                     onChange={(e) => {
-                        const newItems = [...newBillItems];
-                        newItems[index].name = e.target.value;
-                        setNewBillItems(newItems);
-                      }}
+                      const newItems = [...newBillItems];
+                      newItems[index].name = e.target.value;
+                      setNewBillItems(newItems);
+                    }}
                     className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                   />
                     <Input
