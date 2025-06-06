@@ -452,9 +452,8 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
         toast({
-          title: "Penalty Deleted",
+          title: "Success",
           description: `Penalty has been deleted successfully.`,
-          variant: "destructive",
         });
         setDeleteDialogOpen(false);
       })
@@ -516,7 +515,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                 .then((data) => {
                   queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
                   toast({
-                    title: "Penalty Updated",
+                    title: "Success",
                     description: `Penalty has been updated successfully.`,
                   });
                   setOpen(false); // Close the dialog on success
@@ -691,6 +690,8 @@ export default function PenaltiesPage() {
 
   const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
 
+  const queryClient = useQueryClient();
+  
   const addPenaltyMutation = useMutation({
     mutationFn: async (data: {
       userId: string;
@@ -699,11 +700,13 @@ export default function PenaltiesPage() {
       description: string;
       image?: string;
     }) => {
-      const res = await apiRequest("POST", "/api/penalties", data);
-      if (!res.ok) {
-        throw new Error(`HTTP error! Status: ${res.status}`);
+      try {
+        const res = await apiRequest("POST", "/api/penalties", data);
+        return res.json();
+      } catch (error) {
+        console.error("Add penalty error:", error);
+        throw error;
       }
-      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
