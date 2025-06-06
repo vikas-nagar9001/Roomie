@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
+import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
@@ -1241,7 +1243,39 @@ export default function PenaltiesPage() {
                     <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
 
 
-                    <TableCell className="max-w-x text-gray-300 truncate">{penalty.description}</TableCell>
+                    <TableCell className="max-w-x text-gray-300 truncate">
+                      <div className="flex sm:justify-start justify-center items-center gap-2 group/tooltip relative">
+                        <Tooltip supportMobileTap={true}>
+                          <TooltipTrigger asChild>
+                            <div className="max-w-[120px] sm:max-w-[180px] cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] transition-colors relative">
+                              <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap">{penalty.description}</span>
+                              {penalty.description.length > 15 && <span className="opacity-60"></span>}
+                              <BsThreeDots className="w-4 h-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity text-[#9f5bf7]" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="bottom"
+                            align="center"
+                            sideOffset={5}
+                            className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 sm:hidden"
+                          >
+                            <p className="text-sm text-white whitespace-normal">{penalty.description}</p>
+                          </TooltipContent>
+                          <TooltipContent
+                            side="right"
+                            align="start"
+                            className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 hidden sm:block"
+                          >
+                            <p className="text-sm text-white whitespace-normal">{penalty.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+
+                        {/* Touch hint text */}
+                        <span className="text-xs text-[#9f5bf7]/60 sm:hidden absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
+                          Tap to view full description
+                        </span>
+                      </div>
+                    </TableCell>
 
 
                     <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
