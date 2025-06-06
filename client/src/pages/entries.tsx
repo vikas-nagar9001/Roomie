@@ -355,12 +355,12 @@ export default function EntriesPage() {
 
   return (
     <TooltipProvider>
-        <Header />
-        <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
-          <div className="max-w-7xl mx-auto">
-            <div className="relative group mb-8">
-              {/* Blurred border layer */}
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
+      <Header />
+      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
+        <div className="max-w-7xl mx-auto">
+          <div className="relative group mb-8">
+            {/* Blurred border layer */}
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
             {/* Main content */}
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
@@ -493,8 +493,6 @@ export default function EntriesPage() {
           </div>
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-
-
             <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               {/* Fair Share Information */}
 
@@ -1008,6 +1006,8 @@ export default function EntriesPage() {
                 <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
                   <span className="block whitespace-nowrap">Date & Time</span>
                 </TableHead>
+
+
                 <TableHead className="text-left text-indigo-200/80 font-semibold py-3 border-none">Status</TableHead>
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <>
@@ -1026,6 +1026,7 @@ export default function EntriesPage() {
                 )}
               </TableRow>
             </TableHeader>
+
 
             <TableBody>
               {paginatedEntries?.map((entry) => (
@@ -1071,7 +1072,7 @@ export default function EntriesPage() {
                             <BsThreeDots className="w-4 h-4 opacity-0 group-hover/tooltip:opacity-100 transition-opacity text-[#9f5bf7]" />
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent 
+                        <TooltipContent
                           side="bottom"
                           align="center"
                           sideOffset={5}
@@ -1079,7 +1080,7 @@ export default function EntriesPage() {
                         >
                           <p className="text-sm text-white whitespace-normal">{entry.name}</p>
                         </TooltipContent>
-                        <TooltipContent 
+                        <TooltipContent
                           side="right"
                           align="start"
                           className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 hidden sm:block"
@@ -1087,7 +1088,7 @@ export default function EntriesPage() {
                           <p className="text-sm text-white whitespace-normal">{entry.name}</p>
                         </TooltipContent>
                       </Tooltip>
-                      
+
                       {/* Touch hint text */}
                       <span className="text-xs text-[#9f5bf7]/60 sm:hidden absolute -bottom-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/tooltip:opacity-100 transition-opacity whitespace-nowrap">
                         Tap to view full name

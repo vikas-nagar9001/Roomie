@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
@@ -13,15 +12,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FaUserCircle, FaEdit, FaTrash } from "react-icons/fa";
-import { FiUser, FiList, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
-import { Settings , Plus } from "lucide-react";
-import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
-import ResponsivePagination from "react-responsive-pagination";
+import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
+import { Settings, Plus } from "lucide-react";
+import { MdOutlineDateRange, MdAccessTime, MdAttachMoney } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MobileNav } from "@/components/mobile-nav";
+import { CustomPagination } from "@/components/custom-pagination";
 
 interface User {
   _id: string;
@@ -91,12 +89,28 @@ function PenaltyTimer() {
   if (!timerData) return null;
 
   return (
-    <div className="flex items-center justify-between p-2 bg-indigo-700 text-white rounded-md shadow-md">
-      <div className="flex items-center gap-2">
-        <MdAccessTime className="text-xl" />
-        <span className="font-semibold text-sm">Next Penalty In:</span>
+    <div className="relative group">
+      {/* Animated gradient border with glow */}
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-500 animate-gradient-x"></div>
+      
+      {/* Main content with glass effect */}
+      <div className="relative flex items-center justify-between p-4 bg-black/50 backdrop-blur-lg rounded-lg border border-white/10 shadow-xl transition-all duration-300 group-hover:bg-black/60 group-hover:scale-[1.02]">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            {/* Icon background with pulse effect */}
+            <div className="absolute -inset-0.5 bg-[#6636a3] rounded-full blur opacity-50 group-hover:opacity-75 transition duration-300"></div>
+            <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30 group-hover:bg-[#6636a3]/30 transition duration-300">
+              <MdAccessTime className="text-xl text-[#6636a3] group-hover:scale-110 transform transition duration-300" />
+            </div>
+          </div>
+          <span className="font-medium text-sm text-white/90 tracking-wide">Next Penalty In:</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-mono font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-[#6636a3]/20 to-purple-500/20 border border-[#6636a3]/30 text-white/90 shadow-inner">
+            {timeRemaining}
+          </span>
+        </div>
       </div>
-      <span className="text-sm font-mono font-semibold">{timeRemaining}</span>
     </div>
   );
 }
@@ -360,26 +374,28 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          {/* Edit Button with Icon */}
+        <div className="flex items-center space-x-2">
+          <DialogTrigger asChild>
+            {/* Edit Button with Icon */}
+            <button
+              className="p-1.5 text-[#6636a3] hover:bg-white/5 rounded-full transition-all duration-200"
+              onClick={() => setOpen(true)}
+            >
+              <FaEdit className="text-lg" />
+            </button>
+          </DialogTrigger>
+          {/* Delete Button with Icon */}
           <button
-            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition"
-            onClick={() => setOpen(true)}
+            className="p-1.5 text-red-500/80 hover:bg-white/5 hover:text-red-500 rounded-full transition-all duration-200"
+            onClick={() => setDeleteDialogOpen(true)}
           >
-            <FaEdit className="text-lg" />
+            <FaTrash className="text-lg" />
           </button>
-        </DialogTrigger>
-        {/* Delete Button with Icon */}
-        <button
-          className="p-2 text-red-600 hover:bg-blue-100 rounded-full transition"
-          onClick={() => setDeleteDialogOpen(true)}
-        >
-          <FaTrash className="text-lg" />
-        </button>
+        </div>
 
-        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-gray-900">Edit Penalty</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-white">Edit Penalty</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -413,44 +429,45 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="type">Penalty Type</Label>
-              <Select name="type" defaultValue={penalty.type}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select penalty type" />
+              <Label htmlFor="type" className="text-white/90">Penalty Type</Label>
+              <Select name="type" defaultValue={penalty.type || undefined}>
+                <SelectTrigger className="border border-white/10 bg-black/30 text-white">
+                  <SelectValue className="text-white" placeholder="Select penalty type" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
-                  <SelectItem value="DAMAGE">Damage</SelectItem>
-                  <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
+                <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
+                  <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Late Payment</SelectItem>
+                  <SelectItem value="DAMAGE" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Damage</SelectItem>
+                  <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Rule Violation</SelectItem>
+                  <SelectItem value="OTHER" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Other</SelectItem>
                 </SelectContent>
               </Select>
+
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount</Label>
+              <Label htmlFor="amount" className="text-white/90">Amount</Label>
               <Input
                 name="amount"
                 type="number"
                 defaultValue={penalty.amount}
                 placeholder="Amount"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-white/90">Description</Label>
               <Textarea
                 name="description"
                 defaultValue={penalty.description}
                 placeholder="Description"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
               />
             </div>
 
             <Button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+              className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
             >
               <span>Update Penalty</span>
             </Button>
@@ -626,10 +643,8 @@ export default function PenaltiesPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-8 pb-24 pt-32 bg-[#0f0f1f]">
+      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
-
-
           <div className="relative group mb-8">
             {/* Blurred border layer */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
@@ -650,10 +665,10 @@ export default function PenaltiesPage() {
                     </DialogTrigger>
                     <DialogContent
                       aria-describedby="penalty-settings-description"
-                      className="max-w-3xl w-full p-0 rounded-lg border-none shadow-2xl bg-white sm:rounded-lg overflow-hidden"
+                      className="max-w-3xl w-full p-0 rounded-lg border-[#6636a3]/30 shadow-2xl bg-[#151525] sm:rounded-lg overflow-hidden"
                     >
-                      <DialogHeader className="px-6 pt-6 pb-2 border-b">
-                        <DialogTitle className="text-xl font-semibold text-indigo-700">Penalty Settings</DialogTitle>
+                      <DialogHeader className="px-6 pt-6 pb-2 border-b border-[#6636a3]/30">
+                        <DialogTitle className="text-xl font-semibold text-white">Penalty Settings</DialogTitle>
                       </DialogHeader>
 
                       <div className="max-h-[80vh] overflow-y-auto p-6">
@@ -672,23 +687,32 @@ export default function PenaltiesPage() {
                     </Button>
                   </DialogTrigger>
 
-                  <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-indigo-100 border border-gray-200">
+                  <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
                     <DialogHeader>
-                      <DialogTitle className="text-lg font-semibold text-gray-800">Add New Penalty</DialogTitle>
+                      <DialogTitle className="text-lg font-semibold text-white">Add New Penalty</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      {/* Select User */}
                       <div className="space-y-2">
-                        <Label htmlFor="userId">Select User</Label>
+                        <Label className="text-white/90" htmlFor="userId">Select User</Label>
                         <Select
                           value={newPenalty.userId}
                           onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a user" />
+                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#6636a3] outline-none transition">
+                            {/* Lighter placeholder text */}
+                            <SelectValue
+                              placeholder="Select a user"
+                              className="text-white/80"
+                            />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
                             {users?.map((user: any) => (
-                              <SelectItem key={user._id} value={user._id}>
+                              <SelectItem
+                                key={user._id}
+                                value={user._id}
+                                className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer"
+                              >
                                 {user.name}
                               </SelectItem>
                             ))}
@@ -696,59 +720,63 @@ export default function PenaltiesPage() {
                         </Select>
                       </div>
 
+                      {/* Penalty Type */}
                       <div className="space-y-2">
-                        <Label htmlFor="type">Penalty Type</Label>
+                        <Label htmlFor="type" className="text-white/90">Penalty Type</Label>
                         <Select
                           value={newPenalty.type}
                           onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
                         >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select penalty type" />
+                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#6636a3] outline-none transition">
+                            <SelectValue placeholder="Select penalty type" className="text-white/80" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="LATE_PAYMENT">Late Payment</SelectItem>
-                            <SelectItem value="DAMAGE">Damage</SelectItem>
-                            <SelectItem value="RULE_VIOLATION">Rule Violation</SelectItem>
-                            <SelectItem value="OTHER">Other</SelectItem>
+                          <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
+                            <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Late Payment</SelectItem>
+                            <SelectItem value="DAMAGE" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Damage</SelectItem>
+                            <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Rule Violation</SelectItem>
+                            <SelectItem value="OTHER" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
+                      {/* Amount Input */}
                       <div className="space-y-2">
-                        <Label htmlFor="amount">Amount</Label>
+                        <Label className="text-white/90" htmlFor="amount">Amount</Label>
                         <Input
                           type="number"
                           placeholder="Amount"
                           value={newPenalty.amount}
                           onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                         />
                       </div>
 
+                      {/* Description Textarea */}
                       <div className="space-y-2">
-                        <Label htmlFor="description">Description</Label>
+                        <Label htmlFor="description" className="text-white/90">Description</Label>
                         <Textarea
                           placeholder="Description"
                           value={newPenalty.description}
                           onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 outline-none transition"
+                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
                         />
                       </div>
 
+                      {/* Submit Button */}
                       <Button
                         type="submit"
                         disabled={addPenaltyMutation.isPending}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
                       >
                         <span>Add Penalty</span>
                       </Button>
                     </form>
+
                   </DialogContent>
                 </Dialog>
               </div>
             </div>
           </div>
-
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
             <Card className="bg-[#6636a3] text-white shadow-xl border border-white/10 rounded-lg">
@@ -980,150 +1008,189 @@ export default function PenaltiesPage() {
             </Card>
           </div>
 
-          {/* Penalties Table */}
-          <div className=" rounded-lg shadow-md overflow-hidden ">
-            <div className="p-4 bg-indigo-50 border-b border-gray-200 flex flex-wrap justify-between items-center gap-2">
-              <h2 className="text-lg font-semibold text-gray-800">All Penalties</h2>
 
-              {selectedPenalties.length > 0 && (
-                <Button
-                  onClick={handleBulkDelete}
-                  variant="destructive"
-                  size="sm"
-                  className="flex items-center gap-1"
-                >
-                  <FaTrash className="h-3 w-3" />
-                  Delete Selected ({selectedPenalties.length})
-                </Button>
-              )}
+
+          {selectedPenalties.length > 0 && (
+            <div className="mb-4 flex justify-end">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <FaTrash className="text-sm" />
+                Delete Selected ({selectedPenalties.length})
+              </Button>
             </div>
+          )}
 
-            <div className="overflow-x-auto bg-[#151525] rounded-xl">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-300">
+          <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl" >
+            <TableHeader>
+              <TableRow className="border-none">
 
-                    <TableHead>User</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Date</TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
+                  <span className="block">User</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[180px]">
+                  <span className="block">Type</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                  <span className="block">Amount</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                  <span className="block whitespace-nowrap">Description</span>
+                </TableHead>
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                  <span className="block whitespace-nowrap">Date & Time</span>
+                </TableHead>
 
-                    {isAdmin && <TableHead>Actions</TableHead>}
-                    {isAdmin &&
-                      <TableHead className="w-10">
+
+                {isAdmin && <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>}
+                {isAdmin &&
+                  <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#6636a3]">
+                    <input
+                      type="checkbox"
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
+                      className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
+                    />
+                  </TableHead>}
+
+              </TableRow>
+            </TableHeader>
+
+
+            <TableBody>
+              {paginatedPenalties?.length > 0 ? (
+                paginatedPenalties.map((penalty) => (
+                  <TableRow key={penalty._id} className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
+                  >
+                    <TableCell className="min-w-[200px] py-4 px-3">
+                      <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                        <img
+                          src={
+                            typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                              ? penalty.userId.profilePicture
+                              : users?.find((u) =>
+                                u._id ===
+                                (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                              )?.profilePicture ||
+                              "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
+                          }
+                          alt="User"
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src =
+                              "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
+                          }}
+                        />
+                        <div className="truncate max-w-[140px] sm:max-w-[180px]">
+                          <span className="font-medium text-white">
+                            {typeof penalty.userId === "object" && penalty.userId?.name
+                              ? penalty.userId.name
+                              : users?.find((u) =>
+                                u._id ===
+                                (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                              )?.name || "User"}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+
+
+                    <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
+                      <span
+                        className="py-1 rounded-full text-xs font-medium text-[#9f5bf7]"
+                      >
+                        {formatPenaltyType(penalty.type)}
+                      </span>
+                    </TableCell>
+
+
+                    <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
+
+
+                    <TableCell className="max-w-x text-gray-300 truncate">{penalty.description}</TableCell>
+
+
+                    <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
+                      {new Intl.DateTimeFormat("en-IN", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(new Date(penalty.createdAt))}
+                    </TableCell>
+
+
+
+                    {isAdmin && (
+                      <TableCell className="text-center py-4 px-3">
+
+                        <EditPenaltyDialog penalty={penalty} />
+
+                      </TableCell>
+                    )}
+                    {isAdmin && (
+                      <TableCell className="text-center py-4 px-3">
                         <input
                           type="checkbox"
-                          onChange={(e) => handleSelectAll(e.target.checked)}
-                          checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+                          checked={selectedPenalties.includes(penalty._id)}
+                          className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
                         />
-                      </TableHead>}
-
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedPenalties?.length > 0 ? (
-                    paginatedPenalties.map((penalty) => (
-                      <TableRow key={penalty._id} className="hover:bg-gray-50">
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={
-                                typeof penalty.userId === "object" && penalty.userId?.profilePicture
-                                  ? penalty.userId.profilePicture
-                                  : users?.find((u) =>
-                                    u._id ===
-                                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                                  )?.profilePicture ||
-                                  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
-                              }
-                              alt="User"
-                              className="w-8 h-8 rounded-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src =
-                                  "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                              }}
-                            />
-                            <span>
-                              {typeof penalty.userId === "object" && penalty.userId?.name
-                                ? penalty.userId.name
-                                : users?.find((u) =>
-                                  u._id ===
-                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                                )?.name || "User"}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
-                          >
-                            {formatPenaltyType(penalty.type)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-medium text-red-600">₹{penalty.amount.toFixed(2)}</TableCell>
-                        <TableCell className="max-w-xs truncate">{penalty.description}</TableCell>
-                        <TableCell>{new Date(penalty.createdAt).toLocaleDateString()}</TableCell>
-                        {isAdmin && (
-                          <TableCell>
-                            <div className="flex space-x-1">
-                              <EditPenaltyDialog penalty={penalty} />
-                            </div>
-                          </TableCell>
-                        )}
-                        {isAdmin && (
-                          <TableCell>
-                            <input
-                              type="checkbox"
-                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
-                              checked={selectedPenalties.includes(penalty._id)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
-                        No penalties found
                       </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
+                    )}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-12">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="bg-[#1c1b2d] p-6 rounded-full">
+                        <FaClipboardList className="w-12 h-12 text-[#6636a3]" />
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-xl font-semibold text-white mb-2">No Penalties Found</h3>
+                        <p className="text-gray-400 max-w-sm">
+                          There are currently no penalties recorded. New penalties will appear here when added.
+                        </p>
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
 
 
-              </Table>
+          </Table>
+
+          { /* Pagination Component - Only shown when there are penalties */}
+          {penalties?.length > 0 && totalPages > 1 && (
+            <div className="flex justify-center mt-4">
+              <CustomPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
             </div>
+          )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="p-4 border-t border-gray-200">
-                <ResponsivePagination
-                  current={currentPage}
-                  total={totalPages}
-                  onPageChange={setCurrentPage}
-                  maxWidth={42}
-                />
-              </div>
-            )}
-          </div>
 
-          {/* Confirmation Dialog for Bulk Delete */}
-          <ConfirmDialog
-            open={bulkDeleteDialogOpen}
-            onOpenChange={setBulkDeleteDialogOpen}
-            title="Delete Selected Penalties"
-            description={`Are you sure you want to delete ${selectedPenalties.length} selected penalties? This action cannot be undone.`}
-            onConfirm={confirmBulkDelete}
-            confirmText="Delete"
-            cancelText="Cancel"
-          />
-
-        </div >
+        </div>
       </div>
+
+      {/* Confirmation Dialog for Bulk Delete */}
+      <ConfirmDialog
+        open={bulkDeleteDialogOpen}
+        onOpenChange={setBulkDeleteDialogOpen}
+        title="Delete Selected Penalties"
+        description={`Are you sure you want to delete ${selectedPenalties.length} selected penalties? This action cannot be undone.`}
+        onConfirm={confirmBulkDelete}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+
+
 
       {/* Mobile Navigation */}
       <div className="block md:hidden">
