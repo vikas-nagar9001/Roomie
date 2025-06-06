@@ -1064,7 +1064,7 @@ export default function EntriesPage() {
 
                   <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
                     <div className="flex sm:justify-start justify-center items-center gap-2 group/tooltip relative">
-                      <Tooltip>
+                      <Tooltip supportMobileTap={true}>
                         <TooltipTrigger asChild>
                           <div className="max-w-[120px] sm:max-w-[180px] cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] transition-colors relative">
                             <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap">{entry.name}</span>
