@@ -41,8 +41,8 @@ const server = registerRoutes(app);
       serveStatic(app);
     }
 
-    const PORT = 5000;
-    server.listen(PORT, "0.0.0.0", () => {
+    const PORT = process.env.PORT || 1000;
+    server.listen( PORT , () => {
       log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {

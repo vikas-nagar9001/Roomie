@@ -94,7 +94,7 @@ function PenaltyTimer() {
       <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-500 animate-gradient-x"></div>
 
       {/* Main content with glass effect */}
-      <div className="relative flex items-center justify-between p-4 bg-black/50 backdrop-blur-lg rounded-lg border border-white/10 shadow-xl transition-all duration-300 group-hover:bg-black/60 group-hover:scale-[1.02]">
+      <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 p-4 bg-black/50 backdrop-blur-lg rounded-lg border border-white/10 shadow-xl transition-all duration-300 group-hover:bg-black/60 group-hover:scale-[1.02] w-full">
         <div className="flex items-center gap-4">
           <div className="relative">
             {/* Icon background with pulse effect */}
@@ -105,12 +105,14 @@ function PenaltyTimer() {
           </div>
           <span className="font-medium text-sm text-white/90 tracking-wide">Next Penalty In:</span>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="text-sm font-mono font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-[#6636a3]/20 to-purple-500/20 border border-[#6636a3]/30 text-white/90 shadow-inner">
             {timeRemaining}
           </span>
         </div>
       </div>
+
     </div>
   );
 }
@@ -757,8 +759,9 @@ export default function PenaltiesPage() {
                     </DialogTrigger>
                     <DialogContent
                       aria-describedby="penalty-settings-description"
-                      className="max-w-3xl w-full p-0 rounded-lg border-[#6636a3]/30 shadow-2xl bg-[#151525] sm:rounded-lg overflow-hidden"
+                      className="max-w-3xl w-full m-0 sm:mx-0  p-0 rounded-lg border-[#6636a3]/30 shadow-2xl bg-[#151525] sm:rounded-lg overflow-hidden"
                     >
+
                       <DialogHeader className="px-6 pt-6 pb-2 border-b border-[#6636a3]/30">
                         <DialogTitle className="text-xl font-semibold text-white">Penalty Settings</DialogTitle>
                       </DialogHeader>
