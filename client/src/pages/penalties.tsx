@@ -444,6 +444,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  const queryClient = useQueryClient();
   const handleDelete = () => {
     fetch(`/api/penalties/${penalty._id}`, {
       method: "DELETE",
@@ -455,11 +456,13 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           description: `Penalty has been deleted successfully.`,
           variant: "destructive",
         });
+        setDeleteDialogOpen(false);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Delete error:", error);
         toast({
           title: "Error",
-          description: "Failed to update penalty. Please try again.",
+          description: "Failed to delete penalty. Please try again.",
           variant: "destructive",
         });
       });
@@ -504,7 +507,13 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                   description: formData.get("description"),
                 }),
               })
-                .then(() => {
+                .then((response) => {
+                  if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                  }
+                  return response.json();
+                })
+                .then((data) => {
                   queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
                   toast({
                     title: "Penalty Updated",
@@ -512,7 +521,8 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                   });
                   setOpen(false); // Close the dialog on success
                 })
-                .catch(() => {
+                .catch((error) => {
+                  console.error("Update error:", error);
                   toast({
                     title: "Error",
                     description: "Failed to update penalty. Please try again.",
@@ -644,17 +654,25 @@ export default function PenaltiesPage() {
         method: "DELETE",
       });
     }))
+      .then(responses => {
+        // Check if any response is not ok
+        const failedResponses = responses.filter(response => !response.ok);
+        if (failedResponses.length > 0) {
+          throw new Error(`${failedResponses.length} deletions failed`);
+        }
+        return responses;
+      })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
         toast({
-          title: "Penalties Deleted",
+          title: "Success",
           description: `${selectedPenalties.length} penalties have been deleted successfully.`,
-          variant: "destructive",
         });
         setSelectedPenalties([]);
         setBulkDeleteDialogOpen(false);
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("Bulk delete error:", error);
         toast({
           title: "Error",
           description: "Failed to delete penalties. Please try again.",
@@ -682,11 +700,17 @@ export default function PenaltiesPage() {
       image?: string;
     }) => {
       const res = await apiRequest("POST", "/api/penalties", data);
+      if (!res.ok) {
+        throw new Error(`HTTP error! Status: ${res.status}`);
+      }
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-      toast({ title: "Penalty added successfully" });
+      toast({ 
+        title: "Success",
+        description: "Penalty added successfully"
+      });
       setOpenAddDialog(false);
       setNewPenalty({
         userId: "",
@@ -694,6 +718,14 @@ export default function PenaltiesPage() {
         amount: "",
         description: "",
         image: "",
+      });
+    },
+    onError: (error) => {
+      console.error("Add penalty error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add penalty. Please try again.",
+        variant: "destructive",
       });
     },
   });
