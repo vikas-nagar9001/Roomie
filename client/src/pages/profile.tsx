@@ -556,7 +556,11 @@ export default function ProfilePage() {
                               <LuHistory className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium text-white">{activity.description}</p>
+                              <p className="font-medium text-white overflow-hidden text-ellipsis">
+                                {activity.description.length > 60 
+                                  ? `${activity.description.substring(0, 60)}...` 
+                                  : activity.description}
+                              </p>
                               <p className="text-sm text-white/70 mt-1">
                                 {new Date(activity.timestamp).toLocaleString()}
                               </p>
