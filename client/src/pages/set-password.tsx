@@ -12,10 +12,10 @@ export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  
+
   // Get token from URL
   const token = new URLSearchParams(window.location.search).get("token");
-  
+
   const setPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
       const res = await apiRequest("POST", "/api/set-password", data);
@@ -58,7 +58,7 @@ export default function SetPasswordPage() {
     <div className="bg-[#0f0f1f] min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Set Your Password</CardTitle>
+          <CardTitle className="text-white">Set Your Password</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -71,6 +71,8 @@ export default function SetPasswordPage() {
             <div>
               <Label htmlFor="password">Password</Label>
               <Input
+                className="bg-transparent"
+                placeholder="Set your password"
                 id="password"
                 type="password"
                 value={password}

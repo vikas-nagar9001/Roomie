@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
     <div className="bg-[#0f0f1f] min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Reset Your Password</CardTitle>
+          <CardTitle className="text-white">Reset Your Password</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -74,6 +74,8 @@ export default function ResetPasswordPage() {
               <Label htmlFor="password">New Password</Label>
               <div className="relative">
                 <Input
+                className="bg-transparent"
+                placeholder="Enter your new password"
                   id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
