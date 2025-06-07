@@ -408,10 +408,10 @@ export default function ProfilePage() {
           </Card>
 
           {/* Main Content - Enhanced */}
-          <Card className="bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl transform transition-all duration-300 hover:shadow-purple-500/10">
-            <CardContent className="p-4 sm:p-6 bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl  border border-white/5 shadow-inner ">
+          <Card className="bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transform transition-all duration-100 hover:shadow-purple-500/10">
+            <CardContent>
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full ">
-                <TabsList className=" w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner hidden md:grid">
+                <TabsList className=" w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-10 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
                     className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
