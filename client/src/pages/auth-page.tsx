@@ -192,9 +192,9 @@ export default function AuthPage() {
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
+        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-[#0f0f1f] border border-[#6636a3]">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-gray-900">Reset Password</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-white">Reset Password</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -204,19 +204,21 @@ export default function AuthPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="resetEmail" className="text-gray-700 font-medium">Email</Label>
+              <Label htmlFor="resetEmail" className="text-gray-300 font-medium">Email</Label>
               <Input
+              c
                 id="resetEmail"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                placeholder="Enter your email"
+                className="w-full px-4 py-2 border bg-transparent border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
               />
             </div>
             <Button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+              className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
               disabled={forgotPasswordMutation.isPending}
             >
               Send Reset Link
