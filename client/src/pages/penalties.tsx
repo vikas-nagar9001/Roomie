@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
+import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
@@ -691,7 +693,7 @@ export default function PenaltiesPage() {
   const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
 
   const queryClient = useQueryClient();
-  
+
   const addPenaltyMutation = useMutation({
     mutationFn: async (data: {
       userId: string;
@@ -710,7 +712,7 @@ export default function PenaltiesPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-      toast({ 
+      toast({
         title: "Success",
         description: "Penalty added successfully"
       });
@@ -770,7 +772,7 @@ export default function PenaltiesPage() {
   };
 
   return (
-    <>
+    <TooltipProvider>
       <Header />
       <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
@@ -1161,7 +1163,7 @@ export default function PenaltiesPage() {
                 <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
                   <span className="block">User</span>
                 </TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[180px]">
+                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-10 border-none whitespace-nowrap min-w-[180px]">
                   <span className="block">Type</span>
                 </TableHead>
                 <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
@@ -1229,7 +1231,7 @@ export default function PenaltiesPage() {
                     </TableCell>
 
 
-                    <TableCell className="font-medium text-white min-w-[180px] py-4 px-3">
+                    <TableCell className="font-medium text-white min-w-[180px] py-4 px-10">
                       <span
                         className="py-1 rounded-full text-xs font-medium text-[#9f5bf7]"
                       >
@@ -1241,7 +1243,39 @@ export default function PenaltiesPage() {
                     <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
 
 
-                    <TableCell className="max-w-x text-gray-300 truncate">{penalty.description}</TableCell>
+                    <TableCell className="align-middle text-gray-300 py-4 px-3">
+                      <div className="flex justify-start items-center gap-2 group/tooltip relative w-auto max-w-[180px]">
+                        <Tooltip
+                          delayDuration={0}
+                          disableHoverableContent
+                          closeDelay={200}
+                          supportMobileTap={true}
+                        >
+                          <TooltipTrigger asChild>
+                            <button className="w-full cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] transition-colors relative bg-transparent border-0 p-0 text-left">
+                              <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap w-full text-left">
+                                {penalty.description.length > 18
+                                  ? penalty.description.slice(0, 18) + '...'
+                                  : penalty.description}
+                              </span>
+                            </button>
+                          </TooltipTrigger>
+
+                          <TooltipContent
+                            side="bottom"
+                            align="start"
+                            sideOffset={5}
+                            className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
+                          >
+                            <p className="text-sm text-white whitespace-normal">
+                              {penalty.description}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </TableCell>
+
+
 
 
                     <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
@@ -1326,7 +1360,7 @@ export default function PenaltiesPage() {
       <div className="block md:hidden">
         <MobileNav />
       </div>
-    </>
+    </TooltipProvider>
 
   );
 }
