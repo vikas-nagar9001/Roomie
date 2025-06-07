@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon, FiBell } from "react-icons/fi";
@@ -10,10 +10,12 @@ export function MobileProfileHeader() {
   const { user, logoutMutation } = useAuth();
   const [, navigate] = useLocation();
   const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const handleSignOut = async () => {
     await logoutMutation.mutateAsync();
-    navigate("/login");
+    navigate("/auth");
   };
 
   const getInitials = (name) => {
@@ -24,6 +26,25 @@ export function MobileProfileHeader() {
       .join("")
       .toUpperCase();
   };
+
+  // Add click outside handler to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        menuRef.current && 
+        !menuRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div className="relative">
@@ -47,6 +68,7 @@ export function MobileProfileHeader() {
         {/* Settings Button */}
         <div className="absolute top-4 right-4 flex space-x-2">
           <Button 
+            ref={buttonRef}
             variant="ghost" 
             size="sm" 
             className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
@@ -58,7 +80,10 @@ export function MobileProfileHeader() {
 
         {/* Dropdown Menu */}
         {showMenu && (
-          <div className="absolute top-14 right-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl p-2 z-50 w-40 animate-in fade-in slide-in-from-top-5 duration-300">
+          <div 
+            ref={menuRef}
+            className="absolute top-14 right-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl p-2 z-50 w-40 animate-in fade-in slide-in-from-top-5 duration-300"
+          >
             <Button 
               variant="ghost" 
               className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
