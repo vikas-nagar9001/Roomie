@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { FiEdit2, FiSettings, FiLogOut, FiCamera } from "react-icons/fi";
+import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft } from "react-icons/fi";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 
@@ -32,15 +32,27 @@ export function MobileProfileHeader() {
       
       {/* Profile Content */}
       <div className="relative z-10 pt-6 pb-4 px-4 flex flex-col items-center">
+        {/* Back Button */}
+        <div className="absolute top-4 left-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
+            onClick={() => navigate("/")}
+          >
+            <FiArrowLeft className="h-4 w-4" />
+          </Button>
+        </div>
+
         {/* Settings Button */}
         <div className="absolute top-4 right-4 flex space-x-2">
           <Button 
             variant="ghost" 
-            size="icon" 
-            className="rounded-full bg-white/10 text-white hover:bg-white/20 transition-all duration-300"
+            size="sm" 
+            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
             onClick={() => setShowMenu(!showMenu)}
           >
-            <FiSettings className="h-5 w-5" />
+            <FiSettings className="h-4 w-4" />
           </Button>
         </div>
 
@@ -79,13 +91,13 @@ export function MobileProfileHeader() {
             </AvatarFallback>
           </Avatar>
           
-          {/* Camera Icon Overlay */}
+          {/* Pencil Icon Overlay */}
           <div
             onClick={() => document.getElementById("profile-picture")?.click()}
-            className="absolute bottom-0 right-0 p-3 bg-indigo-600 text-white rounded-full cursor-pointer 
-                     hover:bg-indigo-700 transform hover:scale-105 transition-all shadow-lg"
+            className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white rounded-full cursor-pointer 
+                     hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transform hover:scale-105 transition-all shadow-lg"
           >
-            <FiCamera className="h-4 w-4" />
+            <FiEdit2 className="h-3.5 w-3.5" />
           </div>
         </div>
 

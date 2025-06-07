@@ -15,7 +15,7 @@ import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
 import { FaCamera, FaEdit } from "react-icons/fa";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
-import { FiLogOut, FiUser, FiHome, FiCreditCard } from "react-icons/fi";
+import { FiLogOut, FiUser, FiHome, FiCreditCard, FiMail } from "react-icons/fi";
 import favicon from "../../favroomie.png";
 import { Link } from "wouter";
 import { CustomPagination } from "@/components/custom-pagination";
@@ -52,7 +52,8 @@ export default function ProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
   const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
+  const [activeTab, setActiveTab] = useState<string>("profile");
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   // Flat data query
   const { data: flat, isError: flatError, isLoading: flatLoading } = useQuery({
@@ -292,9 +293,12 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f1f]">
-      <Header />
+      {/* Header - Hidden on mobile */}
+      <div className="hidden md:block">
+        <Header />
+      </div>
       {/* Main Content */}
-      <main className="container mx-auto px-4 pt-24 pb-8 space-y-6">
+      <main className="container mx-auto px-4 pt-6 md:pt-24 pb-8 space-y-6">
         {/* Mobile Profile Header - Only visible on mobile */}
         <div className="md:hidden">
           <MobileProfileHeader />
@@ -408,46 +412,95 @@ export default function ProfilePage() {
 
                 <TabsContent value="profile" className="space-y-6 mt-4">
                   <div className="space-y-5">
-                    <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
-                      <Label htmlFor="name" className="text-white/80 text-sm font-medium mb-1.5 block">Name</Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
-                        placeholder="Enter your name"
-                      />
+                    <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                      <h3 className="text-lg font-semibold text-white">Profile</h3>
+                      {!isEditingProfile && (
+                        <Button
+                          onClick={() => setIsEditingProfile(true)}
+                          variant="outline"
+                          className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
+                        >
+                          <FaEdit className="h-4 w-4" />
+                          Edit
+                        </Button>
+                      )}
                     </div>
-                    <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
-                      <Label htmlFor="email" className="text-white/80 text-sm font-medium mb-1.5 block">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
-                        placeholder="Enter your email"
-                      />
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                      <Button
-                        onClick={() => updateProfileMutation.mutate({ name, email })}
-                        disabled={updateProfileMutation.isPending}
-                        className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                      >
-                        {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
-                      </Button>
-
-                      <Button
-                        onClick={() => clearCacheMutation.mutate()}
-                        disabled={clearCacheMutation.isPending}
-                        variant="outline"
-                        className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                      >
-                        <MdOutlineCached className="h-5 w-5" />
-                        {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
-                      </Button>
-                    </div>
+                    
+                    {isEditingProfile ? (
+                      <div className="space-y-5 bg-black/30 rounded-xl p-5 border border-white/10 shadow-lg">
+                        <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                          <Label htmlFor="name" className="text-white/80 text-sm font-medium mb-1.5 block">Name</Label>
+                          <Input
+                            id="name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                            placeholder="Enter your name"
+                          />
+                        </div>
+                        <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                          <Label htmlFor="email" className="text-white/80 text-sm font-medium mb-1.5 block">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                            placeholder="Enter your email"
+                          />
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                          <Button
+                            onClick={() => {
+                              updateProfileMutation.mutate({ name, email });
+                              setIsEditingProfile(false);
+                            }}
+                            disabled={updateProfileMutation.isPending}
+                            className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                          >
+                            {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
+                          </Button>
+                          <Button
+                            onClick={() => setIsEditingProfile(false)}
+                            className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                          <div className="flex items-center gap-3 mb-1">
+                            <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                              <FiUser className="h-5 w-5 text-white" />
+                            </div>
+                            <Label className="text-white/80 font-medium">Name</Label>
+                          </div>
+                          <p className="text-white font-medium mt-1 ml-11">{name}</p>
+                        </div>
+                        <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                          <div className="flex items-center gap-3 mb-1">
+                            <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                              <FiMail className="h-5 w-5 text-white" />
+                            </div>
+                            <Label className="text-white/80 font-medium">Email</Label>
+                          </div>
+                          <p className="text-white font-medium mt-1 ml-11">{email}</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+                          <Button
+                            onClick={() => clearCacheMutation.mutate()}
+                            disabled={clearCacheMutation.isPending}
+                            variant="outline"
+                            className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                          >
+                            <MdOutlineCached className="h-5 w-5" />
+                            {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
