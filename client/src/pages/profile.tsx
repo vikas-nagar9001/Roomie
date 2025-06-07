@@ -288,7 +288,7 @@ export default function ProfilePage() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-600 via-[#241e95] to-indigo-800">
+    <div className="min-h-screen bg-[#0f0f1f]">
       <Header />
       {/* Main Content */}
       <main className="container mx-auto px-4 pt-32 pb-8 space-y-8">
@@ -299,7 +299,7 @@ export default function ProfilePage() {
         {/* Profile Grid */}
         <div className="grid gap-6 lg:grid-cols-[280px,1fr] xl:gap-8">
           {/* Sidebar */}
-          <Card className="h-fit bg-white/5 backdrop-blur-lg border-white/10">
+          <Card className="h-fit bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
             <CardContent className="p-6">
               <div className="flex flex-col items-center space-y-6">
                 {/* Avatar with Camera Icon */}
@@ -351,20 +351,20 @@ export default function ProfilePage() {
           </Card>
 
           {/* Main Content */}
-          <Card className="bg-white/5 backdrop-blur-lg border-white/10">
+          <Card className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
             <CardContent className="p-6">
               <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-white/10 rounded-lg p-1">
+                <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-lg p-1">
                   <TabsTrigger 
                     value="profile" 
-                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
                   >
                     <LuUser className="h-4 w-4 mr-2" />
                     Profile
                   </TabsTrigger>
                   <TabsTrigger 
                     value="activity"
-                    className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
                   >
                     <LuHistory className="h-4 w-4 mr-2" />
                     Activity
@@ -372,7 +372,7 @@ export default function ProfilePage() {
                   {user?.role === "ADMIN" && (
                     <TabsTrigger 
                       value="flat"
-                      className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-white/70"
+                      className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
                     >
                       <LuSettings className="h-4 w-4 mr-2" />
                       Flat Settings
@@ -388,7 +388,7 @@ export default function ProfilePage() {
                         id="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="bg-white/10 border-white/20 text-white"
+                        className="bg-black/30 border-white/10 text-white"
                       />
                     </div>
                     <div>
@@ -398,14 +398,14 @@ export default function ProfilePage() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="bg-white/10 border-white/20 text-white"
+                        className="bg-black/30 border-white/10 text-white"
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <Button
                         onClick={() => updateProfileMutation.mutate({ name, email })}
                         disabled={updateProfileMutation.isPending}
-                        className="bg-indigo-600 hover:bg-indigo-700"
+                        className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
                       >
                         Save Changes
                       </Button>
@@ -414,7 +414,7 @@ export default function ProfilePage() {
                         onClick={() => clearCacheMutation.mutate()}
                         disabled={clearCacheMutation.isPending}
                         variant="outline"
-                        className="bg-white/10 hover:bg-white/20 text-white border-0"
+                        className="bg-black/30 hover:bg-black/50 text-white border-white/10"
                       >
                         <MdOutlineCached className="mr-2" />
                         Clear Cache
@@ -441,8 +441,8 @@ export default function ProfilePage() {
                       {paginatedActivities.map((activity) => (
                         <div
                           key={activity._id}
-                          className="p-4 rounded-lg border border-white/10 bg-white/5 backdrop-blur-sm 
-                                   hover:bg-white/10 transition-all"
+                          className="p-4 rounded-lg border border-white/10 bg-black/30 backdrop-blur-sm 
+                                   hover:bg-black/50 transition-all"
                         >
                           <p className="font-medium text-white">{activity.description}</p>
                           <p className="text-sm text-white/70 mt-1">
@@ -479,7 +479,7 @@ export default function ProfilePage() {
                           <Button
                             onClick={() => setIsEditingFlatSettings(true)}
                             variant="outline"
-                            className="border-white/20 bg-white/70 hover:bg-white/10"
+                            className="border-white/10 bg-black/30 hover:bg-black/50 text-white"
                           >
                             <FaEdit className="mr-2" />
                             Edit Settings
@@ -488,14 +488,14 @@ export default function ProfilePage() {
                       </div>
 
                       {isEditingFlatSettings ? (
-                        <div className="space-y-4 bg-white/5 rounded-lg p-4">
+                        <div className="space-y-4 bg-black/30 rounded-lg p-4 border border-white/10">
                           <div>
                             <Label htmlFor="flatName" className="text-white">Flat Name</Label>
                             <Input
                               id="flatName"
                               value={flatName}
                               onChange={(e) => setFlatName(e.target.value)}
-                              className="bg-white/10 border-white/20 text-white"
+                              className="bg-black/30 border-white/10 text-white"
                               placeholder="Enter flat name"
                             />
                           </div>
@@ -506,7 +506,7 @@ export default function ProfilePage() {
                               type="number"
                               value={minApprovalAmount}
                               onChange={(e) => setMinApprovalAmount(e.target.value)}
-                              className="bg-white/10 border-white/20 text-white"
+                              className="bg-black/30 border-white/10 text-white"
                               placeholder="Enter minimum amount"
                             />
                           </div>
@@ -516,7 +516,7 @@ export default function ProfilePage() {
                                 name: flatName,
                                 minApprovalAmount: Number(minApprovalAmount)
                               })}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                              className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
                             >
                               Save Settings
                             </Button>
@@ -527,7 +527,7 @@ export default function ProfilePage() {
                                 setFlatName(flat?.name || "");
                                 setMinApprovalAmount(flat?.minApprovalAmount?.toString() || "");
                               }}
-                              className="bg-white/10 hover:bg-white/20 text-white border-0"
+                              className="bg-black/30 hover:bg-black/50 text-white border-white/10"
                             >
                               Cancel
                             </Button>
@@ -535,17 +535,17 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="bg-white/5 p-4 rounded-lg">
+                          <div className="bg-black/30 p-4 rounded-lg border border-white/10">
                             <Label className="text-white/70">Flat ID</Label>
                             <p className="text-white font-medium mt-1">{user?.flatId}</p>
                           </div>
                           {flat && (
                             <>
-                              <div className="bg-white/5 p-4 rounded-lg">
+                              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
                                 <Label className="text-white/70">Flat Name</Label>
                                 <p className="text-white font-medium mt-1">{flat.name}</p>
                               </div>
-                              <div className="bg-white/5 p-4 rounded-lg">
+                              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
                                 <Label className="text-white/70">Minimum Approval Amount</Label>
                                 <p className="text-white font-medium mt-1">₹{flat.minApprovalAmount || '0'}</p>
                               </div>
@@ -564,7 +564,7 @@ export default function ProfilePage() {
 
       {/* Image Cropping Dialog */}
       <Dialog open={isCropperOpen} onOpenChange={setIsCropperOpen}>
-        <DialogContent className="bg-white/10 backdrop-blur-lg border-white/20">
+        <DialogContent className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
           <div className="h-[400px] relative">
             {imageSrc && (
               <Cropper
@@ -596,13 +596,13 @@ export default function ProfilePage() {
               <Button
                 variant="outline"
                 onClick={() => setIsCropperOpen(false)}
-                className="border-white/20 text-white hover:bg-white/10"
+                className="border-white/10 text-white hover:bg-black/50 bg-black/30"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCropSave}
-                className="bg-indigo-600 hover:bg-indigo-700"
+                className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
               >
                 Save
               </Button>
