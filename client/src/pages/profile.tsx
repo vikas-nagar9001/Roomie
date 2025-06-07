@@ -430,8 +430,7 @@ export default function ProfilePage() {
                       <span className="text-xs sm:text-sm font-medium">Activity</span>
                     </div>
                   </TabsTrigger>
-                  {/* Show Flat Settings tab to all users */}
-                {(
+                  {user?.role === "ADMIN" && (
                     <TabsTrigger 
                       value="flat"
                       className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
@@ -592,13 +591,12 @@ export default function ProfilePage() {
                   </div>
                 </TabsContent>
 
-                {/* Show Flat Settings tab to all users */}
-                {(
+                {user?.role === "ADMIN" && (
                   <TabsContent value="flat" className="mt-4">
                     <div className="space-y-5">
                       <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
                         <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
-                        {!isEditingFlatSettings && user?.role === "ADMIN" && (
+                        {!isEditingFlatSettings && (
                           <Button
                             onClick={() => setIsEditingFlatSettings(true)}
                             variant="outline"
