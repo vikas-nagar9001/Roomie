@@ -258,7 +258,7 @@ export default function AuthPage() {
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-black/40 backdrop-blur-xl border border-[#6636a3]/50">
+        <DialogContent className="max-w-md w-full p-6 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-white">Reset Password</DialogTitle>
           </DialogHeader>

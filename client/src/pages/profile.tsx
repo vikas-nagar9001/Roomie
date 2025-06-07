@@ -409,8 +409,8 @@ export default function ProfilePage() {
 
           {/* Main Content - Enhanced */}
           <Card className="bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl transform transition-all duration-300 hover:shadow-purple-500/10">
-            <CardContent className="p-4 sm:p-6">
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <CardContent className="p-4 sm:p-6 bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl p-3 border border-white/5 shadow-inner ">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full ">
                 <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
@@ -448,7 +448,7 @@ export default function ProfilePage() {
                 
                 <TabsContent value="profile" className="space-y-6 mt-4">
                   <div className="space-y-5">
-                    <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                    <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-4 ">
                       <h3 className="text-lg font-semibold text-white">Profile</h3>
                       {!isEditingProfile && (
                         <Button
@@ -530,9 +530,9 @@ export default function ProfilePage() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="activity" className="mt-4">
-                  <div className="space-y-5">
-                    <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                <TabsContent value="activity" className="mt-4  ">
+                  <div className="space-y-5 ">
+                    <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-4 ">
                       <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
                       <Button
                         onClick={() => clearActivitiesMutation.mutate()}
@@ -596,7 +596,7 @@ export default function ProfilePage() {
                 {(
                   <TabsContent value="flat" className="mt-4">
                     <div className="space-y-5">
-                      <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                      <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-4">
                         <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
                         {!isEditingFlatSettings && user?.role === "ADMIN" && (
                           <Button
