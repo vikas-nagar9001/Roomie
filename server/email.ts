@@ -56,6 +56,7 @@ export async function sendInviteEmail(email: string, name: string, inviteToken: 
   }
 }
 
+<<<<<<< HEAD
 export async function sendPasswordResetEmail(email: string, name: string, resetToken: string) {
   const baseUrl = await getBaseUrl();
   const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
@@ -72,10 +73,55 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
         <p>We received a request to reset your password. Click the button below to set a new password:</p>
         <p>
           <a href="${resetLink}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+=======
+export async function sendInviteEmail(email, name, inviteToken) {
+  const baseUrl = await getBaseUrl();
+  const inviteLink = `${baseUrl}/set-password?token=${inviteToken}`;
+
+  return sendEmail({
+    to: email,
+    subject: "Welcome to Roomie - Set Your Password",
+    text: `Hello ${name},\n\nYou've been invited to join Roomie. Click the following link to set your password and activate your account:\n\n${inviteLink}\n\nThis link will expire in 24 hours.\n\nBest regards,\nRoomie Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #4F46E5;">Welcome to Roomie</h2>
+        <p>Hello <strong>${name}</strong>,</p>
+        <p>You've been invited to join <strong>Roomie</strong>. Click the button below to set your password and activate your account:</p>
+        <p>
+          <a href="${inviteLink}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2);">
+            Set Your Password
+          </a>
+        </p>
+        <p>Or copy and paste this link in your browser:</p>
+        <p style="background: #f4f4f4; padding: 10px; border-radius: 5px;">${inviteLink}</p>
+        <p style="color: red;">This link will expire in 24 hours.</p>
+        <p>Best regards,<br><strong>Roomie Team</strong></p>
+      </div>
+    `,
+  });
+}
+
+export async function sendPasswordResetEmail(email, name, resetToken) {
+  const baseUrl = await getBaseUrl();
+  const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+
+  return sendEmail({
+    to: email,
+    subject: "Roomie - Password Reset Request",
+    text: `Hello ${name},\n\nWe received a request to reset your password. Click the following link to set a new password:\n\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nRoomie Team`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #E53E3E;">Password Reset Request</h2>
+        <p>Hello <strong>${name}</strong>,</p>
+        <p>We received a request to reset your password. Click the button below to set a new password:</p>
+        <p>
+          <a href="${resetLink}" style="display: inline-block; background-color: #E53E3E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2);">
+>>>>>>> parent of f66c533 (all design done)
             Reset Password
           </a>
         </p>
         <p>Or copy and paste this link in your browser:</p>
+<<<<<<< HEAD
         <p>${resetLink}</p>
         <p>This link will expire in 1 hour.</p>
         <p>If you didn't request this, please ignore this email.</p>
@@ -90,3 +136,13 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
     throw error;
   }
 }
+=======
+        <p style="background: #f4f4f4; padding: 10px; border-radius: 5px;">${resetLink}</p>
+        <p style="color: red;">This link will expire in 1 hour.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br><strong>Roomie Team</strong></p>
+      </div>
+    `,
+  });
+}
+>>>>>>> parent of f66c533 (all design done)

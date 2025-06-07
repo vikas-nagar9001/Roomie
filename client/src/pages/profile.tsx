@@ -591,11 +591,20 @@ export default function ProfilePage() {
                   </div>
                 </TabsContent>
 
+<<<<<<< HEAD
                 <TabsContent value="flatSettings" className="space-y-6">
                     <div className="space-y-5">
                       <div className="flex justify-between items-center">
                         <h3 className="text-xl font-bold text-white">Flat Settings</h3>
                         {user?.role === "ADMIN" && !isEditingFlatSettings && (
+=======
+                {user?.role === "ADMIN" && (
+                  <TabsContent value="flat" className="mt-4">
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                        <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
+                        {!isEditingFlatSettings && (
+>>>>>>> parent of f66c533 (all design done)
                           <Button
                             onClick={() => setIsEditingFlatSettings(true)}
                             variant="outline"

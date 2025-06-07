@@ -57,7 +57,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="bg-[#0f0f1f] min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Reset Your Password</CardTitle>
@@ -97,7 +97,11 @@ export default function ResetPasswordPage() {
             </div>
             <Button
               type="submit"
+<<<<<<< HEAD
               className="w-full flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#9c59f4] text-white rounded-lg shadow-md transition"
+=======
+              className="w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
+>>>>>>> parent of f66c533 (all design done)
               disabled={resetPasswordMutation.isPending}
             >
               Reset Password
