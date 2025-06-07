@@ -591,12 +591,11 @@ export default function ProfilePage() {
                   </div>
                 </TabsContent>
 
-                {user?.role === "ADMIN" && (
-                  <TabsContent value="flat" className="mt-4">
+                <TabsContent value="flatSettings" className="space-y-6">
                     <div className="space-y-5">
-                      <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
-                        <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
-                        {!isEditingFlatSettings && (
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xl font-bold text-white">Flat Settings</h3>
+                        {user?.role === "ADMIN" && !isEditingFlatSettings && (
                           <Button
                             onClick={() => setIsEditingFlatSettings(true)}
                             variant="outline"
@@ -691,7 +690,6 @@ export default function ProfilePage() {
                       )}
                     </div>
                   </TabsContent>
-                )}
               </Tabs>
             </CardContent>
           </Card>
