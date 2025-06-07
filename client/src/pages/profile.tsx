@@ -316,33 +316,30 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* <div className="flex items-center justify-between">
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">Profile Settings</h1>
-        </div> */}
-
-        {/* Profile Grid */}
-        <div className="grid gap-6 lg:grid-cols-[280px,1fr] xl:gap-8">
+        {/* Desktop Profile Grid - Improved Layout */}
+        <div className="grid gap-6 lg:grid-cols-[300px,1fr] xl:gap-8">
           {/* Sidebar - Hidden on mobile */}
-          <Card className="h-fit bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 hidden md:block">
+          <Card className="h-fit bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl rounded-xl border border-white/10 hidden md:block shadow-xl transform transition-all duration-300 hover:shadow-purple-500/20 hover:border-white/20">
             <CardContent className="p-6">
               <div className="flex flex-col items-center space-y-6">
-                {/* Avatar with Camera Icon */}
-                <div className="relative group">
-                  <Avatar className="h-24 w-24 border-2 border-white/20 group-hover:border-white/40 transition-all">
+                {/* Avatar with Camera Icon - Enhanced */}
+                <div className="relative group mt-4">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full opacity-70 blur-sm group-hover:opacity-100 transition-all duration-300"></div>
+                  <Avatar className="h-28 w-28 border-2 border-white/20 group-hover:border-white/40 transition-all relative">
                     <AvatarImage
                       src={user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
                       className="object-cover"
                     />
-                    <AvatarFallback className="bg-indigo-600 text-xl font-semibold">
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-purple-700 text-xl font-semibold">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
 
-                  {/* Camera Icon Overlay */}
+                  {/* Camera Icon Overlay - Enhanced */}
                   <div
                     onClick={() => document.getElementById("profile-picture-desktop")?.click()}
-                    className="absolute bottom-0 right-0 p-2.5 bg-indigo-600 text-white rounded-full cursor-pointer 
-                             hover:bg-indigo-700 transform hover:scale-105 transition-all shadow-lg"
+                    className="absolute bottom-0 right-0 p-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-full cursor-pointer 
+                             hover:from-indigo-700 hover:to-purple-800 transform hover:scale-105 transition-all shadow-lg"
                   >
                     <FaCamera className="h-4 w-4" />
                   </div>
@@ -356,15 +353,35 @@ export default function ProfilePage() {
                   />
                 </div>
 
-                <div className="text-center space-y-1.5">
-                  <p className="text-base font-medium text-white">{user?.name}</p>
+                {/* User Info - Enhanced */}
+                <div className="text-center space-y-2 w-full">
+                  <p className="text-xl font-semibold text-white bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{user?.name}</p>
                   <p className="text-sm text-white/70">{user?.email}</p>
+                  <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-2"></div>
+                  <p className="text-xs text-white/50 uppercase tracking-wider font-medium">Role: {user?.role}</p>
                 </div>
 
+                {/* Stats Section - New Addition */}
+                <div className="grid grid-cols-3 gap-2 w-full mt-2">
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
+                    <span className="text-lg font-bold text-white">{user?.entriesCount || 0}</span>
+                    <span className="text-xs text-white/60">Entries</span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
+                    <span className="text-lg font-bold text-white">{user?.pendingCount || 0}</span>
+                    <span className="text-xs text-white/60">Pending</span>
+                  </div>
+                  <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
+                    <span className="text-lg font-bold text-white">₹{user?.totalAmount || 0}</span>
+                    <span className="text-xs text-white/60">Amount</span>
+                  </div>
+                </div>
+
+                {/* Logout Button - Enhanced */}
                 <Button
                   onClick={() => logoutMutation.mutate()}
                   disabled={logoutMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 bg-red-600/90 hover:bg-red-700 text-white 
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-white 
                            font-medium py-2 rounded-lg shadow-md transition-all"
                 >
                   <FiLogOut className="h-4 w-4" />
@@ -374,14 +391,14 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
 
-          {/* Main Content */}
-          <Card className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
+          {/* Main Content - Enhanced */}
+          <Card className="bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl rounded-xl border border-white/10 shadow-xl transform transition-all duration-300 hover:shadow-purple-500/10">
             <CardContent className="p-4 sm:p-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
                     <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                       <LuUser className="h-5 w-5" />
@@ -390,7 +407,7 @@ export default function ProfilePage() {
                   </TabsTrigger>
                   <TabsTrigger 
                     value="activity"
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
                     <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                       <LuHistory className="h-5 w-5" />
@@ -400,7 +417,7 @@ export default function ProfilePage() {
                   {user?.role === "ADMIN" && (
                     <TabsTrigger 
                       value="flat"
-                      className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                     >
                       <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                         <LuSettings className="h-5 w-5" />
@@ -410,9 +427,11 @@ export default function ProfilePage() {
                   )}
                 </TabsList>
 
+                {/* Tab Content remains the same */}
+                
                 <TabsContent value="profile" className="space-y-6 mt-4">
                   <div className="space-y-5">
-                    <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                    <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
                       <h3 className="text-lg font-semibold text-white">Profile</h3>
                       {!isEditingProfile && (
                         <Button
@@ -427,7 +446,7 @@ export default function ProfilePage() {
                     </div>
                     
                     {isEditingProfile ? (
-                      <div className="space-y-5 bg-black/30 rounded-xl p-5 border border-white/10 shadow-lg">
+                      <div className="space-y-5 bg-gradient-to-b from-black/40 to-black/20 rounded-xl p-5 border border-white/10 shadow-lg">
                         <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
                           <Label htmlFor="name" className="text-white/80 text-sm font-medium mb-1.5 block">Name</Label>
                           <Input
@@ -470,18 +489,18 @@ export default function ProfilePage() {
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                           <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
                               <FiUser className="h-5 w-5 text-white" />
                             </div>
                             <Label className="text-white/80 font-medium">Name</Label>
                           </div>
                           <p className="text-white font-medium mt-1 ml-11">{name}</p>
                         </div>
-                        <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                           <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
                               <FiMail className="h-5 w-5 text-white" />
                             </div>
                             <Label className="text-white/80 font-medium">Email</Label>
@@ -493,7 +512,7 @@ export default function ProfilePage() {
                             onClick={() => clearCacheMutation.mutate()}
                             disabled={clearCacheMutation.isPending}
                             variant="outline"
-                            className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto bg-gradient-to-r from-black/40 to-black/30 hover:from-black/50 hover:to-black/40 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                           >
                             <MdOutlineCached className="h-5 w-5" />
                             {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
@@ -506,7 +525,7 @@ export default function ProfilePage() {
 
                 <TabsContent value="activity" className="mt-4">
                   <div className="space-y-5">
-                    <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                    <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
                       <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
                       <Button
                         onClick={() => clearActivitiesMutation.mutate()}
@@ -523,11 +542,11 @@ export default function ProfilePage() {
                       {paginatedActivities.map((activity) => (
                         <div
                           key={activity._id}
-                          className="p-4 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm 
+                          className="p-4 rounded-xl border border-white/10 bg-gradient-to-r from-black/30 to-black/20 backdrop-blur-sm 
                                    hover:bg-black/50 transition-all duration-300 transform hover:scale-[1.02] shadow-md"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="bg-[#6636a3]/30 p-2 rounded-full mt-1">
+                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full mt-1">
                               <LuHistory className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1">
@@ -541,8 +560,10 @@ export default function ProfilePage() {
                       ))}
 
                       {activities.length === 0 && (
-                        <div className="text-center py-12 px-4 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm">
-                          <LuHistory className="h-12 w-12 text-white/30 mx-auto mb-3" />
+                        <div className="text-center py-12 px-4 rounded-xl border border-white/10 bg-gradient-to-b from-black/30 to-black/20 backdrop-blur-sm">
+                          <div className="bg-gradient-to-br from-[#6636a3]/20 to-[#5433a7]/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-3">
+                            <LuHistory className="h-12 w-12 text-white/40" />
+                          </div>
                           <p className="text-white/70 text-lg">No recent activity</p>
                         </div>
                       )}
@@ -563,7 +584,7 @@ export default function ProfilePage() {
                 {user?.role === "ADMIN" && (
                   <TabsContent value="flat" className="mt-4">
                     <div className="space-y-5">
-                      <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                      <div className="flex justify-between items-center bg-gradient-to-r from-black/40 to-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
                         <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
                         {!isEditingFlatSettings && (
                           <Button
@@ -578,7 +599,7 @@ export default function ProfilePage() {
                       </div>
 
                       {isEditingFlatSettings ? (
-                        <div className="space-y-5 bg-black/30 rounded-xl p-5 border border-white/10 shadow-lg">
+                        <div className="space-y-5 bg-gradient-to-b from-black/40 to-black/20 rounded-xl p-5 border border-white/10 shadow-lg">
                           <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
                             <Label htmlFor="flatName" className="text-white/80 text-sm font-medium mb-1.5 block">Flat Name</Label>
                             <Input
@@ -625,9 +646,9 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                          <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                             <div className="flex items-center gap-3 mb-1">
-                              <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                              <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
                                 <FiUser className="h-5 w-5 text-white" />
                               </div>
                               <Label className="text-white/80 font-medium">Flat ID</Label>
@@ -636,18 +657,18 @@ export default function ProfilePage() {
                           </div>
                           {flat && (
                             <>
-                              <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                              <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                                 <div className="flex items-center gap-3 mb-1">
-                                  <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                                  <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
                                     <FiHome className="h-5 w-5 text-white" />
                                   </div>
                                   <Label className="text-white/80 font-medium">Flat Name</Label>
                                 </div>
                                 <p className="text-white font-medium mt-1 ml-11">{flat.name}</p>
                               </div>
-                              <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                              <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                                 <div className="flex items-center gap-3 mb-1">
-                                  <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                                  <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
                                     <FiCreditCard className="h-5 w-5 text-white" />
                                   </div>
                                   <Label className="text-white/80 font-medium">Minimum Approval Amount</Label>
@@ -669,7 +690,7 @@ export default function ProfilePage() {
 
       {/* Image Cropping Dialog */}
       <Dialog open={isCropperOpen} onOpenChange={setIsCropperOpen}>
-        <DialogContent className="bg-black/70 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl max-w-[95vw] sm:max-w-[500px] p-0 overflow-hidden">
+        <DialogContent className="bg-gradient-to-b from-black/70 to-black/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl max-w-[95vw] sm:max-w-[500px] p-0 overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-[#6636a3]/30 to-black/30 border-b border-white/10">
             <h3 className="text-xl font-bold text-white text-center">Crop Profile Picture</h3>
           </div>
@@ -688,7 +709,7 @@ export default function ProfilePage() {
             )}
           </div>
           
-          <div className="space-y-5 p-5 bg-black/40">
+          <div className="space-y-5 p-5 bg-gradient-to-b from-black/50 to-black/30">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label className="text-white font-medium">Zoom</Label>
