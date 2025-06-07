@@ -24,6 +24,7 @@ import { Slider } from "@/components/ui/slider";
 import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { MobileProfileHeader } from "@/components/mobile-profile-header";
+import { MobileProfileTabs } from "@/components/mobile-profile-tabs";
 
 interface Activity {
   _id: string;
@@ -51,6 +52,7 @@ export default function ProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
   const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
 
   // Flat data query
   const { data: flat, isError: flatError, isLoading: flatLoading } = useQuery({
@@ -303,11 +305,16 @@ export default function ProfilePage() {
             accept="image/*"
             onChange={handleProfilePictureChange}
           />
+          
+          {/* Mobile Profile Tabs - Only visible on mobile */}
+          <div className="mt-4">
+            <MobileProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+          </div>
         </div>
 
-        <div className="flex items-center justify-between">
+        {/* <div className="flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Profile Settings</h1>
-        </div>
+        </div> */}
 
         {/* Profile Grid */}
         <div className="grid gap-6 lg:grid-cols-[280px,1fr] xl:gap-8">
@@ -366,8 +373,8 @@ export default function ProfilePage() {
           {/* Main Content */}
           <Card className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
             <CardContent className="p-4 sm:p-6">
-              <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
                     className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
