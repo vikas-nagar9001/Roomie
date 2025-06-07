@@ -9,6 +9,7 @@ import { useForm } from "react-hook-form";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Redirect } from "wouter";
 import { LuBuilding2 } from "react-icons/lu";
+import { FiUsers, FiList, FiCreditCard } from "react-icons/fi";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -63,138 +64,203 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen grid md:grid-cols-2 bg-indigo-100">
-      <div className="flex items-center justify-center p-8">
-        <Card className="w-full max-w-md bg-white">
-          <CardHeader>
-            <CardTitle>Welcome to Roomie</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="login">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="login">Login</TabsTrigger>
-                <TabsTrigger value="register">Register as Admin</TabsTrigger>
-              </TabsList>
+    <div className="min-h-screen flex items-center justify-center bg-[#0f0f1f] relative overflow-hidden">
+      {/* Background gradient effects */}
+      <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#6636a3]/10 blur-3xl"></div>
+      <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
+      
+      <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
+        <div className="flex items-center justify-center">
+          <Card className="w-full max-w-md bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-2xl font-bold text-white">Welcome to Roomie</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="login" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 bg-[#1a1a2e] mb-6">
+                  <TabsTrigger 
+                    value="login" 
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
+                  >
+                    Login
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="register" 
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
+                  >
+                    Register as Admin
+                  </TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="login">
-                <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" {...loginForm.register("email")} />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showLoginPassword ? "text" : "password"}
-                          {...loginForm.register("password")}
+                <TabsContent value="login">
+                  <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="email" className="text-gray-300">Email</Label>
+                        <Input 
+                          id="email" 
+                          {...loginForm.register("email")} 
+                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          placeholder="Enter your email"
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        >
-                          {showLoginPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
                       </div>
+                      <div>
+                        <Label htmlFor="password" className="text-gray-300">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showLoginPassword ? "text" : "password"}
+                            {...loginForm.register("password")}
+                            className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                            placeholder="Enter your password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-gray-400 hover:text-white"
+                            onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          >
+                            {showLoginPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full relative group overflow-hidden rounded-lg"
+                        disabled={loginMutation.isPending}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+                        <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
+                          Login
+                        </span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="w-full text-indigo-300 hover:text-indigo-200"
+                        onClick={() => setForgotPasswordOpen(true)}
+                      >
+                        Forgot Password?
+                      </Button>
                     </div>
-                    <Button
-                      type="submit"
-                      // className="w-full"
-                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                      disabled={loginMutation.isPending}
-                    >
-                      Login
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="link"
-                      className="w-full"
-                      onClick={() => setForgotPasswordOpen(true)}
-                    >
-                      Forgot Password?
-                    </Button>
-                  </div>
-                </form>
-              </TabsContent>
+                  </form>
+                </TabsContent>
 
-              <TabsContent value="register">
-                <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" {...registerForm.register("name")} />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" {...registerForm.register("email")} />
-                    </div>
-                    <div>
-                      <Label htmlFor="flatUsername">Flat Username</Label>
-                      <Input id="flatUsername" {...registerForm.register("flatUsername")} />
-                    </div>
-                    <div>
-                      <Label htmlFor="registerPassword">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="registerPassword"
-                          type={showRegisterPassword ? "text" : "password"}
-                          {...registerForm.register("password")}
+                <TabsContent value="register">
+                  <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="name" className="text-gray-300">Full Name</Label>
+                        <Input 
+                          id="name" 
+                          {...registerForm.register("name")} 
+                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          placeholder="Enter your full name"
                         />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          onClick={() => setShowRegisterPassword(!showRegisterPassword)}
-                        >
-                          {showRegisterPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
                       </div>
+                      <div>
+                        <Label htmlFor="email" className="text-gray-300">Email</Label>
+                        <Input 
+                          id="email" 
+                          {...registerForm.register("email")} 
+                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          placeholder="Enter your email"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="flatUsername" className="text-gray-300">Flat Username</Label>
+                        <Input 
+                          id="flatUsername" 
+                          {...registerForm.register("flatUsername")} 
+                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          placeholder="Enter your flat username"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="registerPassword" className="text-gray-300">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="registerPassword"
+                            type={showRegisterPassword ? "text" : "password"}
+                            {...registerForm.register("password")}
+                            className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                            placeholder="Create a strong password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-gray-400 hover:text-white"
+                            onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                          >
+                            {showRegisterPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        type="submit"
+                        className="w-full relative group overflow-hidden rounded-lg"
+                        disabled={registerMutation.isPending}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+                        <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
+                          Create Account
+                        </span>
+                      </Button>
                     </div>
-                    <Button
-                      type="submit"
-                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
-                      disabled={registerMutation.isPending}
-                    >
-                      Create Account
-                    </Button>
-                  </div>
-                </form>
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
+                  </form>
+                </TabsContent>
+              </Tabs>
+            </CardContent>
+          </Card>
+        </div>
 
-      <div className="hidden md:flex flex-col justify-center p-8 bg-indigo-600 text-primary-foreground">
-        {/* className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition" */}
-        <div className="max-w-md mx-auto space-y-6">
-          <LuBuilding2 className="w-16 h-16" />
-          <h1 className="text-4xl font-bold">Manage Your Flat Share Effortlessly</h1>
-          <p className="text-lg opacity-90">
-            Create or join a flat, manage roommates, and keep everything organized
-            in one place.
-          </p>
+        <div className="hidden md:flex flex-col justify-center p-8 relative">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] to-[#6636a3] rounded-2xl blur opacity-75"></div>
+          <div className="relative bg-black/50 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
+            <LuBuilding2 className="w-16 h-16 text-indigo-300 mb-6" />
+            <h1 className="text-4xl font-bold text-white mb-4">Manage Your Flat Share Effortlessly</h1>
+            <p className="text-lg text-indigo-200/90">
+              Create or join a flat, manage roommates, and keep everything organized
+              in one place.
+            </p>
+            <div className="mt-8 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                  <FiUsers className="w-5 h-5 text-indigo-300" />
+                </div>
+                <p className="text-indigo-100">Manage roommates and permissions</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                  <FiList className="w-5 h-5 text-indigo-300" />
+                </div>
+                <p className="text-indigo-100">Track expenses and payments</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                  <FiCreditCard className="w-5 h-5 text-indigo-300" />
+                </div>
+                <p className="text-indigo-100">Simplify bill splitting and settlements</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-[#0f0f1f] border border-[#6636a3]">
+        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-black/40 backdrop-blur-xl border border-[#6636a3]/50">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-white">Reset Password</DialogTitle>
+            <DialogTitle className="text-xl font-semibold text-white">Reset Password</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -206,22 +272,24 @@ export default function AuthPage() {
             <div className="space-y-2">
               <Label htmlFor="resetEmail" className="text-gray-300 font-medium">Email</Label>
               <Input
-              c
                 id="resetEmail"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
                 placeholder="Enter your email"
-                className="w-full px-4 py-2 border bg-transparent border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
+                className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
               />
             </div>
             <Button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
+              className="w-full relative group overflow-hidden rounded-lg"
               disabled={forgotPasswordMutation.isPending}
             >
-              Send Reset Link
+              <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+              <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
+                Send Reset Link
+              </span>
             </Button>
           </form>
         </DialogContent>
