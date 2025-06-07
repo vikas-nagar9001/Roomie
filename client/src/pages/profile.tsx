@@ -378,15 +378,31 @@ export default function ProfilePage() {
                 </div>
 
                 {/* Logout Button - Enhanced */}
-                <Button
-                  onClick={() => logoutMutation.mutate()}
-                  disabled={logoutMutation.isPending}
-                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-white 
+                <div className="flex gap-2 w-full">
+                  <Button
+                    onClick={() => logoutMutation.mutate()}
+                    disabled={logoutMutation.isPending}
+                    className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-white 
                            font-medium py-2 rounded-lg shadow-md transition-all"
-                >
-                  <FiLogOut className="h-4 w-4" />
-                  Logout
-                </Button>
+                  >
+                    <FiLogOut className="h-4 w-4" />
+                    Logout
+                  </Button>
+                  
+                  <Button
+                    onClick={() => {
+                      caches.keys().then((names) => {
+                        names.forEach((name) => caches.delete(name));
+                      });
+                      window.location.reload();
+                    }}
+                    className="flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600/80 to-purple-700/80 hover:from-indigo-600 hover:to-purple-700 text-white 
+                           font-medium py-2 rounded-lg shadow-md transition-all"
+                  >
+                    <MdOutlineCached className="h-4 w-4" />
+                    Clear Cache
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -507,17 +523,7 @@ export default function ProfilePage() {
                           </div>
                           <p className="text-white font-medium mt-1 ml-11">{email}</p>
                         </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                          <Button
-                            onClick={() => clearCacheMutation.mutate()}
-                            disabled={clearCacheMutation.isPending}
-                            variant="outline"
-                            className="w-full sm:w-auto bg-gradient-to-r from-black/40 to-black/30 hover:from-black/50 hover:to-black/40 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
-                          >
-                            <MdOutlineCached className="h-5 w-5" />
-                            {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
-                          </Button>
-                        </div>
+                        {/* Clear Cache button removed from desktop view and moved to mobile settings popup */}
                       </div>
                     )}
                   </div>

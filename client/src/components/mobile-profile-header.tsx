@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon, FiBell } from "react-icons/fi";
+import { MdOutlineCached } from "react-icons/md";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 
 export function MobileProfileHeader() {
@@ -12,6 +15,18 @@ export function MobileProfileHeader() {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Clear cache mutation
+  const clearCacheMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/clear-cache");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      window.location.reload();
+    },
+  });
 
   const handleSignOut = async () => {
     await logoutMutation.mutateAsync();
@@ -105,6 +120,18 @@ export function MobileProfileHeader() {
             >
               <FiBell className="mr-2 h-4 w-4" />
               Notifications
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
+              onClick={() => {
+                setShowMenu(false);
+                clearCacheMutation.mutate();
+              }}
+              disabled={clearCacheMutation.isPending}
+            >
+              <MdOutlineCached className="mr-2 h-4 w-4" />
+              {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
             </Button>
             <Button 
               variant="ghost" 
