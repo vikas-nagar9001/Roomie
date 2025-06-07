@@ -62,217 +62,40 @@ export default function AuthPage() {
     return <Redirect to="/" />;
   }
 
-  // Mobile View Component
-  const MobileView = () => (
-    <div className="min-h-screen bg-[#0f0f1f] p-4 flex flex-col justify-center">
-      {/* Glass Morphism Effect */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[#0f0f1f]"></div>
-        <div className="absolute top-0 left-0 right-0 h-96 bg-[#0f0f1f]"></div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-md mx-auto">
-        <div className="text-center mb-6">
-          <LuBuilding2 className="w-16 h-16 mx-auto text-indigo-400" />
-          <h1 className="text-3xl font-bold text-white mt-4">Roomie</h1>
-          <p className="text-indigo-200/80 mt-2">Manage Your Flat Share Effortlessly</p>
-        </div>
-        
-        <div className="relative group mb-6">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] to-[#6636a3] rounded-xl opacity-15"></div>
-          <Card className="relative bg-black/50 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
-            <CardContent className="p-6">
-              <Tabs defaultValue="login" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 bg-black/30 mb-6">
-                  <TabsTrigger value="login" className="text-white data-[state=active]:bg-[#6636a3] data-[state=active]:text-white">
-                    Login
-                  </TabsTrigger>
-                  <TabsTrigger value="register" className="text-white data-[state=active]:bg-[#6636a3] data-[state=active]:text-white">
-                    Register
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="login">
-                  <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="email" className="text-indigo-200">Email</Label>
-                        <Input 
-                          id="email" 
-                          placeholder="Enter your email"
-                          {...loginForm.register("email")} 
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="password" className="text-indigo-200">Password</Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            placeholder="Enter your password"
-                            type={showLoginPassword ? "text" : "password"}
-                            {...loginForm.register("password")}
-                            className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-indigo-200"
-                            onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          >
-                            {showLoginPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full bg-gradient-to-r from-[#5433a7] to-[#6636a3] hover:opacity-90 text-white border-none"
-                        disabled={loginMutation.isPending}
-                      >
-                        Login
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="w-full text-indigo-300"
-                        onClick={() => setForgotPasswordOpen(true)}
-                      >
-                        Forgot Password?
-                      </Button>
-                    </div>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="register">
-                  <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="name" className="text-indigo-200">Full Name</Label>
-                        <Input 
-                          id="name" 
-                          placeholder="Enter your full name"
-                          {...registerForm.register("name")} 
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="email" className="text-indigo-200">Email</Label>
-                        <Input 
-                          id="email" 
-                          placeholder="Enter your email"
-                          {...registerForm.register("email")} 
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="flatUsername" className="text-indigo-200">Flat Username</Label>
-                        <Input 
-                          id="flatUsername" 
-                          placeholder="Enter your flat username"
-                          {...registerForm.register("flatUsername")} 
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="registerPassword" className="text-indigo-200">Password</Label>
-                        <div className="relative">
-                          <Input
-                            id="registerPassword"
-                            placeholder="Create a password"
-                            type={showRegisterPassword ? "text" : "password"}
-                            {...registerForm.register("password")}
-                            className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-indigo-200"
-                            onClick={(e) => {
-                              e.stopPropagation(); // इवेंट को बुबल होने से रोकें
-                              setShowRegisterPassword(!showRegisterPassword);
-                            }}
-                          >
-                            {showRegisterPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full bg-gradient-to-r from-[#5433a7] to-[#6636a3] hover:opacity-90 text-white border-none"
-                        disabled={registerMutation.isPending}
-                      >
-                        Create Account
-                      </Button>
-                    </div>
-                  </form>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Desktop View Component
-  const DesktopView = () => (
-    <div className="min-h-screen grid md:grid-cols-2 bg-[#0f0f1f]">
+  return (
+    <div className="min-h-screen grid md:grid-cols-2 bg-indigo-100">
       <div className="flex items-center justify-center p-8">
-        <Card className="w-full max-w-md bg-black/50 backdrop-blur-xl border border-white/10 rounded-xl shadow-lg">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <LuBuilding2 className="w-8 h-8 text-indigo-400" />
-              <CardTitle className="text-white">Welcome to Roomie</CardTitle>
-            </div>
+        <Card className="w-full max-w-md bg-white">
+          <CardHeader>
+            <CardTitle>Welcome to Roomie</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="login">
-              <TabsList className="grid w-full grid-cols-2 bg-black/30 mb-6">
-                <TabsTrigger value="login" className="text-white data-[state=active]:bg-[#6636a3] data-[state=active]:text-white">
-                  Login
-                </TabsTrigger>
-                <TabsTrigger value="register" className="text-white data-[state=active]:bg-[#6636a3] data-[state=active]:text-white">
-                  Register as Admin
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register as Admin</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login">
                 <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="email" className="text-indigo-200">Email</Label>
-                      <Input 
-                        id="email" 
-                        placeholder="Enter your email"
-                        {...loginForm.register("email")} 
-                        className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                      />
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" {...loginForm.register("email")} />
                     </div>
                     <div>
-                      <Label htmlFor="password" className="text-indigo-200">Password</Label>
+                      <Label htmlFor="password">Password</Label>
                       <div className="relative">
                         <Input
                           id="password"
-                          placeholder="Enter your password"
                           type={showLoginPassword ? "text" : "password"}
                           {...loginForm.register("password")}
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-indigo-200"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
                           onClick={() => setShowLoginPassword(!showLoginPassword)}
                         >
                           {showLoginPassword ? (
@@ -285,7 +108,8 @@ export default function AuthPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-[#5433a7] to-[#6636a3] hover:opacity-90 text-white border-none"
+                      // className="w-full"
+                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                       disabled={loginMutation.isPending}
                     >
                       Login
@@ -293,7 +117,7 @@ export default function AuthPage() {
                     <Button
                       type="button"
                       variant="link"
-                      className="w-full text-indigo-300"
+                      className="w-full"
                       onClick={() => setForgotPasswordOpen(true)}
                     >
                       Forgot Password?
@@ -306,51 +130,31 @@ export default function AuthPage() {
                 <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="name" className="text-indigo-200">Full Name</Label>
-                      <Input 
-                        id="name" 
-                        placeholder="Enter your full name"
-                        {...registerForm.register("name")} 
-                        className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                      />
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input id="name" {...registerForm.register("name")} />
                     </div>
                     <div>
-                      <Label htmlFor="email" className="text-indigo-200">Email</Label>
-                      <Input 
-                        id="email" 
-                        placeholder="Enter your email"
-                        {...registerForm.register("email")} 
-                        className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                      />
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" {...registerForm.register("email")} />
                     </div>
                     <div>
-                      <Label htmlFor="flatUsername" className="text-indigo-200">Flat Username</Label>
-                      <Input 
-                        id="flatUsername" 
-                        placeholder="Enter your flat username"
-                        {...registerForm.register("flatUsername")} 
-                        className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
-                      />
+                      <Label htmlFor="flatUsername">Flat Username</Label>
+                      <Input id="flatUsername" {...registerForm.register("flatUsername")} />
                     </div>
                     <div>
-                      <Label htmlFor="registerPassword" className="text-indigo-200">Password</Label>
+                      <Label htmlFor="registerPassword">Password</Label>
                       <div className="relative">
                         <Input
                           id="registerPassword"
-                          placeholder="Create a password"
                           type={showRegisterPassword ? "text" : "password"}
                           {...registerForm.register("password")}
-                          className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-indigo-200"
-                          onClick={(e) => {
-                            e.stopPropagation(); // इवेंट को बुबल होने से रोकें
-                            setShowRegisterPassword(!showRegisterPassword);
-                          }}
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                          onClick={() => setShowRegisterPassword(!showRegisterPassword)}
                         >
                           {showRegisterPassword ? (
                             <EyeOff className="h-4 w-4" />
@@ -362,7 +166,7 @@ export default function AuthPage() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full bg-gradient-to-r from-[#5433a7] to-[#6636a3] hover:opacity-90 text-white border-none"
+                      className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
                       disabled={registerMutation.isPending}
                     >
                       Create Account
@@ -375,7 +179,8 @@ export default function AuthPage() {
         </Card>
       </div>
 
-      <div className="hidden md:flex flex-col justify-center p-8 bg-gradient-to-br from-[#5433a7] to-[#6636a3] text-white">
+      <div className="hidden md:flex flex-col justify-center p-8 bg-indigo-600 text-primary-foreground">
+        {/* className=" w-full flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition" */}
         <div className="max-w-md mx-auto space-y-6">
           <LuBuilding2 className="w-16 h-16" />
           <h1 className="text-4xl font-bold">Manage Your Flat Share Effortlessly</h1>
@@ -387,9 +192,9 @@ export default function AuthPage() {
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-[#0f0f1f] border border-white/10">
+        <DialogContent className="max-w-md w-full p-6 rounded-xl shadow-lg bg-white border border-gray-300">
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold text-white">Reset Password</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-gray-900">Reset Password</DialogTitle>
           </DialogHeader>
           <form
             onSubmit={(e) => {
@@ -399,20 +204,19 @@ export default function AuthPage() {
             className="space-y-4"
           >
             <div className="space-y-2">
-              <Label htmlFor="resetEmail" className="text-indigo-200 font-medium">Email</Label>
+              <Label htmlFor="resetEmail" className="text-gray-700 font-medium">Email</Label>
               <Input
                 id="resetEmail"
                 type="email"
-                placeholder="Enter your email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
-                className="bg-black/30 border-white/20 text-white focus:border-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none transition"
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-[#5433a7] to-[#6636a3] hover:opacity-90 text-white border-none"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md transition"
               disabled={forgotPasswordMutation.isPending}
             >
               Send Reset Link
@@ -420,20 +224,7 @@ export default function AuthPage() {
           </form>
         </DialogContent>
       </Dialog>
+
     </div>
-  );
-
-  return (
-    <>
-      {/* Show Mobile View for screens smaller than md breakpoint */}
-      <div className="block md:hidden">
-        <MobileView />
-      </div>
-
-      {/* Show Desktop View for md and larger screens */}
-      <div className="hidden md:block">
-        <DesktopView />
-      </div>
-    </>
   );
 }

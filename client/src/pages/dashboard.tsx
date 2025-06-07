@@ -26,7 +26,7 @@ export default function Dashboard() {
 
   // Mobile View Component
   const MobileView = () => (
-    <div className="pt-[100px] pb-16 min-h-screen bg-[#0f0f1f]">
+    <div className="pt-[100px] min-h-screen bg-[#0f0f1f]">
       {/* Glass Morphism Effect */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[#0f0f1f]"></div>
@@ -163,119 +163,67 @@ export default function Dashboard() {
       <Header />
 
       <div className="min-h-screen w-full relative flex flex-col bg-[#0f0f1f] pt-[80px]">
-        {/* Background Effects */}
-        <div className="absolute top-0 left-0 w-full h-[50vh] bg-[#0f0f1f] blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
+        {/* Background Blur Effect */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 80%)] opacity-30 blur-2xl"></div>
 
-        {/* Main Content */}
-        <div className="relative z-10 container mx-auto max-w-7xl px-6 py-12">
-          {/* Welcome Section */}
-          <div className="mb-12">
-            <h2 className="text-xl text-indigo-300/80 font-medium mb-2">{greeting},</h2>
-            <h1 className="text-4xl font-bold text-white tracking-tight">{user?.name?.split(" ")[0]} <span className="inline-block animate-wave">👋</span></h1>
-          </div>
-
+        <div className="relative z-10 w-full flex-grow bg-[#0f0f1f] shadow-2xl p-6 md:p-8">
           {/* Cards Section */}
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <Link href="/entries">
-              <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
-                <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
-                <div className="relative p-6 h-full flex flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-white mb-2">Entries</h3>
-                    <div className="p-2 bg-white/10 backdrop-blur-xl rounded-full">
-                      <FiList className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <p className="text-indigo-100/80 mt-2">View and manage your flat's entries</p>
-                  <div className="mt-6 pt-4 border-t border-white/10">
-                    <span className="text-sm text-white/70 flex items-center group-hover:text-white">
-                      View Details
-                      <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <Card className="group hover:shadow-xl hover:scale-[1.05] transition-all cursor-pointer border border-gray-200 rounded-xl bg-white/80 backdrop-blur-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-lg font-medium">
+                    <FiList className="h-6 w-6 text-indigo-600 group-hover:text-indigo-800 transition-colors" />
+                    Entries
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">View and manage your flat's entries</p>
+                </CardContent>
+              </Card>
             </Link>
 
             <Link href="/payments">
-              <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
-                <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
-                <div className="relative p-6 h-full flex flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-white mb-2">Payments</h3>
-                    <div className="p-2 bg-white/10 backdrop-blur-xl rounded-full">
-                      <FiCreditCard className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <p className="text-indigo-100/80 mt-2">Manage bills and track payments</p>
-                  <div className="mt-6 pt-4 border-t border-white/10">
-                    <span className="text-sm text-white/70 flex items-center group-hover:text-white">
-                      View Details
-                      <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <Card className="group hover:shadow-xl hover:scale-[1.05] transition-all cursor-pointer border border-gray-200 rounded-xl bg-white/80 backdrop-blur-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-lg font-medium">
+                    <FiCreditCard className="h-6 w-6 text-green-600 group-hover:text-green-800 transition-colors" />
+                    Payments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Manage bills and track payments</p>
+                </CardContent>
+              </Card>
             </Link>
             
             <Link href="/penalties">
-              <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
-                <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
-                <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
-                <div className="relative p-6 h-full flex flex-col justify-between">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-white mb-2">Penalties</h3>
-                    <div className="p-2 bg-white/10 backdrop-blur-xl rounded-full">
-                      <FiAlertTriangle className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                  <p className="text-indigo-100/80 mt-2">Manage and track user penalties</p>
-                  <div className="mt-6 pt-4 border-t border-white/10">
-                    <span className="text-sm text-white/70 flex items-center group-hover:text-white">
-                      View Details
-                      <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                      </svg>
-                    </span>
-                  </div>
-                </div>
-              </div>
+              <Card className="group hover:shadow-xl hover:scale-[1.05] transition-all cursor-pointer border border-gray-200 rounded-xl bg-white/80 backdrop-blur-md">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-lg font-medium">
+                    <FiAlertTriangle className="h-6 w-6 text-red-600 group-hover:text-red-800 transition-colors" />
+                    Penalties
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600">Manage and track user penalties</p>
+                </CardContent>
+              </Card>
             </Link>
 
             {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
               <Link href="/manage-users">
-                <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
-                  <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
-                  <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
-                  <div className="relative p-6 h-full flex flex-col justify-between">
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-xl font-semibold text-white mb-2">Manage Users</h3>
-                      <div className="p-2 bg-white/10 backdrop-blur-xl rounded-full">
-                        <FiUsers className="h-6 w-6 text-white" />
-                      </div>
-                    </div>
-                    <p className="text-indigo-100/80 mt-2">Invite new users, manage roles, and handle user access</p>
-                    <div className="mt-6 pt-4 border-t border-white/10">
-                      <span className="text-sm text-white/70 flex items-center group-hover:text-white">
-                        View Details
-                        <svg className="w-4 h-4 ml-1 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <Card className="group hover:shadow-xl hover:scale-[1.05] transition-all cursor-pointer border border-gray-200 rounded-xl bg-white/80 backdrop-blur-md">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-3 text-lg font-medium">
+                      <FiUsers className="h-6 w-6 text-red-600 group-hover:text-red-800 transition-colors" />
+                      Manage Users
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-600">Invite new users, manage roles, and handle user access</p>
+                  </CardContent>
+                </Card>
               </Link>
             )}
           </div>
