@@ -15,7 +15,7 @@ export function MobileNav() {
           { href: "/entries", label: "Entries", icon: FiList },
           { href: "/payments", label: "Payments", icon: FiCreditCard },
           { href: "/penalties", label: "Penalties", icon: FiAlertTriangle },
-          { href: "/profile", label: "Profile", icon: FiUser },
+          { href: "/profile", label: "Account", icon: FiUser },
         ].map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href}>
             <a

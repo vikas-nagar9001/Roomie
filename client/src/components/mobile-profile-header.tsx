@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft } from "react-icons/fi";
+import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon, FiBell } from "react-icons/fi";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 
@@ -64,16 +64,30 @@ export function MobileProfileHeader() {
               className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
               onClick={() => {
                 setShowMenu(false);
-                // Add edit profile action here
+                // Add dark mode toggle action here
               }}
             >
-              <FiEdit2 className="mr-2 h-4 w-4" />
-              Edit Profile
+              <FiMoon className="mr-2 h-4 w-4" />
+              Dark Mode
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
+              onClick={() => {
+                setShowMenu(false);
+                // Add notifications action here
+              }}
+            >
+              <FiBell className="mr-2 h-4 w-4" />
+              Notifications
             </Button>
             <Button 
               variant="ghost" 
               className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2"
-              onClick={handleSignOut}
+              onClick={() => {
+                setShowMenu(false);
+                handleSignOut();
+              }}
               disabled={logoutMutation.isPending}
             >
               <FiLogOut className="mr-2 h-4 w-4" />
