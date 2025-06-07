@@ -15,12 +15,8 @@ export function MobileProfileTabs({ activeTab, onTabChange }: MobileProfileTabsP
   const tabs = [
     { id: "profile", label: "Profile", icon: LuUser },
     { id: "activity", label: "Activity", icon: LuHistory },
+    { id: "flat", label: "Flat Settings", icon: LuSettings }, // Show to all users
   ];
-
-  // Add settings tab only for admin users
-  if (user?.role === "ADMIN") {
-    tabs.push({ id: "flat", label: "Flat Settings", icon: LuSettings });
-  }
 
   return (
     <div className="bg-black/30 backdrop-blur-md rounded-xl border border-white/10 shadow-lg mb-6">
