@@ -68,24 +68,29 @@ export default function AuthPage() {
       {/* Background gradient effects */}
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#6636a3]/10 blur-3xl"></div>
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
-      
+
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
         <div className="flex items-center justify-center">
           <Card className="w-full max-w-md bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-2xl font-bold text-white">Welcome to Roomie</CardTitle>
+              {/* <CardTitle className="text-2xl font-bold text-white">Welcome to Roomie</CardTitle> */}
             </CardHeader>
             <CardContent>
+              <div className="flex flex-col items-center justify-center mb-6">
+                <img src="favroomie.png" alt="Roomie Logo" className="w-16 h-16 mb-2" />
+                <h2 className="text-xl font-bold text-white">Welcome to Roomie</h2>
+                <p className="text-sm text-gray-400">Login to manage your flat</p>
+              </div>
               <Tabs defaultValue="login" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 bg-[#1a1a2e] mb-6">
-                  <TabsTrigger 
-                    value="login" 
+                  <TabsTrigger
+                    value="login"
                     className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
                   >
                     Login
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="register" 
+                  <TabsTrigger
+                    value="register"
                     className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
                   >
                     Register as Admin
@@ -93,13 +98,14 @@ export default function AuthPage() {
                 </TabsList>
 
                 <TabsContent value="login">
+
                   <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="email" className="text-gray-300">Email</Label>
-                        <Input 
-                          id="email" 
-                          {...loginForm.register("email")} 
+                        <Input
+                          id="email"
+                          {...loginForm.register("email")}
                           className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
                           placeholder="Enter your email"
                         />
@@ -152,31 +158,36 @@ export default function AuthPage() {
                 </TabsContent>
 
                 <TabsContent value="register">
+                  <div className="flex flex-col items-center justify-center mb-6">
+                    <img src="favroomie.png" alt="Roomie Logo" className="w-16 h-16 mb-2" />
+                    <h2 className="text-xl font-bold text-white">Join Roomie</h2>
+                    <p className="text-sm text-gray-400">Create your admin account</p>
+                  </div>
                   <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="name" className="text-gray-300">Full Name</Label>
-                        <Input 
-                          id="name" 
-                          {...registerForm.register("name")} 
+                        <Input
+                          id="name"
+                          {...registerForm.register("name")}
                           className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
                           placeholder="Enter your full name"
                         />
                       </div>
                       <div>
                         <Label htmlFor="email" className="text-gray-300">Email</Label>
-                        <Input 
-                          id="email" 
-                          {...registerForm.register("email")} 
+                        <Input
+                          id="email"
+                          {...registerForm.register("email")}
                           className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
                           placeholder="Enter your email"
                         />
                       </div>
                       <div>
                         <Label htmlFor="flatUsername" className="text-gray-300">Flat Username</Label>
-                        <Input 
-                          id="flatUsername" 
-                          {...registerForm.register("flatUsername")} 
+                        <Input
+                          id="flatUsername"
+                          {...registerForm.register("flatUsername")}
                           className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
                           placeholder="Enter your flat username"
                         />
@@ -227,7 +238,7 @@ export default function AuthPage() {
         <div className="hidden md:flex flex-col justify-center p-8 relative">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] to-[#6636a3] rounded-2xl blur opacity-75"></div>
           <div className="relative bg-black/50 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
-            <LuBuilding2 className="w-16 h-16 text-indigo-300 mb-6" />
+            {/* <LuBuilding2 className="w-16 h-16 text-indigo-300 mb-6" /> */}
             <h1 className="text-4xl font-bold text-white mb-4">Manage Your Flat Share Effortlessly</h1>
             <p className="text-lg text-indigo-200/90">
               Create or join a flat, manage roommates, and keep everything organized
