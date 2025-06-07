@@ -15,7 +15,7 @@ import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
 import { FaCamera, FaEdit } from "react-icons/fa";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
-import { FiLogOut, FiUser } from "react-icons/fi";
+import { FiLogOut, FiUser, FiHome, FiCreditCard } from "react-icons/fi";
 import favicon from "../../favroomie.png";
 import { Link } from "wouter";
 import { CustomPagination } from "@/components/custom-pagination";
@@ -23,6 +23,7 @@ import Cropper from 'react-easy-crop';
 import { Slider } from "@/components/ui/slider";
 import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
+import { MobileProfileHeader } from "@/components/mobile-profile-header";
 
 interface Activity {
   _id: string;
@@ -291,15 +292,27 @@ export default function ProfilePage() {
     <div className="min-h-screen bg-[#0f0f1f]">
       <Header />
       {/* Main Content */}
-      <main className="container mx-auto px-4 pt-32 pb-8 space-y-8">
+      <main className="container mx-auto px-4 pt-24 pb-8 space-y-6">
+        {/* Mobile Profile Header - Only visible on mobile */}
+        <div className="md:hidden">
+          <MobileProfileHeader />
+          <input
+            type="file"
+            id="profile-picture"
+            className="hidden"
+            accept="image/*"
+            onChange={handleProfilePictureChange}
+          />
+        </div>
+
         <div className="flex items-center justify-between">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Profile Settings</h1>
         </div>
 
         {/* Profile Grid */}
         <div className="grid gap-6 lg:grid-cols-[280px,1fr] xl:gap-8">
-          {/* Sidebar */}
-          <Card className="h-fit bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
+          {/* Sidebar - Hidden on mobile */}
+          <Card className="h-fit bg-black/50 backdrop-blur-xl rounded-xl border border-white/10 hidden md:block">
             <CardContent className="p-6">
               <div className="flex flex-col items-center space-y-6">
                 {/* Avatar with Camera Icon */}
@@ -316,7 +329,7 @@ export default function ProfilePage() {
 
                   {/* Camera Icon Overlay */}
                   <div
-                    onClick={() => document.getElementById("profile-picture")?.click()}
+                    onClick={() => document.getElementById("profile-picture-desktop")?.click()}
                     className="absolute bottom-0 right-0 p-2.5 bg-indigo-600 text-white rounded-full cursor-pointer 
                              hover:bg-indigo-700 transform hover:scale-105 transition-all shadow-lg"
                   >
@@ -325,7 +338,7 @@ export default function ProfilePage() {
 
                   <input
                     type="file"
-                    id="profile-picture"
+                    id="profile-picture-desktop"
                     className="hidden"
                     accept="image/*"
                     onChange={handleProfilePictureChange}
@@ -352,88 +365,97 @@ export default function ProfilePage() {
 
           {/* Main Content */}
           <Card className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-6">
               <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-lg p-1">
+                <TabsList className="grid w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-4 shadow-inner">
                   <TabsTrigger 
                     value="profile" 
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
-                    <LuUser className="h-4 w-4 mr-2" />
-                    Profile
+                    <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
+                      <LuUser className="h-5 w-5" />
+                      <span className="text-xs sm:text-sm font-medium">Profile</span>
+                    </div>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="activity"
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
+                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
-                    <LuHistory className="h-4 w-4 mr-2" />
-                    Activity
+                    <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
+                      <LuHistory className="h-5 w-5" />
+                      <span className="text-xs sm:text-sm font-medium">Activity</span>
+                    </div>
                   </TabsTrigger>
                   {user?.role === "ADMIN" && (
                     <TabsTrigger 
                       value="flat"
-                      className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70"
+                      className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                     >
-                      <LuSettings className="h-4 w-4 mr-2" />
-                      Flat Settings
+                      <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
+                        <LuSettings className="h-5 w-5" />
+                        <span className="text-xs sm:text-sm font-medium">Settings</span>
+                      </div>
                     </TabsTrigger>
                   )}
                 </TabsList>
 
-                <TabsContent value="profile" className="space-y-6 mt-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="name" className="text-white">Name</Label>
+                <TabsContent value="profile" className="space-y-6 mt-4">
+                  <div className="space-y-5">
+                    <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                      <Label htmlFor="name" className="text-white/80 text-sm font-medium mb-1.5 block">Name</Label>
                       <Input
                         id="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="bg-black/30 border-white/10 text-white"
+                        className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                        placeholder="Enter your name"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor="email" className="text-white">Email</Label>
+                    <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                      <Label htmlFor="email" className="text-white/80 text-sm font-medium mb-1.5 block">Email</Label>
                       <Input
                         id="email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="bg-black/30 border-white/10 text-white"
+                        className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                        placeholder="Enter your email"
                       />
                     </div>
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
                       <Button
                         onClick={() => updateProfileMutation.mutate({ name, email })}
                         disabled={updateProfileMutation.isPending}
-                        className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
+                        className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                       >
-                        Save Changes
+                        {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                       </Button>
 
                       <Button
                         onClick={() => clearCacheMutation.mutate()}
                         disabled={clearCacheMutation.isPending}
                         variant="outline"
-                        className="bg-black/30 hover:bg-black/50 text-white border-white/10"
+                        className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                       >
-                        <MdOutlineCached className="mr-2" />
-                        Clear Cache
+                        <MdOutlineCached className="h-5 w-5" />
+                        {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
                       </Button>
                     </div>
                   </div>
                 </TabsContent>
 
-                <TabsContent value="activity" className="mt-6">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
+                <TabsContent value="activity" className="mt-4">
+                  <div className="space-y-5">
+                    <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
                       <h3 className="text-lg font-semibold text-white">Recent Activity</h3>
                       <Button
                         onClick={() => clearActivitiesMutation.mutate()}
                         disabled={clearActivitiesMutation.isPending}
                         variant="destructive"
                         size="sm"
+                        className="rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md"
                       >
-                        Clear All
+                        {clearActivitiesMutation.isPending ? "Clearing..." : "Clear All"}
                       </Button>
                     </div>
 
@@ -441,19 +463,27 @@ export default function ProfilePage() {
                       {paginatedActivities.map((activity) => (
                         <div
                           key={activity._id}
-                          className="p-4 rounded-lg border border-white/10 bg-black/30 backdrop-blur-sm 
-                                   hover:bg-black/50 transition-all"
+                          className="p-4 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm 
+                                   hover:bg-black/50 transition-all duration-300 transform hover:scale-[1.02] shadow-md"
                         >
-                          <p className="font-medium text-white">{activity.description}</p>
-                          <p className="text-sm text-white/70 mt-1">
-                            {new Date(activity.timestamp).toLocaleString()}
-                          </p>
+                          <div className="flex items-start gap-3">
+                            <div className="bg-[#6636a3]/30 p-2 rounded-full mt-1">
+                              <LuHistory className="h-5 w-5 text-white" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-white">{activity.description}</p>
+                              <p className="text-sm text-white/70 mt-1">
+                                {new Date(activity.timestamp).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       ))}
 
                       {activities.length === 0 && (
-                        <div className="text-center py-8 text-white/70">
-                          No recent activity
+                        <div className="text-center py-12 px-4 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm">
+                          <LuHistory className="h-12 w-12 text-white/30 mx-auto mb-3" />
+                          <p className="text-white/70 text-lg">No recent activity</p>
                         </div>
                       )}
 
@@ -471,54 +501,54 @@ export default function ProfilePage() {
                 </TabsContent>
 
                 {user?.role === "ADMIN" && (
-                  <TabsContent value="flat" className="mt-6">
-                    <div className="space-y-6">
-                      <div className="flex justify-between items-center">
-                        <h3 className="text-xl font-semibold text-white">Flat Settings</h3>
+                  <TabsContent value="flat" className="mt-4">
+                    <div className="space-y-5">
+                      <div className="flex justify-between items-center bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner">
+                        <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
                         {!isEditingFlatSettings && (
                           <Button
                             onClick={() => setIsEditingFlatSettings(true)}
                             variant="outline"
-                            className="border-white/10 bg-black/30 hover:bg-black/50 text-white"
+                            className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
                           >
-                            <FaEdit className="mr-2" />
-                            Edit Settings
+                            <FaEdit className="h-4 w-4" />
+                            Edit
                           </Button>
                         )}
                       </div>
 
                       {isEditingFlatSettings ? (
-                        <div className="space-y-4 bg-black/30 rounded-lg p-4 border border-white/10">
-                          <div>
-                            <Label htmlFor="flatName" className="text-white">Flat Name</Label>
+                        <div className="space-y-5 bg-black/30 rounded-xl p-5 border border-white/10 shadow-lg">
+                          <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                            <Label htmlFor="flatName" className="text-white/80 text-sm font-medium mb-1.5 block">Flat Name</Label>
                             <Input
                               id="flatName"
                               value={flatName}
                               onChange={(e) => setFlatName(e.target.value)}
-                              className="bg-black/30 border-white/10 text-white"
+                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
                               placeholder="Enter flat name"
                             />
                           </div>
-                          <div>
-                            <Label htmlFor="minApproval" className="text-white">Minimum Approval Amount (₹)</Label>
+                          <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                            <Label htmlFor="minApproval" className="text-white/80 text-sm font-medium mb-1.5 block">Minimum Approval Amount (₹)</Label>
                             <Input
                               id="minApproval"
                               type="number"
                               value={minApprovalAmount}
                               onChange={(e) => setMinApprovalAmount(e.target.value)}
-                              className="bg-black/30 border-white/10 text-white"
+                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
                               placeholder="Enter minimum amount"
                             />
                           </div>
-                          <div className="flex gap-3">
+                          <div className="flex flex-col sm:flex-row gap-3 pt-2">
                             <Button
                               onClick={() => updateFlatSettingsMutation.mutate({
                                 name: flatName,
                                 minApprovalAmount: Number(minApprovalAmount)
                               })}
-                              className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
+                              className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                             >
-                              Save Settings
+                              {updateFlatSettingsMutation.isPending ? "Saving..." : "Save Settings"}
                             </Button>
                             <Button
                               onClick={() => {
@@ -527,7 +557,7 @@ export default function ProfilePage() {
                                 setFlatName(flat?.name || "");
                                 setMinApprovalAmount(flat?.minApprovalAmount?.toString() || "");
                               }}
-                              className="bg-black/30 hover:bg-black/50 text-white border-white/10"
+                              className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                             >
                               Cancel
                             </Button>
@@ -535,19 +565,34 @@ export default function ProfilePage() {
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                            <Label className="text-white/70">Flat ID</Label>
-                            <p className="text-white font-medium mt-1">{user?.flatId}</p>
+                          <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                            <div className="flex items-center gap-3 mb-1">
+                              <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                                <FiUser className="h-5 w-5 text-white" />
+                              </div>
+                              <Label className="text-white/80 font-medium">Flat ID</Label>
+                            </div>
+                            <p className="text-white font-medium mt-1 ml-11">{user?.flatId}</p>
                           </div>
                           {flat && (
                             <>
-                              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                                <Label className="text-white/70">Flat Name</Label>
-                                <p className="text-white font-medium mt-1">{flat.name}</p>
+                              <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                                    <FiHome className="h-5 w-5 text-white" />
+                                  </div>
+                                  <Label className="text-white/80 font-medium">Flat Name</Label>
+                                </div>
+                                <p className="text-white font-medium mt-1 ml-11">{flat.name}</p>
                               </div>
-                              <div className="bg-black/30 p-4 rounded-lg border border-white/10">
-                                <Label className="text-white/70">Minimum Approval Amount</Label>
-                                <p className="text-white font-medium mt-1">₹{flat.minApprovalAmount || '0'}</p>
+                              <div className="bg-black/30 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                                <div className="flex items-center gap-3 mb-1">
+                                  <div className="bg-[#6636a3]/30 p-2 rounded-full">
+                                    <FiCreditCard className="h-5 w-5 text-white" />
+                                  </div>
+                                  <Label className="text-white/80 font-medium">Minimum Approval Amount</Label>
+                                </div>
+                                <p className="text-white font-medium mt-1 ml-11">₹{flat.minApprovalAmount || '0'}</p>
                               </div>
                             </>
                           )}
@@ -564,8 +609,12 @@ export default function ProfilePage() {
 
       {/* Image Cropping Dialog */}
       <Dialog open={isCropperOpen} onOpenChange={setIsCropperOpen}>
-        <DialogContent className="bg-black/50 backdrop-blur-xl rounded-xl border border-white/10">
-          <div className="h-[400px] relative">
+        <DialogContent className="bg-black/70 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl max-w-[95vw] sm:max-w-[500px] p-0 overflow-hidden">
+          <div className="p-4 bg-gradient-to-r from-[#6636a3]/30 to-black/30 border-b border-white/10">
+            <h3 className="text-xl font-bold text-white text-center">Crop Profile Picture</h3>
+          </div>
+          
+          <div className="h-[350px] sm:h-[400px] relative bg-black/40">
             {imageSrc && (
               <Cropper
                 image={imageSrc}
@@ -579,9 +628,12 @@ export default function ProfilePage() {
             )}
           </div>
           
-          <div className="space-y-4 pt-4">
-            <div className="space-y-1.5">
-              <Label className="text-white">Zoom</Label>
+          <div className="space-y-5 p-5 bg-black/40">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label className="text-white font-medium">Zoom</Label>
+                <span className="text-white/70 text-sm">{zoom.toFixed(1)}x</span>
+              </div>
               <Slider
                 value={[zoom]}
                 min={1}
@@ -592,19 +644,20 @@ export default function ProfilePage() {
               />
             </div>
             
-            <div className="flex justify-end gap-3">
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
               <Button
                 variant="outline"
                 onClick={() => setIsCropperOpen(false)}
-                className="border-white/10 text-white hover:bg-black/50 bg-black/30"
+                className="w-full sm:w-auto border-white/10 text-white hover:bg-black/60 bg-black/40 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCropSave}
-                className="bg-[#6636a3] hover:bg-[#5433a7] text-white"
+                className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
               >
-                Save
+                <FaCamera className="h-4 w-4" />
+                Save Picture
               </Button>
             </div>
           </div>
