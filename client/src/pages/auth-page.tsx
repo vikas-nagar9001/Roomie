@@ -14,6 +14,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { showLoader, hideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -111,7 +112,14 @@ export default function AuthPage() {
 
                 <TabsContent value="login">
 
-                  <form onSubmit={loginForm.handleSubmit((data) => loginMutation.mutate(data))}>
+                <form onSubmit={loginForm.handleSubmit((data) => {
+                      showLoader();
+                      loginMutation.mutate(data, {
+                        onSettled: () => {
+                          hideLoader();
+                        }
+                      });
+                    })}>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="email" className="text-gray-300">Email</Label>
@@ -170,7 +178,14 @@ export default function AuthPage() {
                 </TabsContent>
 
                 <TabsContent value="register">
-                  <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
+                <form onSubmit={registerForm.handleSubmit((data) => {
+                      showLoader();
+                      registerMutation.mutate(data, {
+                        onSettled: () => {
+                          hideLoader();
+                        }
+                      });
+                    })}>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="name" className="text-gray-300">Full Name</Label>
@@ -279,11 +294,15 @@ export default function AuthPage() {
         <DialogContent className="max-w-md w-full p-6 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-white">Reset Password</DialogTitle>
-          </DialogHeader>
-          <form
+          </DialogHeader>          <form
             onSubmit={(e) => {
               e.preventDefault();
-              forgotPasswordMutation.mutate(resetEmail);
+              showLoader();
+              forgotPasswordMutation.mutate(resetEmail, {
+                onSettled: () => {
+                  hideLoader();
+                }
+              });
             }}
             className="space-y-4"
           >

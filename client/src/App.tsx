@@ -14,6 +14,8 @@ import ProfilePage from "@/pages/profile";
 import PaymentsPage from "@/pages/payments";
 import PenaltiesPage from "@/pages/penalties";
 import { ProtectedRoute } from "./lib/protected-route";
+import Loader from "@/components/common/Loader";
+import { useLoader } from "@/services/loaderService";
 import { apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
 
@@ -38,12 +40,15 @@ function App() {
   useEffect(() => {
     checkForNewVersion(); // ✅ Run check on app load
   }, []);
+  
+  const isLoading = useLoader();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router />
         <Toaster />
+        {isLoading && <Loader />}
       </AuthProvider>
     </QueryClientProvider>
   );
