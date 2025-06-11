@@ -6,16 +6,36 @@ import { useState, useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { useQuery } from "@tanstack/react-query";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState("");
   const [location] = useLocation();
 
+  // Show loader when the page first loads
+  useEffect(() => {
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
   // Fetch entries data
-  const { data: entries } = useQuery<any[]>({
+  const { data: entries, isLoading: entriesLoading } = useQuery<any[]>({
     queryKey: ["/api/entries"],
   });
+  
+  // Hide loader when data is loaded
+  useEffect(() => {
+    if (!entriesLoading && entries) {
+      // Use a small timeout to ensure a consistent loader experience across the app
+      setTimeout(() => {
+        hideLoader();
+      }, 300);
+    }
+  }, [entriesLoading, entries]);
 
   useEffect(() => {
     const hour = new Date().getHours();

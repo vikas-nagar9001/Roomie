@@ -43,12 +43,12 @@ const useLoaderStore = create<LoaderStore>((set, get) => ({
       
       set({ timeoutId });
     }
-  },
-  forceHide: () => {
+  },  forceHide: () => {
     // Force hide loader regardless of active count
     // Clear any existing timeout
-    if (get().timeoutId) {
-      clearTimeout(get().timeoutId);
+    const currentTimeoutId = get().timeoutId;
+    if (currentTimeoutId) {
+      clearTimeout(currentTimeoutId);
     }
     
     set({ 
@@ -56,6 +56,12 @@ const useLoaderStore = create<LoaderStore>((set, get) => ({
       timeoutId: null,
       activeLoaders: 0
     });
+    
+    // Double-ensure the loader is hidden after a short delay
+    // This helps with edge cases where something might be retriggering the loader
+    setTimeout(() => {
+      set({ isLoading: false, activeLoaders: 0, timeoutId: null });
+    }, 400);
   }
 }));
 

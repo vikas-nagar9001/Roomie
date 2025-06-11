@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiUser } from "react-icons/fi";
 import { FaTrash } from "react-icons/fa";
 import {
@@ -25,29 +25,67 @@ import { CustomPagination } from "@/components/custom-pagination";
 import "react-responsive-pagination/themes/classic.css";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { showLoader, hideLoader } from "@/services/loaderService";
 
 interface UserTableProps {
   search: string;
+  onLoadComplete?: () => void;
 }
 
-export function UserTable({ search }: UserTableProps) {
-  const { data: users } = useQuery<User[]>({
+export function UserTable({ search, onLoadComplete }: UserTableProps) {
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
+  // Hide loader when data fetching is done
+  useEffect(() => {
+    // When loading is complete, hide the loader
+    if (!usersLoading && users) {
+      // Small delay to ensure all rendering is complete
+      setTimeout(() => {
+        hideLoader();
+        // Call the onLoadComplete callback if provided
+        if (onLoadComplete) {
+          onLoadComplete();
+        }
+      }, 300); 
+    }
+  }, [usersLoading, users, onLoadComplete]);
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ userId, data }: { userId: string; data: Partial<User> }) => {
-      const res = await apiRequest("PATCH", `/api/users/${userId}`, data);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("PATCH", `/api/users/${userId}`, data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
     },
   });
 
   const resendInviteMutation = useMutation({
     mutationFn: async (userId: string) => {
-      await apiRequest("POST", `/api/users/${userId}/resend-invite`);
+      showLoader();
+      try {
+        await apiRequest("POST", `/api/users/${userId}/resend-invite`);
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
     },
   });
 
@@ -72,11 +110,10 @@ export function UserTable({ search }: UserTableProps) {
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * usersPerPage,
     currentPage * usersPerPage
-  );
-
-  const handleDeleteUser = async () => {
+  );  const handleDeleteUser = async () => {
     if (!userToDelete) return;
-
+    
+    showLoader();
     try {
       const response = await fetch(`/api/users/${userToDelete}`, {
         method: 'DELETE',
@@ -84,7 +121,10 @@ export function UserTable({ search }: UserTableProps) {
       if (!response.ok) {
         throw new Error('Failed to delete user');
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      
+      // Invalidate the query to refresh the data
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      
       toast({
         title: "User Deleted",
         description: "The user has been successfully deleted.",
@@ -97,9 +137,14 @@ export function UserTable({ search }: UserTableProps) {
         description: "Failed to delete user. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      // Ensure the loader is hidden
+      setTimeout(() => {
+        hideLoader();
+      }, 300);
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
     }
-    setDeleteDialogOpen(false);
-    setUserToDelete(null);
   };
 
   return (

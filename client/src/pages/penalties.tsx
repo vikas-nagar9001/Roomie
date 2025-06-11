@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -448,6 +449,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
 
   const queryClient = useQueryClient();
   const handleDelete = () => {
+    showLoader();
     fetch(`/api/penalties/${penalty._id}`, {
       method: "DELETE",
     })
@@ -458,6 +460,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           description: `Penalty has been deleted successfully.`,
         });
         setDeleteDialogOpen(false);
+        hideLoader();
       })
       .catch((error) => {
         console.error("Delete error:", error);
@@ -466,6 +469,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           description: "Failed to delete penalty. Please try again.",
           variant: "destructive",
         });
+        hideLoader();
       });
   };
 
@@ -494,10 +498,10 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
         <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Penalty</DialogTitle>
-          </DialogHeader>
-          <form
+          </DialogHeader>          <form
             onSubmit={(e) => {
               e.preventDefault();
+              showLoader();
               const formData = new FormData(e.currentTarget);
               fetch(`/api/penalties/${penalty._id}`, {
                 method: "PATCH",
@@ -521,6 +525,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                     description: `Penalty has been updated successfully.`,
                   });
                   setOpen(false); // Close the dialog on success
+                  hideLoader();
                 })
                 .catch((error) => {
                   console.error("Update error:", error);
@@ -529,6 +534,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                     description: "Failed to update penalty. Please try again.",
                     variant: "destructive",
                   });
+                  hideLoader();
                 });
             }}
             className="space-y-4"
@@ -597,6 +603,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
 export default function PenaltiesPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const [dataLoading, setDataLoading] = useState(true);
   const [newPenalty, setNewPenalty] = useState({
     userId: "",
     type: "LATE_PAYMENT" as PenaltyType,
@@ -610,18 +617,41 @@ export default function PenaltiesPage() {
   const [selectedPenalties, setSelectedPenalties] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const isAdmin = user?.role === "ADMIN";
-
-  const { data: penalties } = useQuery<Penalty[]>({
+  
+  // Show loader when the component mounts and set up cleanup
+  useEffect(() => {
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
+  const { data: penalties, isLoading: penaltiesLoading } = useQuery<Penalty[]>({
     queryKey: ["/api/penalties"]
   });
 
-  const { data: totals } = useQuery<{ userTotal: number; flatTotal: number }>({
+  const { data: totals, isLoading: totalsLoading } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/penalties/total"],
   });
-
-  const { data: users } = useQuery({
+  
+  const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["/api/users"],
   });
+  
+  // Manage loading state based on query states
+  useEffect(() => {
+    const isLoading = penaltiesLoading || totalsLoading || usersLoading;
+    
+    // Update dataLoading based on query states
+    setDataLoading(isLoading);
+    
+    // Hide loader when all queries are done
+    if (!isLoading) {
+      hideLoader();
+    }
+  }, [penaltiesLoading, totalsLoading, usersLoading]);
+  // Users query is already defined above
 
   // Function to handle selecting/deselecting all penalties
   const handleSelectAll = (checked: boolean) => {
@@ -648,8 +678,8 @@ export default function PenaltiesPage() {
     if (selectedPenalties.length === 0) return;
     setBulkDeleteDialogOpen(true);
   };
-
   const confirmBulkDelete = () => {
+    showLoader();
     Promise.all(selectedPenalties.map(id => {
       return fetch(`/api/penalties/${id}`, {
         method: "DELETE",
@@ -671,6 +701,7 @@ export default function PenaltiesPage() {
         });
         setSelectedPenalties([]);
         setBulkDeleteDialogOpen(false);
+        hideLoader();
       })
       .catch((error) => {
         console.error("Bulk delete error:", error);
@@ -680,6 +711,7 @@ export default function PenaltiesPage() {
           variant: "destructive",
         });
         setBulkDeleteDialogOpen(false);
+        hideLoader();
       });
   };
 
@@ -693,7 +725,6 @@ export default function PenaltiesPage() {
   const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
 
   const queryClient = useQueryClient();
-
   const addPenaltyMutation = useMutation({
     mutationFn: async (data: {
       userId: string;
@@ -702,11 +733,13 @@ export default function PenaltiesPage() {
       description: string;
       image?: string;
     }) => {
+      showLoader();
       try {
         const res = await apiRequest("POST", "/api/penalties", data);
         return res.json();
       } catch (error) {
         console.error("Add penalty error:", error);
+        hideLoader();
         throw error;
       }
     },
@@ -724,6 +757,7 @@ export default function PenaltiesPage() {
         description: "",
         image: "",
       });
+      hideLoader();
     },
     onError: (error) => {
       console.error("Add penalty error:", error);
@@ -732,6 +766,7 @@ export default function PenaltiesPage() {
         description: "Failed to add penalty. Please try again.",
         variant: "destructive",
       });
+      hideLoader();
     },
   });
 

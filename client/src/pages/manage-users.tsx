@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { UserTable } from "@/components/user-table";
@@ -7,11 +7,25 @@ import { LuUserPlus } from "react-icons/lu";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
 export default function ManageUsers() {
   const { user } = useAuth();
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [initialLoad, setInitialLoad] = useState(true);
+  
+  // Show loader when the page is first loaded
+  useEffect(() => {
+    if (initialLoad) {
+      showLoader();
+    }
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, [initialLoad]);
 
   if (user?.role !== "ADMIN" && user?.role !== "CO_ADMIN") {
     return null;
@@ -51,10 +65,11 @@ export default function ManageUsers() {
                 </Button>
               </div>
             </div>
-          </div>
-
-          {/* User Table */}
-          <UserTable search={search} />
+          </div>          {/* User Table */}
+          <UserTable 
+            search={search} 
+            onLoadComplete={() => setInitialLoad(false)}
+          />
 
           {/* Invite Dialog */}
           <InviteUserDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />

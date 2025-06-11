@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { showLoader, hideLoader } from "@/services/loaderService";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -14,16 +15,25 @@ interface InviteUserDialogProps {
 export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-
   const inviteUserMutation = useMutation({
     mutationFn: async (data: { name: string; email: string }) => {
-      await apiRequest("POST", "/api/users/invite", data);
+      showLoader();
+      try {
+        await apiRequest("POST", "/api/users/invite", data);
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       onOpenChange(false);
       setName("");
       setEmail("");
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
     },
   });
 
