@@ -9,7 +9,7 @@ export function MobileNav() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f1f]/95 py-4 px-4 flex justify-around items-center z-50 backdrop-blur-xl border-t border-white/10 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f1f]/95 py-1 px-4 flex justify-around items-center z-50 backdrop-blur-xl border-t border-white/10 shadow-lg">
         {[
           { href: "/", label: "Home", icon: FiHome },
           { href: "/entries", label: "Entries", icon: FiList },
@@ -25,7 +25,7 @@ export function MobileNav() {
             >
               {/* Highlight Box */}
               <div
-                className={`absolute top-0 left-1/2 -translate-x-1/2 mt-[-2px] w-16 h-16 rounded-xl transition-all duration-300 ${
+                className={`absolute top-1 left-1/2 -translate-x-1/2 mt-[-2px] w-16 h-16 rounded-xl transition-all duration-300 ${
                   isActive(href)
                     ? "bg-[#6636a3]/20 shadow-inner"
                     : "bg-white/5 opacity-0 group-hover:opacity-100"

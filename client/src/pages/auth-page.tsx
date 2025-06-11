@@ -24,6 +24,10 @@ export default function AuthPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState<'login'|'register'>('login');
+
+  const [headerLogin, headerRegister] = "Welcome to Roomie | Join Roomie".split("|").map(s => s.trim());
+  const [descLogin, descRegister] = "Login to manage your flat | Create your admin account".split("|").map(s => s.trim());
 
   const loginForm = useForm({
     defaultValues: { email: "", password: "" },
@@ -78,10 +82,18 @@ export default function AuthPage() {
             <CardContent>
               <div className="flex flex-col items-center justify-center mb-6">
                 <img src="favroomie.png" alt="Roomie Logo" className="w-16 h-16 mb-2" />
-                <h2 className="text-xl font-bold text-white">Welcome to Roomie</h2>
-                <p className="text-sm text-gray-400">Login to manage your flat</p>
+                <h2 className="text-xl font-bold text-white">
+                  {activeTab === 'login' ? headerLogin : headerRegister}
+                </h2>
+                <p className="text-sm text-gray-400">
+                  {activeTab === 'login' ? descLogin : descRegister}
+                </p>
               </div>
-              <Tabs defaultValue="login" className="w-full">
+              <Tabs
+                value={activeTab}
+                onValueChange={(val) => setActiveTab(val as 'login'|'register')}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-2 bg-[#1a1a2e] mb-6">
                   <TabsTrigger
                     value="login"
@@ -158,11 +170,6 @@ export default function AuthPage() {
                 </TabsContent>
 
                 <TabsContent value="register">
-                  <div className="flex flex-col items-center justify-center mb-6">
-                    <img src="favroomie.png" alt="Roomie Logo" className="w-16 h-16 mb-2" />
-                    <h2 className="text-xl font-bold text-white">Join Roomie</h2>
-                    <p className="text-sm text-gray-400">Create your admin account</p>
-                  </div>
                   <form onSubmit={registerForm.handleSubmit((data) => registerMutation.mutate(data))}>
                     <div className="space-y-4">
                       <div>
