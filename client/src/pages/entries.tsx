@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LuUserPlus } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 import { Input } from "@/components/ui/input";
@@ -45,8 +46,8 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
   const handleDelete = () => {
+    showLoader(); // Show loader before deleting
     fetch(`/api/entries/${entry._id}`, {
       method: "DELETE",
     })
@@ -57,8 +58,12 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           description: `Entry "${entry.name}" has been deleted successfully.`,
           variant: "destructive",
         });
+        hideLoader(); // Hide loader after successful deletion
       })
-      .catch(console.error);
+      .catch((error) => {
+        console.error(error);
+        hideLoader(); // Hide loader on error
+      });
   };
 
   return (
@@ -87,9 +92,9 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
           </DialogHeader>
-          <form
-            onSubmit={(e) => {
+          <form            onSubmit={(e) => {
               e.preventDefault();
+              showLoader(); // Show loader before updating the entry
               const formData = new FormData(e.currentTarget);
               fetch(`/api/entries/${entry._id}`, {
                 method: "PATCH",
@@ -106,8 +111,12 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
                     description: `Entry "${entry.name}" has been updated successfully.`,
                   });
                   setOpen(false); // Close the dialog on success
+                  hideLoader(); // Hide loader after successful update
                 })
-                .catch(console.error);
+                .catch((error) => {
+                  console.error(error);
+                  hideLoader(); // Hide loader on error
+                });
             }}
             className="space-y-4"
           >
@@ -159,13 +168,43 @@ export default function EntriesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 6; // Limit of 10 per page
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  
+  // Show loader when the component mounts and set up cleanup
+  useEffect(() => {
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
 
+  // Manage loading state
+  useEffect(() => {
+    if (!dataLoading) {
+      hideLoader();
+    }
+  }, [dataLoading]);
+  
   const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
+    onSuccess: () => {
+      setDataLoading(false);
+    },
+    onError: () => {
+      setDataLoading(false);
+    }
   });
 
   const { data: totals } = useQuery<{ userTotal: number; flatTotal: number; fairSharePercentage: number; fairShareAmount: number; userContributionPercentage: number; isDeficit: boolean }>({
     queryKey: ["/api/entries/total"],
+    onSuccess: () => {
+      setDataLoading(false);
+    },
+    onError: () => {
+      setDataLoading(false);
+    }
   });
 
 
@@ -174,11 +213,10 @@ export default function EntriesPage() {
   // all user penalty total  
   const [allUserPenalties, setPenalties] = useState<{ [userId: string]: { totalAmount: number; entries: number } }>({});
   const [totalPenaltyAmount, setTotalAmount] = useState(0);
-  const [totalPenaltyEntries, setTotalEntries] = useState(0);
-
-  useEffect(() => {
+  const [totalPenaltyEntries, setTotalEntries] = useState(0);  useEffect(() => {
     const fetchPenalties = async () => {
       try {
+        // Loader is already shown from component mount
         const response = await fetch("/api/penalties");
         const data = await response.json();
 
@@ -201,14 +239,14 @@ export default function EntriesPage() {
           // Update overall totals
           overallTotalAmount += penalty.amount;
           overallTotalEntries += 1;
-        });
-
+        });        
         setPenalties(penaltyMap);
         setTotalAmount(overallTotalAmount);
         setTotalEntries(overallTotalEntries);
-
+        setDataLoading(false);
       } catch (error) {
         console.error("Error fetching penalties:", error);
+        setDataLoading(false);
       }
     };
 
@@ -248,9 +286,10 @@ export default function EntriesPage() {
     if (selectedEntries.length === 0) return;
 
     setBulkDeleteDialogOpen(true);
-  };
-
-  const confirmBulkDelete = () => {
+  };  const confirmBulkDelete = () => {
+    showLoader();
+    setDataLoading(true);
+    
     fetch('/api/entries/bulk', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -258,11 +297,14 @@ export default function EntriesPage() {
     })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
+        
         toast({
           title: "Entries Deleted",
           description: `${selectedEntries.length} entries have been deleted successfully.`,
           variant: "destructive",
         });
+        
         setSelectedEntries([]);
         setBulkDeleteDialogOpen(false);
       })
@@ -274,6 +316,7 @@ export default function EntriesPage() {
           variant: "destructive",
         });
         setBulkDeleteDialogOpen(false);
+        setDataLoading(false);
       });
   };
 
@@ -294,25 +337,33 @@ export default function EntriesPage() {
     queryKey: ["/api/can-add-entry"],
     refetchOnWindowFocus: false
   });
-
   const addEntryMutation = useMutation({
     mutationFn: async (data: { name: string; amount: number }) => {
-      // First check if user can add entry
-      await refetchCanAddEntry();
+      showLoader();
+      
+      try {
+        // First check if user can add entry
+        await refetchCanAddEntry();
 
-      if (canAddEntryData && !canAddEntryData.canAddEntry) {
-        throw new Error(canAddEntryData.message);
+        if (canAddEntryData && !canAddEntryData.canAddEntry) {
+          throw new Error(canAddEntryData.message);
+        }
+
+        const res = await apiRequest("POST", "/api/entries", data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
       }
-
-      const res = await apiRequest("POST", "/api/entries", data);
-      return res.json();
     },
     onSuccess: () => {
+      setDataLoading(true);
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
       toast({ title: "Entry added successfully" });
       setOpenAddDialog(false); // Close the Add Entry dialog on success
       setNewEntry({ name: "", amount: "" }); // Optionally, clear the form
+      hideLoader();
     },
     onError: (error: any) => {
       toast({
@@ -320,6 +371,7 @@ export default function EntriesPage() {
         description: error.message || "You've exceeded your fair share of contributions.",
         variant: "destructive"
       });
+      hideLoader();
     }
   });
 
@@ -371,8 +423,10 @@ export default function EntriesPage() {
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <Button
                     variant="outline"
-                    className="bg-white/80 hover:bg-white/90 text-gray-700"
-                    onClick={async () => {
+                    className="bg-white/80 hover:bg-white/90 text-gray-700"                    onClick={async () => {
+                      showLoader();
+                      setDataLoading(true);
+                      
                       try {
                         const res = await fetch('/api/check-contribution-penalties', {
                           method: 'POST',
@@ -388,13 +442,17 @@ export default function EntriesPage() {
                           variant: data.deficitUsers?.length > 0 ? "destructive" : "default"
                         });
 
+                        // Refresh the penalties data
                         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                        queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
                       } catch (error) {
                         toast({
                           title: "Error",
                           description: "Failed to run contribution check",
                           variant: "destructive"
                         });
+                        setDataLoading(false);
                       }
                     }}
                   >
@@ -1125,16 +1183,21 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"
-                            onClick={() => {
+                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"                            onClick={() => {
+                              showLoader(); // Show loader before approving
                               fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                                 .then(() => {
                                   toast({
                                     title: "Entry Approved",
                                     description: `Entry "${entry.name}" has been approved successfully.`,
                                   });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                  hideLoader(); // Hide loader after success
                                 })
-                                .catch(console.error);
+                                .catch((error) => {
+                                  console.error(error);
+                                  hideLoader(); // Hide loader on error
+                                });
                             }}
                           >
                             Approve
@@ -1143,8 +1206,8 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"
-                            onClick={() => {
+                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"                            onClick={() => {
+                              showLoader(); // Show loader before rejecting
                               fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
                                 .then(() => {
                                   toast({
@@ -1152,8 +1215,13 @@ export default function EntriesPage() {
                                     description: `Entry "${entry.name}" has been rejected.`,
                                     variant: "destructive",
                                   });
+                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                                  hideLoader(); // Hide loader after success
                                 })
-                                .catch(console.error);
+                                .catch((error) => {
+                                  console.error(error);
+                                  hideLoader(); // Hide loader on error
+                                });
                             }}
                           >
                             Decline

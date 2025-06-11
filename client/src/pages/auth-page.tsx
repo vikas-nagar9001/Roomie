@@ -13,8 +13,8 @@ import { FiUsers, FiList, FiCreditCard } from "react-icons/fi";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
-import { showLoader, hideLoader } from "@/services/loaderService";
+import { useState, useEffect } from "react";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -26,6 +26,13 @@ export default function AuthPage() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'login'|'register'>('login');
+  
+  // Ensure loader is cleaned up when component unmounts
+  useEffect(() => {
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
 
   const [headerLogin, headerRegister] = "Welcome to Roomie | Join Roomie".split("|").map(s => s.trim());
   const [descLogin, descRegister] = "Login to manage your flat | Create your admin account".split("|").map(s => s.trim());
@@ -110,12 +117,14 @@ export default function AuthPage() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="login">
-
-                <form onSubmit={loginForm.handleSubmit((data) => {
+                <TabsContent value="login">                <form onSubmit={loginForm.handleSubmit((data) => {
                       showLoader();
                       loginMutation.mutate(data, {
-                        onSettled: () => {
+                        onSuccess: () => {
+                          // Don't hide loader here as we'll redirect to dashboard
+                          // The loader will be cleared on component unmount
+                        },
+                        onError: () => {
                           hideLoader();
                         }
                       });
