@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
             </div>
             <Button
               type="submit"
-              className="w-full flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87]  text-white rounded-lg shadow-md transition"
+              className="w-full flex items-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87]  text-white rounded-lg shadow-md transition"
               disabled={resetPasswordMutation.isPending}
             >
               Reset Password

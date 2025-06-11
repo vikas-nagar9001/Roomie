@@ -124,20 +124,20 @@ export function UserTable({ search }: UserTableProps) {
                 className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
               >
                 <TableCell className="min-w-[200px] py-4 px-3">
-                  <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                  <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
                     {user.profilePicture ? (
                       <img
                         src={user.profilePicture}
                         alt={user.name}
-                        className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                        className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
                         }}
                       />
                     ) : (
-                      <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-[#6636a3]/20 border-2 border-[#6636a3]/50">
-                        <FiUser className="w-6 h-6 sm:w-8 sm:h-8 text-[#6636a3]" />
+                      <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-[#582c84]/20 border-2 border-[#582c84]/50">
+                        <FiUser className="w-6 h-6 sm:w-8 sm:h-8 text-[#582c84]" />
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
@@ -187,15 +187,15 @@ export function UserTable({ search }: UserTableProps) {
                 <TableCell className="text-center">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="hover:bg-[#6636a3]/20 text-white/70">
+                      <Button variant="ghost" size="icon" className="hover:bg-[#582c84]/20 text-white/70">
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-[#151525] border border-[#6636a3]/30">
+                    <DropdownMenuContent align="end" className="bg-[#151525] border border-[#582c84]/30">
                       {user.status === "PENDING" && (
                         <DropdownMenuItem
                           onClick={() => resendInviteMutation.mutate(user._id)}
-                          className="text-white hover:bg-[#6636a3]/20"
+                          className="text-white hover:bg-[#582c84]/20"
                         >
                           <Mail className="mr-2 h-4 w-4" />
                           Resend Invite
@@ -210,13 +210,13 @@ export function UserTable({ search }: UserTableProps) {
                             },
                           })
                         }
-                        className="text-white hover:bg-[#6636a3]/20"
+                        className="text-white hover:bg-[#582c84]/20"
                       >
                         Toggle Role
                       </DropdownMenuItem>
                       {user.status !== "PENDING" && (
                         <DropdownMenuItem
-                          className="text-white hover:bg-[#6636a3]/20"
+                          className="text-white hover:bg-[#582c84]/20"
                           onClick={() =>
                             updateUserMutation.mutate({
                               userId: user._id,
@@ -253,7 +253,7 @@ export function UserTable({ search }: UserTableProps) {
       ) : (
         <div className="py-8 text-center text-white/60">
           <div className="flex flex-col items-center justify-center space-y-3">
-            <FiUser className="w-12 h-12 text-[#6636a3] opacity-50" />
+            <FiUser className="w-12 h-12 text-[#582c84] opacity-50" />
             <p className="text-lg font-medium">No users found</p>
             <p className="text-sm text-white/40">Try adjusting your search or add new users</p>
           </div>

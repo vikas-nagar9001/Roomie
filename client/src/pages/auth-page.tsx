@@ -70,7 +70,7 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0f0f1f] relative overflow-hidden">
       {/* Background gradient effects */}
-      <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#6636a3]/10 blur-3xl"></div>
+      <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#582c84]/10 blur-3xl"></div>
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
 
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
@@ -97,13 +97,13 @@ export default function AuthPage() {
                 <TabsList className="grid w-full grid-cols-2 bg-[#1a1a2e] mb-6">
                   <TabsTrigger
                     value="login"
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
+                    className="data-[state=active]:bg-[#582c84] data-[state=active]:text-white text-gray-300"
                   >
                     Login
                   </TabsTrigger>
                   <TabsTrigger
                     value="register"
-                    className="data-[state=active]:bg-[#6636a3] data-[state=active]:text-white text-gray-300"
+                    className="data-[state=active]:bg-[#582c84] data-[state=active]:text-white text-gray-300"
                   >
                     Register as Admin
                   </TabsTrigger>
@@ -118,7 +118,7 @@ export default function AuthPage() {
                         <Input
                           id="email"
                           {...loginForm.register("email")}
-                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                           placeholder="Enter your email"
                         />
                       </div>
@@ -129,7 +129,7 @@ export default function AuthPage() {
                             id="password"
                             type={showLoginPassword ? "text" : "password"}
                             {...loginForm.register("password")}
-                            className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                            className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                             placeholder="Enter your password"
                           />
                           <Button
@@ -152,7 +152,7 @@ export default function AuthPage() {
                         className="w-full relative group overflow-hidden rounded-lg"
                         disabled={loginMutation.isPending}
                       >
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#582c84] group-hover:scale-105 transition-transform duration-300"></div>
                         <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
                           Login
                         </span>
@@ -177,7 +177,7 @@ export default function AuthPage() {
                         <Input
                           id="name"
                           {...registerForm.register("name")}
-                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                           placeholder="Enter your full name"
                         />
                       </div>
@@ -186,7 +186,7 @@ export default function AuthPage() {
                         <Input
                           id="email"
                           {...registerForm.register("email")}
-                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                           placeholder="Enter your email"
                         />
                       </div>
@@ -195,7 +195,7 @@ export default function AuthPage() {
                         <Input
                           id="flatUsername"
                           {...registerForm.register("flatUsername")}
-                          className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                           placeholder="Enter your flat username"
                         />
                       </div>
@@ -206,7 +206,7 @@ export default function AuthPage() {
                             id="registerPassword"
                             type={showRegisterPassword ? "text" : "password"}
                             {...registerForm.register("password")}
-                            className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                            className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
                             placeholder="Create a strong password"
                           />
                           <Button
@@ -229,7 +229,7 @@ export default function AuthPage() {
                         className="w-full relative group overflow-hidden rounded-lg"
                         disabled={registerMutation.isPending}
                       >
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#582c84] group-hover:scale-105 transition-transform duration-300"></div>
                         <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
                           Create Account
                         </span>
@@ -243,7 +243,7 @@ export default function AuthPage() {
         </div>
 
         <div className="hidden md:flex flex-col justify-center p-8 relative">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] to-[#6636a3] rounded-2xl blur opacity-75"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] to-[#582c84] rounded-2xl blur opacity-75"></div>
           <div className="relative bg-black/50 backdrop-blur-xl rounded-2xl p-8 border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
             {/* <LuBuilding2 className="w-16 h-16 text-indigo-300 mb-6" /> */}
             <h1 className="text-4xl font-bold text-white mb-4">Manage Your Flat Share Effortlessly</h1>
@@ -253,19 +253,19 @@ export default function AuthPage() {
             </p>
             <div className="mt-8 space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-[#582c84]/30 flex items-center justify-center">
                   <FiUsers className="w-5 h-5 text-indigo-300" />
                 </div>
                 <p className="text-indigo-100">Manage roommates and permissions</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-[#582c84]/30 flex items-center justify-center">
                   <FiList className="w-5 h-5 text-indigo-300" />
                 </div>
                 <p className="text-indigo-100">Track expenses and payments</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#6636a3]/30 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-[#582c84]/30 flex items-center justify-center">
                   <FiCreditCard className="w-5 h-5 text-indigo-300" />
                 </div>
                 <p className="text-indigo-100">Simplify bill splitting and settlements</p>
@@ -296,7 +296,7 @@ export default function AuthPage() {
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
                 placeholder="Enter your email"
-                className="bg-[#1a1a2e] border-[#6636a3]/50 focus:border-[#6636a3] text-white"
+                className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
               />
             </div>
             <Button
@@ -304,7 +304,7 @@ export default function AuthPage() {
               className="w-full relative group overflow-hidden rounded-lg"
               disabled={forgotPasswordMutation.isPending}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#6636a3] group-hover:scale-105 transition-transform duration-300"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#582c84] group-hover:scale-105 transition-transform duration-300"></div>
               <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
                 Send Reset Link
               </span>

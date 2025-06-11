@@ -27,14 +27,14 @@ export function MobileNav() {
               <div
                 className={`absolute top-1 left-1/2 -translate-x-1/2 mt-[-2px] w-16 h-16 rounded-xl transition-all duration-300 ${
                   isActive(href)
-                    ? "bg-[#6636a3]/20 shadow-inner"
+                    ? "bg-[#582c84]/20 shadow-inner"
                     : "bg-white/5 opacity-0 group-hover:opacity-100"
                 }`}
               ></div>
 
               {/* Icon + Text */}
               <div className="relative flex flex-col items-center justify-center px-3 py-2">
-                <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#6636a3]/30" : ""}`}>
+                <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""}`}>
                   <Icon className={`w-5 h-5 transition-all duration-300 ${isActive(href) ? "scale-110" : ""}`} />
                 </div>
                 <span className="mt-1 text-[10px] font-medium">{label}</span>

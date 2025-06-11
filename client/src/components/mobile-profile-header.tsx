@@ -64,7 +64,7 @@ export function MobileProfileHeader() {
   return (
     <div className="relative">
       {/* Gradient Background */}
-      <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#6636a3] to-[#0f0f1f] z-0" />
+      <div className="absolute top-0 left-0 right-0 h-40 bg-gradient-to-b from-[#582c84] to-[#0f0f1f] z-0" />
       
       {/* Profile Content */}
       <div className="relative z-10 pt-6 pb-4 px-4 flex flex-col items-center">
@@ -73,7 +73,7 @@ export function MobileProfileHeader() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
+            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#582c84] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
             onClick={() => navigate("/")}
           >
             <FiArrowLeft className="h-4 w-4" />
@@ -86,7 +86,7 @@ export function MobileProfileHeader() {
             ref={buttonRef}
             variant="ghost" 
             size="sm" 
-            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
+            className="rounded-full bg-gradient-to-r from-[#ab6cff] to-[#582c84] text-white hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transition-all duration-300"
             onClick={() => setShowMenu(!showMenu)}
           >
             <FiSettings className="h-4 w-4" />
@@ -149,7 +149,7 @@ export function MobileProfileHeader() {
         )}
 
         {/* Avatar */}
-        <div className="mb-4 p-1 rounded-full bg-gradient-to-r from-[#ab6cff] to-[#6636a3] shadow-xl relative group">
+        <div className="mb-4 p-1 rounded-full bg-gradient-to-r from-[#ab6cff] to-[#582c84] shadow-xl relative group">
           <Avatar className="h-24 w-24 border-4 border-[#0f0f1f]/50">
             <AvatarImage src={user?.profilePicture} alt={user?.name || "User"} />
             <AvatarFallback className="bg-[#1a1a2e] text-white text-2xl">
@@ -160,7 +160,7 @@ export function MobileProfileHeader() {
           {/* Pencil Icon Overlay */}
           <div
             onClick={() => document.getElementById("profile-picture")?.click()}
-            className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-[#ab6cff] to-[#6636a3] text-white rounded-full cursor-pointer 
+            className="absolute bottom-0 right-0 p-2 bg-gradient-to-r from-[#ab6cff] to-[#582c84] text-white rounded-full cursor-pointer 
                      hover:bg-gradient-to-r hover:from-[#c18fff] hover:to-[#7b4cc0] transform hover:scale-105 transition-all shadow-lg"
           >
             <FiEdit2 className="h-3.5 w-3.5" />

@@ -414,7 +414,7 @@ export default function ProfilePage() {
                 <TabsList className=" w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-10 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#582c84] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
                     <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                       <LuUser className="h-5 w-5" />
@@ -423,7 +423,7 @@ export default function ProfilePage() {
                   </TabsTrigger>
                   <TabsTrigger 
                     value="activity"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#582c84] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                   >
                     <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                       <LuHistory className="h-5 w-5" />
@@ -434,7 +434,7 @@ export default function ProfilePage() {
                 {(
                     <TabsTrigger 
                       value="flat"
-                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#6636a3] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
+                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#582c84] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
                     >
                       <div className="flex flex-col items-center sm:flex-row sm:justify-center gap-1 sm:gap-2">
                         <LuSettings className="h-5 w-5" />
@@ -470,7 +470,7 @@ export default function ProfilePage() {
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                             placeholder="Enter your name"
                           />
                         </div>
@@ -481,7 +481,7 @@ export default function ProfilePage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                             placeholder="Enter your email"
                           />
                         </div>
@@ -492,7 +492,7 @@ export default function ProfilePage() {
                               setIsEditingProfile(false);
                             }}
                             disabled={updateProfileMutation.isPending}
-                            className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                           >
                             {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                           </Button>
@@ -508,7 +508,7 @@ export default function ProfilePage() {
                       <div className="space-y-4">
                         <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                           <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
+                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
                               <FiUser className="h-5 w-5 text-white" />
                             </div>
                             <Label className="text-white/80 font-medium">Name</Label>
@@ -517,7 +517,7 @@ export default function ProfilePage() {
                         </div>
                         <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                           <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
+                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
                               <FiMail className="h-5 w-5 text-white" />
                             </div>
                             <Label className="text-white/80 font-medium">Email</Label>
@@ -553,7 +553,7 @@ export default function ProfilePage() {
                                    hover:bg-black/50 transition-all duration-300 transform hover:scale-[1.02] shadow-md"
                         >
                           <div className="flex items-start gap-3">
-                            <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full mt-1">
+                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full mt-1">
                               <LuHistory className="h-5 w-5 text-white" />
                             </div>
                             <div className="flex-1">
@@ -572,7 +572,7 @@ export default function ProfilePage() {
 
                       {activities.length === 0 && (
                         <div className="text-center py-12 px-4 rounded-xl border border-white/10 bg-gradient-to-b from-black/30 to-black/20 backdrop-blur-sm">
-                          <div className="bg-gradient-to-br from-[#6636a3]/20 to-[#5433a7]/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-3">
+                          <div className="bg-gradient-to-br from-[#582c84]/20 to-[#5433a7]/10 p-4 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-3">
                             <LuHistory className="h-12 w-12 text-white/40" />
                           </div>
                           <p className="text-white/70 text-lg">No recent activity</p>
@@ -618,7 +618,7 @@ export default function ProfilePage() {
                               id="flatName"
                               value={flatName}
                               onChange={(e) => setFlatName(e.target.value)}
-                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                               placeholder="Enter flat name"
                             />
                           </div>
@@ -629,7 +629,7 @@ export default function ProfilePage() {
                               type="number"
                               value={minApprovalAmount}
                               onChange={(e) => setMinApprovalAmount(e.target.value)}
-                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#6636a3] focus:ring-1 focus:ring-[#6636a3] transition-all"
+                              className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                               placeholder="Enter minimum amount"
                             />
                           </div>
@@ -639,7 +639,7 @@ export default function ProfilePage() {
                                 name: flatName,
                                 minApprovalAmount: Number(minApprovalAmount)
                               })}
-                              className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                              className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                             >
                               {updateFlatSettingsMutation.isPending ? "Saving..." : "Save Settings"}
                             </Button>
@@ -660,7 +660,7 @@ export default function ProfilePage() {
                         <div className="space-y-4">
                           <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                             <div className="flex items-center gap-3 mb-1">
-                              <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
+                              <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
                                 <FiUser className="h-5 w-5 text-white" />
                               </div>
                               <Label className="text-white/80 font-medium">Flat ID</Label>
@@ -671,7 +671,7 @@ export default function ProfilePage() {
                             <>
                               <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                                 <div className="flex items-center gap-3 mb-1">
-                                  <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
+                                  <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
                                     <FiHome className="h-5 w-5 text-white" />
                                   </div>
                                   <Label className="text-white/80 font-medium">Flat Name</Label>
@@ -680,7 +680,7 @@ export default function ProfilePage() {
                               </div>
                               <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
                                 <div className="flex items-center gap-3 mb-1">
-                                  <div className="bg-gradient-to-br from-[#6636a3]/40 to-[#5433a7]/30 p-2 rounded-full">
+                                  <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
                                     <FiCreditCard className="h-5 w-5 text-white" />
                                   </div>
                                   <Label className="text-white/80 font-medium">Minimum Approval Amount</Label>
@@ -703,7 +703,7 @@ export default function ProfilePage() {
       {/* Image Cropping Dialog */}
       <Dialog open={isCropperOpen} onOpenChange={setIsCropperOpen}>
         <DialogContent className="bg-gradient-to-b from-black/70 to-black/60 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl max-w-[95vw] sm:max-w-[500px] p-0 overflow-hidden">
-          <div className="p-4 bg-gradient-to-r from-[#6636a3]/30 to-black/30 border-b border-white/10">
+          <div className="p-4 bg-gradient-to-r from-[#582c84]/30 to-black/30 border-b border-white/10">
             <h3 className="text-xl font-bold text-white text-center">Crop Profile Picture</h3>
           </div>
           
@@ -747,7 +747,7 @@ export default function ProfilePage() {
               </Button>
               <Button
                 onClick={handleCropSave}
-                className="w-full sm:w-auto bg-gradient-to-r from-[#6636a3] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
               >
                 <FaCamera className="h-4 w-4" />
                 Save Picture

@@ -83,7 +83,7 @@ export default function Dashboard() {
         <div className="grid gap-4">
           <Link href="/entries">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#582c84] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -100,7 +100,7 @@ export default function Dashboard() {
 
           <Link href="/payments">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#582c84] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -117,7 +117,7 @@ export default function Dashboard() {
 
           <Link href="/penalties">
             <div className="relative group overflow-hidden rounded-xl">
-              <div className="absolute inset-0 bg-[#6636a3] duration-300 group-hover:scale-105"></div>
+              <div className="absolute inset-0 bg-[#582c84] duration-300 group-hover:scale-105"></div>
               <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
               <div className="relative p-4 flex items-center justify-between bg-black/20">
                 <div>
@@ -135,7 +135,7 @@ export default function Dashboard() {
           {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
             <Link href="/manage-users">
               <div className="relative group overflow-hidden rounded-xl">
-                <div className="absolute inset-0 bg-[#6636a3] transition-all duration-300 group-hover:scale-105"></div>
+                <div className="absolute inset-0 bg-[#582c84] transition-all duration-300 group-hover:scale-105"></div>
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 <div className="relative p-4 flex items-center justify-between bg-black/20">
                   <div>
@@ -179,7 +179,7 @@ export default function Dashboard() {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <Link href="/entries">
               <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#582c84] opacity-90"></div>
                 <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
                 <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
                 <div className="relative p-6 h-full flex flex-col justify-between">
@@ -204,7 +204,7 @@ export default function Dashboard() {
 
             <Link href="/payments">
               <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#582c84] opacity-90"></div>
                 <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
                 <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
                 <div className="relative p-6 h-full flex flex-col justify-between">
@@ -229,7 +229,7 @@ export default function Dashboard() {
             
             <Link href="/penalties">
               <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#582c84] opacity-90"></div>
                 <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
                 <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
                 <div className="relative p-6 h-full flex flex-col justify-between">
@@ -255,7 +255,7 @@ export default function Dashboard() {
             {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
               <Link href="/manage-users">
                 <div className="group relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(101,58,167,0.3)] hover:translate-y-[-5px]">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#6636a3] opacity-90"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#5433a7] to-[#582c84] opacity-90"></div>
                   <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-10"></div>
                   <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
                   <div className="relative p-6 h-full flex flex-col justify-between">

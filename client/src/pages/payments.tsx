@@ -181,7 +181,7 @@ export default function PaymentsPage() {
                   <>
                     <Button
                       onClick={() => setIsCreateBillOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
+                      className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
                     >
                       <Plus className="h-5 w-5" />
                       <span>Create Bill</span>
@@ -202,7 +202,7 @@ export default function PaymentsPage() {
           </div>
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Total Received</CardTitle>
                 <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -214,7 +214,7 @@ export default function PaymentsPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
                 <CardTitle className="text-base font-semibold text-white">Total Pending</CardTitle>
                 <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -229,12 +229,12 @@ export default function PaymentsPage() {
 
           <div className="mb-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="flex flex-wrap gap-2 p-2 border-b border-[#6636a3]/30 justify-start bg-[#151525]">
+              <TabsList className="flex flex-wrap gap-2 p-2 border-b border-[#582c84]/30 justify-start bg-[#151525]">
                 <TabsTrigger
                   value="status"
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "status"
-                      ? "bg-[#6636a3] text-white"
-                      : "text-white/70 hover:bg-[#6636a3]/20"
+                      ? "bg-[#582c84] text-white"
+                      : "text-white/70 hover:bg-[#582c84]/20"
                     }`}
                 >
                   Payment Status
@@ -242,8 +242,8 @@ export default function PaymentsPage() {
                 <TabsTrigger
                   value="bills"
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === "bills"
-                      ? "bg-[#6636a3] text-white"
-                      : "text-white/70 hover:bg-[#6636a3]/20"
+                      ? "bg-[#582c84] text-white"
+                      : "text-white/70 hover:bg-[#582c84]/20"
                     }`}
                 >
                   Bills
@@ -281,11 +281,11 @@ export default function PaymentsPage() {
                         className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
                       >
                         <TableCell className="min-w-[200px] py-4 px-3">
-                          <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                          <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
                             <img
                               src={payment.userId?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
                               alt="User"
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
@@ -323,7 +323,7 @@ export default function PaymentsPage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-white bg-[#6636a3] border-[#6636a3] hover:bg-[#8e4be4] hover:text-white"
+                                  className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"
                                   onClick={() => updatePaymentStatusMutation.mutate({
                                     paymentId: payment._id,
                                     status: "PAID",
@@ -336,7 +336,7 @@ export default function PaymentsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="bg-[#151525] text-[#a86ff4] border-[#6636a3] hover:bg-[#6636a3]/20"
+                                className="bg-[#151525] text-[#a86ff4] border-[#582c84] hover:bg-[#582c84]/20"
                                 onClick={() => sendReminderMutation.mutate(payment._id)}
                               >
                                 Send Reminder
@@ -352,7 +352,7 @@ export default function PaymentsPage() {
                 {(!payments || payments.length === 0) && (
                   <div className="py-8 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center space-y-3">
-                      <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                      <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
                       <p className="text-lg font-medium">No payments found</p>
                       <p className="text-sm text-white/40">Start by creating a new bill!</p>
                     </div>
@@ -429,7 +429,7 @@ export default function PaymentsPage() {
                 {(!bills || bills.length === 0) && (
                   <div className="py-8 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center space-y-3">
-                      <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                      <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
                       <p className="text-lg font-medium">No bills found</p>
                       <p className="text-sm text-white/40">Create your first bill!</p>
                     </div>
@@ -448,7 +448,7 @@ export default function PaymentsPage() {
           </div>
 
           <Dialog open={isCreateBillOpen} onOpenChange={setIsCreateBillOpen}>
-            <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+            <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
               <DialogHeader>
                 <DialogTitle className="text-lg font-semibold text-white">Create Monthly Bill</DialogTitle>
               </DialogHeader>
@@ -466,7 +466,7 @@ export default function PaymentsPage() {
                       newItems[index].name = e.target.value;
                       setNewBillItems(newItems);
                     }}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                     <Input
                       type="number"
@@ -477,7 +477,7 @@ export default function PaymentsPage() {
                         newItems[index].amount = e.target.value;
                         setNewBillItems(newItems);
                       }}
-                      className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                      className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                     />
                   </div>
                 ))}
@@ -486,13 +486,13 @@ export default function PaymentsPage() {
                     type="button"
                     onClick={addBillItem}
                     variant="outline"
-                    className="flex-1 text-white bg-[#151525] border-[#6636a3] hover:bg-[#6636a3]/20"
+                    className="flex-1 text-white bg-[#151525] border-[#582c84] hover:bg-[#582c84]/20"
                   >
                     Add Item
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-[#6636a3] hover:bg-[#542d87] text-white"
+                    className="flex-1 bg-[#582c84] hover:bg-[#542d87] text-white"
                   >
                     Create Bill
                   </Button>
@@ -502,7 +502,7 @@ export default function PaymentsPage() {
           </Dialog>
 
           <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-            <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+            <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
               <DialogHeader>
                 <DialogTitle className="text-lg font-semibold text-white">Payment Settings</DialogTitle>
               </DialogHeader>
@@ -513,7 +513,7 @@ export default function PaymentsPage() {
                     type="number"
                     value={settings.defaultDueDate}
                     onChange={(e) => setSettings({ ...settings, defaultDueDate: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                 </div>
                 <div className="space-y-2">
@@ -522,7 +522,7 @@ export default function PaymentsPage() {
                     type="number"
                     value={settings.penaltyAmount}
                     onChange={(e) => setSettings({ ...settings, penaltyAmount: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                 </div>
                 <div className="space-y-2">
@@ -531,20 +531,20 @@ export default function PaymentsPage() {
                     type="number"
                     value={settings.reminderFrequency}
                     onChange={(e) => setSettings({ ...settings, reminderFrequency: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
                     checked={settings.customSplitEnabled}
                     onCheckedChange={(checked) => setSettings({ ...settings, customSplitEnabled: checked as boolean })}
-                    className="h-5 w-5 rounded-md bg-[#1c1b2d] border border-[#6636a3] checked:bg-[#6636a3] checked:border-[#6636a3] focus:ring-2 focus:ring-[#6636a3] focus:ring-offset-0 transition duration-150 cursor-pointer hover:bg-[#1f1f2e]"
+                    className="h-5 w-5 rounded-md bg-[#1c1b2d] border border-[#582c84] checked:bg-[#582c84] checked:border-[#582c84] focus:ring-2 focus:ring-[#582c84] focus:ring-offset-0 transition duration-150 cursor-pointer hover:bg-[#1f1f2e]"
                   />
                   <Label className="text-sm text-white/70">Enable Custom Split</Label>
                 </div>
                 <Button
                   onClick={() => updateSettingsMutation.mutate(settings)}
-                  className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white"
+                  className="w-full bg-[#582c84] hover:bg-[#542d87] text-white"
                 >
                   Save Settings
                 </Button>

@@ -31,7 +31,7 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] max-w-[400px] w-[calc(100%-48px)] sm:w-full p-6 sm:p-8 m-0 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+      <AlertDialogContent className="fixed top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] max-w-[400px] w-[calc(100%-48px)] sm:w-full p-6 sm:p-8 m-0 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
         <AlertDialogHeader className="space-y-4">
           <AlertDialogTitle className="text-lg font-semibold text-white">
             {title}
@@ -46,7 +46,7 @@ export function ConfirmDialog({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="flex-1 px-6 py-2.5 bg-[#6636a3] hover:bg-[#542d87] text-white border-none transition-colors"
+            className="flex-1 px-6 py-2.5 bg-[#582c84] hover:bg-[#542d87] text-white border-none transition-colors"
           >
             {confirmText}
           </AlertDialogAction>

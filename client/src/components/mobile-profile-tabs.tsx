@@ -29,7 +29,7 @@ export function MobileProfileTabs({ activeTab, onTabChange }: MobileProfileTabsP
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-all duration-300 ${isActive ? "bg-[#6636a3] text-white" : "text-white/70 hover:bg-white/10"}`}
+              className={`flex flex-col items-center justify-center py-3 px-2 rounded-lg transition-all duration-300 ${isActive ? "bg-[#582c84] text-white" : "text-white/70 hover:bg-white/10"}`}
             >
               <div className={`p-2 rounded-full ${isActive ? "bg-white/20" : ""}`}>
                 <Icon className="h-5 w-5" />

@@ -93,23 +93,23 @@ function PenaltyTimer() {
   return (
     <div className="relative group">
       {/* Animated gradient border with glow */}
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-500 animate-gradient-x"></div>
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-[#582c84] via-purple-500 to-[#582c84] rounded-lg blur opacity-60 group-hover:opacity-100 transition duration-500 animate-gradient-x"></div>
 
       {/* Main content with glass effect */}
       <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 p-4 bg-black/50 backdrop-blur-lg rounded-lg border border-white/10 shadow-xl transition-all duration-300 group-hover:bg-black/60 group-hover:scale-[1.02] w-full">
         <div className="flex items-center gap-4">
           <div className="relative">
             {/* Icon background with pulse effect */}
-            <div className="absolute -inset-0.5 bg-[#6636a3] rounded-full blur opacity-50 group-hover:opacity-75 transition duration-300"></div>
-            <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30 group-hover:bg-[#6636a3]/30 transition duration-300">
-              <MdAccessTime className="text-xl text-[#6636a3] group-hover:scale-110 transform transition duration-300" />
+            <div className="absolute -inset-0.5 bg-[#582c84] rounded-full blur opacity-50 group-hover:opacity-75 transition duration-300"></div>
+            <div className="relative p-2.5 bg-[#582c84]/20 rounded-full border border-[#582c84]/30 group-hover:bg-[#582c84]/30 transition duration-300">
+              <MdAccessTime className="text-xl text-[#582c84] group-hover:scale-110 transform transition duration-300" />
             </div>
           </div>
           <span className="font-medium text-sm text-white/90 tracking-wide">Next Penalty In:</span>
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-sm font-mono font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-[#6636a3]/20 to-purple-500/20 border border-[#6636a3]/30 text-white/90 shadow-inner">
+          <span className="text-sm font-mono font-bold px-4 py-2 rounded-lg bg-gradient-to-r from-[#582c84]/20 to-purple-500/20 border border-[#582c84]/30 text-white/90 shadow-inner">
             {timeRemaining}
           </span>
         </div>
@@ -190,7 +190,7 @@ export function PenaltySettingsForm() {
   if (isLoading) {
     return (
       <div className="p-8 text-center">
-        <div className="animate-spin h-8 w-8 border-4 border-[#6636a3] border-t-transparent rounded-full mx-auto"></div>
+        <div className="animate-spin h-8 w-8 border-4 border-[#582c84] border-t-transparent rounded-full mx-auto"></div>
         <p className="mt-2 text-gray-600">Loading settings...</p>
       </div>
     );
@@ -199,9 +199,9 @@ export function PenaltySettingsForm() {
   return (
     <div className="relative overflow-hidden bg-[#151525] p-4 sm:p-6 rounded-lg">
       {/* Decorative elements */}
-      <div className="absolute top-0 left-0 w-32 h-32 bg-[#6636a3]/20 rounded-full mix-blend-multiply filter blur opacity-70 animate-[blob_7s_infinite]"></div>
+      <div className="absolute top-0 left-0 w-32 h-32 bg-[#582c84]/20 rounded-full mix-blend-multiply filter blur opacity-70 animate-[blob_7s_infinite]"></div>
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_2s]"></div>
-      <div className="absolute -bottom-8 left-20 w-32 h-32 bg-[#6636a3]/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_4s]"></div>
+      <div className="absolute -bottom-8 left-20 w-32 h-32 bg-[#582c84]/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-[blob_7s_infinite_4s]"></div>
 
 
 
@@ -215,20 +215,20 @@ export function PenaltySettingsForm() {
 
         {/* Penalty Percentage */}
         <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#582c84] via-purple-500 to-[#582c84] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
 
-          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50">
+          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#582c84]/30 hover:bg-black/50">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
-                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
-                    <MdAttachMoney className="text-xl text-[#6636a3]" />
+                  <div className="absolute -inset-1 bg-[#582c84] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#582c84]/20 rounded-full border border-[#582c84]/30">
+                    <MdAttachMoney className="text-xl text-[#582c84]" />
                   </div>
                 </div>
                 <Label htmlFor="penaltyPercentage" className="text-lg font-semibold text-white">Penalty Percentage</Label>
               </div>
-              <span className="text-lg font-bold text-white px-4 py-1.5 rounded-full bg-[#6636a3]/30 border border-[#6636a3]/50">{penaltyPercentage}%</span>
+              <span className="text-lg font-bold text-white px-4 py-1.5 rounded-full bg-[#582c84]/30 border border-[#582c84]/50">{penaltyPercentage}%</span>
             </div>
             <div className="space-y-4">
               <Slider
@@ -247,16 +247,16 @@ export function PenaltySettingsForm() {
 
         {/* Warning Period */}
         <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#582c84] via-purple-500 to-[#582c84] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
 
 
-          <div className="relative backdrop-blur-md bg-black/40 p-4 sm:p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50 transition-all duration-300">
+          <div className="relative backdrop-blur-md bg-black/40 p-4 sm:p-6 rounded-xl border border-[#582c84]/30 hover:bg-black/50 transition-all duration-300">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3 sm:gap-6">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
-                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
-                    <MdTimerOff className="text-xl text-[#6636a3]" />
+                  <div className="absolute -inset-1 bg-[#582c84] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#582c84]/20 rounded-full border border-[#582c84]/30">
+                    <MdTimerOff className="text-xl text-[#582c84]" />
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -269,12 +269,12 @@ export function PenaltySettingsForm() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-[#6636a3]/10 p-1 rounded-lg border border-[#6636a3]/20 w-full sm:w-auto">
+              <div className="flex items-center gap-2 bg-[#582c84]/10 p-1 rounded-lg border border-[#582c84]/20 w-full sm:w-auto">
                 <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg">
-                  <MdCalendarToday className="text-[#6636a3] flex-shrink-0" />
+                  <MdCalendarToday className="text-[#582c84] flex-shrink-0" />
                   <span className="text-white/80 hidden sm:inline">Days:</span>
                 </span>
-                <span className="text-lg font-bold text-white px-4 py-1.5 rounded-lg bg-[#6636a3]/30 border border-[#6636a3]/50 flex-grow text-center sm:text-left sm:flex-grow-0">
+                <span className="text-lg font-bold text-white px-4 py-1.5 rounded-lg bg-[#582c84]/30 border border-[#582c84]/50 flex-grow text-center sm:text-left sm:flex-grow-0">
                   {warningDays}
                 </span>
               </div>
@@ -306,15 +306,15 @@ export function PenaltySettingsForm() {
 
         {/* Select Users */}
         <div className="relative group">
-          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#6636a3] via-purple-500 to-[#6636a3] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#582c84] via-purple-500 to-[#582c84] rounded-xl blur opacity-60 group-hover:opacity-75 transition duration-300"></div>
 
-          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#6636a3]/30 hover:bg-black/50">
+          <div className="relative backdrop-blur-md bg-black/40 p-6 rounded-xl border border-[#582c84]/30 hover:bg-black/50">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="absolute -inset-1 bg-[#6636a3] rounded-full blur opacity-50"></div>
-                  <div className="relative p-2.5 bg-[#6636a3]/20 rounded-full border border-[#6636a3]/30">
-                    <MdGroup className="text-xl text-[#6636a3]" />
+                  <div className="absolute -inset-1 bg-[#582c84] rounded-full blur opacity-50"></div>
+                  <div className="relative p-2.5 bg-[#582c84]/20 rounded-full border border-[#582c84]/30">
+                    <MdGroup className="text-xl text-[#582c84]" />
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -322,8 +322,8 @@ export function PenaltySettingsForm() {
                   <p className="text-sm text-gray-400">Choose users for penalty application</p>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center gap-2 bg-[#6636a3]/10 px-3 py-1.5 rounded-lg border border-[#6636a3]/20">
-                <MdPersonAdd className="text-[#6636a3]" />
+              <div className="hidden sm:flex items-center gap-2 bg-[#582c84]/10 px-3 py-1.5 rounded-lg border border-[#582c84]/20">
+                <MdPersonAdd className="text-[#582c84]" />
                 <span className="text-white/80 text-sm">{selectedUsers.length} Selected</span>
               </div>
             </div>
@@ -333,9 +333,9 @@ export function PenaltySettingsForm() {
                 <div
                   key={user._id}
                   className={`group/card relative flex items-center gap-3 flex-wrap sm:flex-nowrap p-4 rounded-xl w-full transition-all duration-300 ${selectedUsers.includes(user._id)
-                    ? 'bg-[#6636a3]/20 border-[#6636a3]/50 shadow-lg'
+                    ? 'bg-[#582c84]/20 border-[#582c84]/50 shadow-lg'
                     : 'bg-black/30 hover:bg-black/40 hover:shadow-lg'
-                    } border border-[#6636a3]/30`}
+                    } border border-[#582c84]/30`}
                 >
                   <Checkbox
                     id={user._id}
@@ -351,7 +351,7 @@ export function PenaltySettingsForm() {
                   />
                   <label htmlFor={user._id} className="flex items-center gap-4 cursor-pointer w-full min-w-0">
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#6636a3]/30 shadow-sm transition-transform duration-300 group-hover/card:scale-105">
+                      <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#582c84]/30 shadow-sm transition-transform duration-300 group-hover/card:scale-105">
                         <img
                           src={
                             user?.profilePicture
@@ -367,7 +367,7 @@ export function PenaltySettingsForm() {
                       </div>
 
                       {selectedUsers.includes(user._id) && (
-                        <div className="absolute -bottom-1 -right-1 bg-[#6636a3] rounded-lg w-5 h-5 border-2 border-black flex items-center justify-center shadow-lg">
+                        <div className="absolute -bottom-1 -right-1 bg-[#582c84] rounded-lg w-5 h-5 border-2 border-black flex items-center justify-center shadow-lg">
                           <MdCheck className="text-white text-sm" />
                         </div>
                       )}
@@ -377,12 +377,12 @@ export function PenaltySettingsForm() {
                       <p className="text-xs text-gray-400 break-words whitespace-normal">{user.email}</p>
                     </div>
                     <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all duration-300 ${selectedUsers.includes(user._id)
-                      ? 'bg-[#6636a3] border-[#6636a3]'
-                      : 'border-[#6636a3]/30 group-hover/card:border-[#6636a3]/50'
+                      ? 'bg-[#582c84] border-[#582c84]'
+                      : 'border-[#582c84]/30 group-hover/card:border-[#582c84]/50'
                       }`}>
                       <MdCheck className={`text-lg transition-all duration-300 ${selectedUsers.includes(user._id)
                         ? 'text-white scale-100'
-                        : 'text-[#6636a3]/30 scale-75'
+                        : 'text-[#582c84]/30 scale-75'
                         }`} />
                     </div>
                   </label>
@@ -390,12 +390,12 @@ export function PenaltySettingsForm() {
               ))}
             </div>
 
-            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#6636a3]/20">
+            <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#582c84]/20">
               <p className="text-xs text-gray-400 italic">
                 Leave unselected to apply penalties to all users
               </p>
-              <div className="sm:hidden flex items-center space-x-2 bg-[#6636a3]/10 px-3 py-1.5 rounded-lg border border-[#6636a3]/20">
-                <MdPersonAdd className="text-[#6636a3]" />
+              <div className="sm:hidden flex items-center space-x-2 bg-[#582c84]/10 px-3 py-1.5 rounded-lg border border-[#582c84]/20">
+                <MdPersonAdd className="text-[#582c84]" />
                 <span className="text-white/80 text-[15px] whitespace-nowrap">
                   {selectedUsers.length} Selected
                 </span>
@@ -413,7 +413,7 @@ export function PenaltySettingsForm() {
           disabled={loading}
           className={`w-full py-4 rounded-lg shadow-lg transition-all duration-300 transform hover:shadow-2xl ${loading
             ? 'bg-gray-600'
-            : 'bg-[#6636a3] hover:bg-[#542d87] hover:-translate-y-0.5'
+            : 'bg-[#582c84] hover:bg-[#542d87] hover:-translate-y-0.5'
             }`}
         >
           {loading ? (
@@ -476,7 +476,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           <DialogTrigger asChild>
             {/* Edit Button with Icon */}
             <button
-              className="p-1.5 text-[#6636a3] hover:bg-white/5 rounded-full transition-all duration-200"
+              className="p-1.5 text-[#582c84] hover:bg-white/5 rounded-full transition-all duration-200"
               onClick={() => setOpen(true)}
             >
               <FaEdit className="text-lg" />
@@ -491,7 +491,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           </button>
         </div>
 
-        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Penalty</DialogTitle>
           </DialogHeader>
@@ -539,11 +539,11 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                 <SelectTrigger className="border border-white/10 bg-black/30 text-white">
                   <SelectValue className="text-white" placeholder="Select penalty type" />
                 </SelectTrigger>
-                <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
-                  <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Late Payment</SelectItem>
-                  <SelectItem value="DAMAGE" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Damage</SelectItem>
-                  <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Rule Violation</SelectItem>
-                  <SelectItem value="OTHER" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-white focus:bg-[#6636a3]/30 cursor-pointer">Other</SelectItem>
+                <SelectContent className="bg-[#151525] border border-[#582c84]/30">
+                  <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-white focus:bg-[#582c84]/30 cursor-pointer">Late Payment</SelectItem>
+                  <SelectItem value="DAMAGE" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-white focus:bg-[#582c84]/30 cursor-pointer">Damage</SelectItem>
+                  <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-white focus:bg-[#582c84]/30 cursor-pointer">Rule Violation</SelectItem>
+                  <SelectItem value="OTHER" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-white focus:bg-[#582c84]/30 cursor-pointer">Other</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -556,7 +556,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                 type="number"
                 defaultValue={penalty.amount}
                 placeholder="Amount"
-                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
               />
             </div>
 
@@ -566,13 +566,13 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                 name="description"
                 defaultValue={penalty.description}
                 placeholder="Description"
-                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
               />
             </div>
 
             <Button
               type="submit"
-              className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
+              className="flex items-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
             >
               <span>Update Penalty</span>
             </Button>
@@ -796,10 +796,10 @@ export default function PenaltiesPage() {
                     </DialogTrigger>
                     <DialogContent
                       aria-describedby="penalty-settings-description"
-                      className="max-w-3xl w-full m-0 sm:mx-0  p-0 rounded-lg border-[#6636a3]/30 shadow-2xl bg-[#151525] sm:rounded-lg overflow-hidden"
+                      className="max-w-3xl w-full m-0 sm:mx-0  p-0 rounded-lg border-[#582c84]/30 shadow-2xl bg-[#151525] sm:rounded-lg overflow-hidden"
                     >
 
-                      <DialogHeader className="px-6 pt-6 pb-2 border-b border-[#6636a3]/30">
+                      <DialogHeader className="px-6 pt-6 pb-2 border-b border-[#582c84]/30">
                         <DialogTitle className="text-xl font-semibold text-white">Penalty Settings</DialogTitle>
                       </DialogHeader>
 
@@ -813,13 +813,13 @@ export default function PenaltiesPage() {
 
                 <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
                   <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]">
+                    <Button className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87]">
                       <Plus className="h-5 w-5" />
                       <span>Add Penalty</span>
                     </Button>
                   </DialogTrigger>
 
-                  <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+                  <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
                     <DialogHeader>
                       <DialogTitle className="text-lg font-semibold text-white">Add New Penalty</DialogTitle>
                     </DialogHeader>
@@ -831,19 +831,19 @@ export default function PenaltiesPage() {
                           value={newPenalty.userId}
                           onValueChange={(value) => setNewPenalty({ ...newPenalty, userId: value })}
                         >
-                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#6636a3] outline-none transition">
+                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#582c84] outline-none transition">
                             {/* Lighter placeholder text */}
                             <SelectValue
                               placeholder="Select a user"
                               className="text-white/80"
                             />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
+                          <SelectContent className="bg-[#151525] border border-[#582c84]/30">
                             {users?.map((user: any) => (
                               <SelectItem
                                 key={user._id}
                                 value={user._id}
-                                className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer"
+                                className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-text-white focus:bg-[#582c84]/30 cursor-pointer"
                               >
                                 {user.name}
                               </SelectItem>
@@ -859,14 +859,14 @@ export default function PenaltiesPage() {
                           value={newPenalty.type}
                           onValueChange={(value: PenaltyType) => setNewPenalty({ ...newPenalty, type: value })}
                         >
-                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#6636a3] outline-none transition">
+                          <SelectTrigger className="border border-white/10 bg-[#151525] text-white focus:ring-2 focus:ring-[#582c84] outline-none transition">
                             <SelectValue placeholder="Select penalty type" className="text-white/80" />
                           </SelectTrigger>
-                          <SelectContent className="bg-[#151525] border border-[#6636a3]/30">
-                            <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Late Payment</SelectItem>
-                            <SelectItem value="DAMAGE" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Damage</SelectItem>
-                            <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Rule Violation</SelectItem>
-                            <SelectItem value="OTHER" className="text-white hover:bg-[#6636a3]/30 hover:text-white focus:text-text-white focus:bg-[#6636a3]/30 cursor-pointer">Other</SelectItem>
+                          <SelectContent className="bg-[#151525] border border-[#582c84]/30">
+                            <SelectItem value="LATE_PAYMENT" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-text-white focus:bg-[#582c84]/30 cursor-pointer">Late Payment</SelectItem>
+                            <SelectItem value="DAMAGE" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-text-white focus:bg-[#582c84]/30 cursor-pointer">Damage</SelectItem>
+                            <SelectItem value="RULE_VIOLATION" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-text-white focus:bg-[#582c84]/30 cursor-pointer">Rule Violation</SelectItem>
+                            <SelectItem value="OTHER" className="text-white hover:bg-[#582c84]/30 hover:text-white focus:text-text-white focus:bg-[#582c84]/30 cursor-pointer">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -879,7 +879,7 @@ export default function PenaltiesPage() {
                           placeholder="Amount"
                           value={newPenalty.amount}
                           onChange={(e) => setNewPenalty({ ...newPenalty, amount: e.target.value })}
-                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                         />
                       </div>
 
@@ -890,7 +890,7 @@ export default function PenaltiesPage() {
                           placeholder="Description"
                           value={newPenalty.description}
                           onChange={(e) => setNewPenalty({ ...newPenalty, description: e.target.value })}
-                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                          className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                         />
                       </div>
 
@@ -898,7 +898,7 @@ export default function PenaltiesPage() {
                       <Button
                         type="submit"
                         disabled={addPenaltyMutation.isPending}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
                       >
                         <span>Add Penalty</span>
                       </Button>
@@ -911,7 +911,7 @@ export default function PenaltiesPage() {
           </div>
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-            <Card className="bg-[#6636a3] text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#582c84] text-white shadow-xl border border-white/10 rounded-lg">
               <div
                 className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg"
                 style={{
@@ -1051,7 +1051,7 @@ export default function PenaltiesPage() {
               </CardContent>
             </Card>
 
-            <Card className="bg-[#6636a3] text-white shadow-xl border border-white/10 rounded-lg p-4">
+            <Card className="bg-[#582c84] text-white shadow-xl border border-white/10 rounded-lg p-4">
               {/* Header with Profile & Date-Time */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
                 {/* Left Side: User Profile */}
@@ -1148,7 +1148,7 @@ export default function PenaltiesPage() {
                 variant="destructive"
                 size="sm"
                 onClick={handleBulkDelete}
-                className="flex items-center gap-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaTrash className="text-sm" />
                 Delete Selected ({selectedPenalties.length})
@@ -1179,12 +1179,12 @@ export default function PenaltiesPage() {
 
                 {isAdmin && <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>}
                 {isAdmin &&
-                  <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#6636a3]">
+                  <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
                     <input
                       type="checkbox"
                       onChange={(e) => handleSelectAll(e.target.checked)}
                       checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
-                      className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
+                      className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                     />
                   </TableHead>}
 
@@ -1198,7 +1198,7 @@ export default function PenaltiesPage() {
                   <TableRow key={penalty._id} className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
                   >
                     <TableCell className="min-w-[200px] py-4 px-3">
-                      <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                      <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
                         <img
                           src={
                             typeof penalty.userId === "object" && penalty.userId?.profilePicture
@@ -1210,7 +1210,7 @@ export default function PenaltiesPage() {
                               "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
                           }
                           alt="User"
-                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
                             target.src =
@@ -1265,7 +1265,7 @@ export default function PenaltiesPage() {
                             side="bottom"
                             align="start"
                             sideOffset={5}
-                            className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
+                            className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
                           >
                             <p className="text-sm text-white whitespace-normal">
                               {penalty.description}
@@ -1300,7 +1300,7 @@ export default function PenaltiesPage() {
                           type="checkbox"
                           onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
                           checked={selectedPenalties.includes(penalty._id)}
-                          className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
+                          className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                         />
                       </TableCell>
                     )}
@@ -1311,7 +1311,7 @@ export default function PenaltiesPage() {
                   <TableCell colSpan={7} className="text-center py-12">
                     <div className="flex flex-col items-center gap-4">
                       <div className="bg-[#1c1b2d] p-6 rounded-full">
-                        <FaClipboardList className="w-12 h-12 text-[#6636a3]" />
+                        <FaClipboardList className="w-12 h-12 text-[#582c84]" />
                       </div>
                       <div className="text-center">
                         <h3 className="text-xl font-semibold text-white mb-2">No Penalties Found</h3>

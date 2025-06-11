@@ -56,7 +56,7 @@ export const CustomPagination: React.FC<PaginationProps> = ({
           onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
           className="px-3 py-2 rounded-lg text-white/80 hover:text-white disabled:opacity-50 
-                   disabled:cursor-not-allowed transition-all duration-200 hover:bg-[#6636a3]/20
+                   disabled:cursor-not-allowed transition-all duration-200 hover:bg-[#582c84]/20
                    hover:scale-105 hover:-translate-x-1"
         >
           <svg 
@@ -83,8 +83,8 @@ export const CustomPagination: React.FC<PaginationProps> = ({
               disabled={page === '...'}
               className={`w-8 h-8 text-sm flex items-center justify-center rounded-lg transition-all duration-200
                          ${page === currentPage 
-                           ? 'bg-[#6636a3]/30 text-white border border-[#6636a3] hover:bg-[#6636a3]/40' 
-                           : 'text-white/80 hover:text-white hover:bg-[#6636a3]/20'} 
+                           ? 'bg-[#582c84]/30 text-white border border-[#582c84] hover:bg-[#582c84]/40' 
+                           : 'text-white/80 hover:text-white hover:bg-[#582c84]/20'} 
                          ${page !== '...' ? 'hover:scale-105' : ''} 
                          ${page === '...' ? 'cursor-default text-xs' : 'cursor-pointer'}`}
             >
@@ -98,7 +98,7 @@ export const CustomPagination: React.FC<PaginationProps> = ({
           onClick={() => currentPage < totalPages && onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
           className="px-3 py-2 rounded-lg text-white/80 hover:text-white disabled:opacity-50 
-                   disabled:cursor-not-allowed transition-all duration-200 hover:bg-[#6636a3]/20
+                   disabled:cursor-not-allowed transition-all duration-200 hover:bg-[#582c84]/20
                    hover:scale-105 hover:translate-x-1"
         >
           <svg 

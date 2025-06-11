@@ -68,7 +68,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           <DialogTrigger asChild>
             {/* ✏️ Edit Button with Icon */}
             <button
-              className="p-1.5 text-[#6636a3] hover:bg-white/5 rounded-full transition-all duration-200"
+              className="p-1.5 text-[#582c84] hover:bg-white/5 rounded-full transition-all duration-200"
               onClick={() => setOpen(true)}
             >
               <FaEdit className="text-lg" />
@@ -83,7 +83,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
           </button>
         </div>
 
-        <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+        <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
           </DialogHeader>
@@ -115,19 +115,19 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
               name="name"
               defaultValue={entry.name}
               placeholder="Entry Name"
-              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
             />
             <Input
               name="amount"
               type="number"
               defaultValue={entry.amount}
               placeholder="Amount"
-              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+              className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
             />
 
             <Button
               type="submit"
-              className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg"
+              className="w-full bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg"
             >
               Update Entry
             </Button>
@@ -408,14 +408,14 @@ export default function EntriesPage() {
                 <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
                   <DialogTrigger asChild>
                     <Button
-                      className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
+                      className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
                     >
                       <LuUserPlus className="h-5 w-5" />
                       <span>Add Entry</span>
                     </Button>
                   </DialogTrigger>
 
-                  <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#6636a3]/30">
+                  <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
                     <DialogHeader>
                       <DialogTitle className="text-lg font-semibold text-white">Add New Entry</DialogTitle>
                     </DialogHeader>
@@ -438,7 +438,7 @@ export default function EntriesPage() {
                             backgroundColor: '#151525',
                             borderColor: 'rgba(255, 255, 255, 0.1)',
                             '&:hover': {
-                              borderColor: '#6636a3'
+                              borderColor: '#582c84'
                             }
                           }),
                           menu: (base) => ({
@@ -448,7 +448,7 @@ export default function EntriesPage() {
                           }),
                           option: (base, { isFocused, isSelected }) => ({
                             ...base,
-                            backgroundColor: isSelected ? '#6636a3' : isFocused ? 'rgba(102, 54, 163, 0.3)' : '#151525',
+                            backgroundColor: isSelected ? '#582c84' : isFocused ? 'rgba(102, 54, 163, 0.3)' : '#151525',
                             color: 'white',
                             cursor: 'pointer'
                           }),
@@ -475,13 +475,13 @@ export default function EntriesPage() {
                         placeholder="Amount"
                         value={newEntry.amount}
                         onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                        className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                        className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                       />
 
                       <Button
                         type="submit"
                         disabled={addEntryMutation.isPending}
-                        className="w-full bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg"
+                        className="w-full bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg"
                       >
                         Add Entry
                       </Button>
@@ -493,7 +493,7 @@ export default function EntriesPage() {
           </div>
 
           <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
-            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               {/* Fair Share Information */}
 
               <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg" style={{
@@ -734,7 +734,7 @@ export default function EntriesPage() {
             </Card>
 
 
-            <Card className="bg-[#6636a3] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg p-4">
+            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg p-4">
               {/* Header with Profile & Date-Time */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
 
@@ -982,7 +982,7 @@ export default function EntriesPage() {
                 variant="destructive"
                 size="sm"
                 onClick={handleBulkDelete}
-                className="flex items-center gap-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FaTrash className="text-sm" />
                 Delete Selected ({selectedEntries.length})
@@ -1012,12 +1012,12 @@ export default function EntriesPage() {
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <>
                     <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>
-                    <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#6636a3]">
+                    <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
                       <input
                         type="checkbox"
                         checked={entries?.length > 0 && selectedEntries.length === entries?.length}
                         onChange={(e) => handleSelectAll(e.target.checked)}
-                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
+                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                       />
 
 
@@ -1035,7 +1035,7 @@ export default function EntriesPage() {
                   className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
                 >
                   <TableCell className="min-w-[200px] py-4 px-3">
-                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#6636a3]/30 bg-[#1c1b2d] shadow-sm">
+                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
                       <img
                         src={
                           typeof entry.userId === 'object' && entry.userId?.profilePicture
@@ -1045,7 +1045,7 @@ export default function EntriesPage() {
                             "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
                         }
                         alt="User"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#6636a3]/50 bg-gray-300"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
                           target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
@@ -1076,14 +1076,14 @@ export default function EntriesPage() {
                           side="bottom"
                           align="center"
                           sideOffset={5}
-                          className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 sm:hidden"
+                          className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 sm:hidden"
                         >
                           <p className="text-sm text-white whitespace-normal">{entry.name}</p>
                         </TooltipContent>
                         <TooltipContent
                           side="right"
                           align="start"
-                          className="bg-[#1f1f2e] border border-[#6636a3] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 hidden sm:block"
+                          className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 hidden sm:block"
                         >
                           <p className="text-sm text-white whitespace-normal">{entry.name}</p>
                         </TooltipContent>
@@ -1125,7 +1125,7 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-white bg-[#6636a3] border-[#6636a3] hover:bg-[#8e4be4] hover:text-white"
+                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"
                             onClick={() => {
                               fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                                 .then(() => {
@@ -1171,7 +1171,7 @@ export default function EntriesPage() {
                         type="checkbox"
                         checked={selectedEntries.includes(entry._id)}
                         onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
-                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#6636a3] checked:border-[#6636a3] accent-[#6636a3] focus:ring-2 focus:ring-[#6636a3] transition duration-150"
+                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                       />
 
                     </TableCell>
@@ -1186,7 +1186,7 @@ export default function EntriesPage() {
           {(!entries || entries.length === 0) ? (
             <div className="py-8 text-center text-white/60">
               <div className="flex flex-col items-center justify-center space-y-3">
-                <FaClipboardList className="w-12 h-12 text-[#6636a3] opacity-50" />
+                <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
                 <p className="text-lg font-medium">No entries found</p>
                 <p className="text-sm text-white/40">Start by adding your first entry!</p>
               </div>

@@ -37,14 +37,14 @@ export default function ManageUsers() {
                     placeholder="Search users..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#6636a3] outline-none transition"
+                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                 </div>
 
                 {/* Invite Button */}
                 <Button
                   onClick={() => setIsInviteOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#6636a3] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
                 >
                   <LuUserPlus className="h-5 w-5" />
                   <span>Invite User</span>
