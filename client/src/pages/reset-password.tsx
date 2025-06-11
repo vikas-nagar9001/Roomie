@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -15,19 +16,38 @@ export default function ResetPasswordPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   
+  // Show loader when page loads
+  useEffect(() => {
+    // Hide any existing loaders first
+    hideLoader();
+    // Then show the loader
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
+  
   // Get token from URL
   const token = new URLSearchParams(window.location.search).get("token");
-  
-  const resetPasswordMutation = useMutation({
+    const resetPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
-      const res = await apiRequest("POST", "/api/reset-password", data);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("POST", "/api/reset-password", data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
         title: "Password reset successfully",
         description: "You can now log in with your new password",
       });
+      hideLoader();
       setLocation("/auth");
     },
     onError: (error: Error) => {
@@ -36,8 +56,15 @@ export default function ResetPasswordPage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
+  // Hide loader when there's no token (invalid link)
+  useEffect(() => {
+    if (!token) {
+      hideLoader();
+    }
+  }, [token]);
 
   if (!token) {
     return (

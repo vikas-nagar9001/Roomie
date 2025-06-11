@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,25 +7,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
+  // Show loader when page loads
+  useEffect(() => {
+    // Hide any existing loaders first
+    hideLoader();
+    // Then show the loader
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
+  
   // Get token from URL
   const token = new URLSearchParams(window.location.search).get("token");
-
   const setPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
-      const res = await apiRequest("POST", "/api/set-password", data);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("POST", "/api/set-password", data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
         title: "Password set successfully",
         description: "You can now log in with your email and password",
       });
+      hideLoader();
       setLocation("/auth");
     },
     onError: (error: Error) => {
@@ -34,8 +54,15 @@ export default function SetPasswordPage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
+  // Hide loader when there's no token (invalid link)
+  useEffect(() => {
+    if (!token) {
+      hideLoader();
+    }
+  }, [token]);
 
   if (!token) {
     return (

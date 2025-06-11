@@ -8,6 +8,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@shared/schema";
@@ -54,7 +55,16 @@ export default function ProfilePage() {
   const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("profile");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
-
+  
+  // Show loader when the page first loads
+  useEffect(() => {
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
   // Flat data query
   const { data: flat, isError: flatError, isLoading: flatLoading } = useQuery({
     queryKey: ["/api/flats", user?.flatId],
@@ -91,10 +101,23 @@ export default function ProfilePage() {
     }
   }, [flat, isEditingFlatSettings]);
 
-  const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
+  const { data: activities = [] as Activity[], isLoading: activitiesLoading } = useQuery<Activity[]>({
     queryKey: ["/api/user/activities"],
     enabled: !!user,
   });
+  
+  // Hide loader when all data is loaded
+  useEffect(() => {
+    const flatDataReady = !flatLoading || !user?.flatId;
+    const activitiesDataReady = !activitiesLoading;
+    
+    if (flatDataReady && activitiesDataReady) {
+      // Use a small timeout to ensure a consistent loader experience across the app
+      setTimeout(() => {
+        hideLoader();
+      }, 300);
+    }
+  }, [flatLoading, activitiesLoading, user?.flatId]);
   const totalPages = Math.ceil(activities.length / itemsPerPage);
   const paginatedActivities = activities.slice(
     (currentPage - 1) * itemsPerPage,
@@ -180,11 +203,16 @@ export default function ProfilePage() {
       });
     }
   };
-
   const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
-      const res = await apiRequest("PATCH", `/api/user/profile`, data);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("PATCH", `/api/user/profile`, data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData(["/api/user"], updatedUser);
@@ -192,6 +220,7 @@ export default function ProfilePage() {
         title: "Profile updated",
         description: "Your profile has been updated successfully",
       });
+      hideLoader();
     },
     onError: (error: Error) => {
       toast({
@@ -199,22 +228,28 @@ export default function ProfilePage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
-
   const uploadProfilePictureMutation = useMutation({
     mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("profilePicture", file);
-      const res = await fetch("/api/user/profile-picture", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
-      if (!res.ok) {
-        throw new Error("Failed to upload profile picture");
+      showLoader();
+      try {
+        const formData = new FormData();
+        formData.append("profilePicture", file);
+        const res = await fetch("/api/user/profile-picture", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error("Failed to upload profile picture");
+        }
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
       }
-      return res.json();
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData(["/api/user"], updatedUser);
@@ -222,6 +257,7 @@ export default function ProfilePage() {
         title: "Profile picture updated",
         description: "Your profile picture has been updated successfully",
       });
+      hideLoader();
     },
     onError: (error: Error) => {
       toast({
@@ -229,6 +265,7 @@ export default function ProfilePage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
 
@@ -247,11 +284,16 @@ export default function ProfilePage() {
   const clearCacheMutation = useMutation<void, Error>({
     mutationFn: handleClearCache,
   });
-
   const clearActivitiesMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("DELETE", "/api/user/activities");
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("DELETE", "/api/user/activities");
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/activities"] });
@@ -259,6 +301,7 @@ export default function ProfilePage() {
         title: "Activities cleared",
         description: "All activities have been cleared successfully",
       });
+      hideLoader();
     },
     onError: (error: Error) => {
       toast({
@@ -266,13 +309,19 @@ export default function ProfilePage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
-
   const updateFlatSettingsMutation = useMutation({
     mutationFn: async (data: { name?: string; minApprovalAmount?: number }) => {
-      const res = await apiRequest("PATCH", `/api/flats/${user?.flatId}`, data);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("PATCH", `/api/flats/${user?.flatId}`, data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/flats", user?.flatId] });
@@ -281,6 +330,7 @@ export default function ProfilePage() {
         description: "Flat settings have been updated successfully",
       });
       setIsEditingFlatSettings(false);
+      hideLoader();
     },
     onError: (error: Error) => {
       toast({
@@ -288,6 +338,7 @@ export default function ProfilePage() {
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
 
