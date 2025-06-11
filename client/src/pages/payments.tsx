@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { FaClipboardList } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
+import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,35 @@ interface Bill {
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
+  const [dataLoading, setDataLoading] = useState(true);
+  
+  // Show loader when the component mounts and set up cleanup
+  useEffect(() => {
+    showLoader();
+    
+    // Force hide the loader when component unmounts to prevent stuck loaders
+    return () => {
+      forceHideLoader();
+    };
+  }, []);
+    // Optional: Set up query refetch handling for additional safety
+  // This is useful to catch refetches that happen outside the isLoading tracking
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe(() => {
+      // Set a small timeout to ensure all queries have time to settle
+      setTimeout(() => {
+        if (!queryClient.getQueryState(["/api/payments"])?.isFetching &&
+            !queryClient.getQueryState(["/api/bills"])?.isFetching &&
+            !queryClient.getQueryState(["/api/users"])?.isFetching) {
+          setDataLoading(false);
+        }
+      }, 100);
+    });
+    
+    return () => {
+      unsubscribe();
+    };
+  }, []);
   const [activeTab, setActiveTab] = useState("status");
   const [isCreateBillOpen, setIsCreateBillOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -67,29 +97,50 @@ export default function PaymentsPage() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
-      const res = await apiRequest("PUT", "/api/payment-settings", settings);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("PUT", "/api/payment-settings", settings);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       setIsSettingsOpen(false);
       toast({ title: "Settings updated successfully" });
-    }
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
+    }  });
+  
+  // Define queries first, before using them in any effects
+  const { data: payments = [], isLoading: paymentsLoading } = useQuery<Payment[]>({
+    queryKey: ["/api/payments"]
   });
-
-  const { data: payments = [] } = useQuery<Payment[]>({
-    queryKey: ["/api/payments"],
+  const { data: bills = [], isLoading: billsLoading } = useQuery<Bill[]>({
+    queryKey: ["/api/bills"]
   });
-
-  const { data: bills = [] } = useQuery<Bill[]>({
-    queryKey: ["/api/bills"],
-  });
-
-  const { data: users = [] } = useQuery<{
+  const { data: users = [], isLoading: usersLoading } = useQuery<{
     _id: string;
     name: string;
   }[]>({
-    queryKey: ["/api/users"],
+    queryKey: ["/api/users"]
   });
+  
+  // Manage loading state based on query states - placed after the queries are defined
+  useEffect(() => {
+    const isLoading = paymentsLoading || billsLoading || usersLoading;
+    
+    // Update dataLoading based on query states
+    setDataLoading(isLoading);
+    
+    // Hide loader when all queries are done
+    if (!isLoading) {
+      hideLoader();
+    }
+  }, [paymentsLoading, billsLoading, usersLoading]);
 
   const totalReceived = (payments?.reduce((sum, p) =>
     p.status === "PAID" ? sum + p.amount : sum, 0) || 0).toFixed(2);
@@ -100,36 +151,63 @@ export default function PaymentsPage() {
 
   const createBillMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/bills", data);
-      return res.json();
-    },
-    onSuccess: () => {
+      showLoader();
+      try {
+        const res = await apiRequest("POST", "/api/bills", data);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
+    },    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       setIsCreateBillOpen(false);
       toast({ title: "Bill created successfully" });
       setNewBillItems([{ name: "", amount: "" }]);
+      hideLoader();
     },
+    onError: () => {
+      hideLoader();
+    }
   });
-
   const updatePaymentStatusMutation = useMutation({
     mutationFn: async ({ paymentId, status, amount }: { paymentId: string; status: string; amount: number }) => {
-      const res = await apiRequest("PATCH", `/api/payments/${paymentId}`, { status, amount });
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("PATCH", `/api/payments/${paymentId}`, { status, amount });
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       toast({ title: "Payment status updated" });
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
     },
   });
-
   const sendReminderMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const res = await apiRequest("POST", `/api/payments/${paymentId}/remind`);
-      return res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("POST", `/api/payments/${paymentId}/remind`);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({ title: "Reminder sent successfully" });
+      hideLoader();
+    },
+    onError: () => {
+      hideLoader();
     },
   });
 
@@ -489,12 +567,12 @@ export default function PaymentsPage() {
                     className="flex-1 text-white bg-[#151525] border-[#582c84] hover:bg-[#582c84]/20"
                   >
                     Add Item
-                  </Button>
-                  <Button
+                  </Button>                  <Button
                     type="submit"
                     className="flex-1 bg-[#582c84] hover:bg-[#542d87] text-white"
+                    disabled={createBillMutation.isPending}
                   >
-                    Create Bill
+                    {createBillMutation.isPending ? "Creating..." : "Create Bill"}
                   </Button>
                 </div>
               </form>
