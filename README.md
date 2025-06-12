@@ -1,6 +1,6 @@
 <div align="center">
 
-# Roomie <img src="./client/favroomie.png" alt="Roomie Logo" height="30">
+# Roomie <img src="./client/Roomie.png" alt="Roomie Logo" height="30">
 
 ### Roommate Expense Management Application
 

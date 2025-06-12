@@ -8,7 +8,7 @@ import { FiUser } from "react-icons/fi";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { showSuccess, showError, showInfo, showWarning } from "@/services/toastService";
 import { Link } from "wouter";
-import favicon from "../../favroomie.png";
+import favicon from "../../Roomie.png";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";

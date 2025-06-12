@@ -17,7 +17,7 @@ import { FaCamera, FaEdit } from "react-icons/fa";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
 import { FiLogOut, FiUser, FiHome, FiCreditCard, FiMail } from "react-icons/fi";
-import favicon from "../../favroomie.png";
+import favicon from "../../Roomie.png";
 import { Link } from "wouter";
 import { CustomPagination } from "@/components/custom-pagination";
 import Cropper from 'react-easy-crop';

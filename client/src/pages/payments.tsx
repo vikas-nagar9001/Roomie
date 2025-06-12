@@ -23,7 +23,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 
 import { LuMail, LuCheck, LuX, } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
-import favicon from "../../favroomie.png";
+import favicon from "../../Roomie.png";
 
 interface Payment {
   _id: string;
