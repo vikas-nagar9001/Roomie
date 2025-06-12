@@ -46,7 +46,7 @@ export default function Dashboard() {
 
   // Mobile View Component
   const MobileView = () => (
-    <div className="pt-[110px] pb-16 min-h-screen bg-[#0f0f1f]">
+    <div className="pt-[110px] pb-20 min-h-screen bg-[#0f0f1f]">
       {/* Glass Morphism Effect */}
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-[#0f0f1f]"></div>

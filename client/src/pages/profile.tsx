@@ -305,7 +305,7 @@ export default function ProfilePage() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0f0f1f]">
+    <div className="min-h-screen bg-[#0f0f1f] sm:pt-10 pb-20">
       {/* Header - Hidden on mobile */}
       <div className="hidden md:block">
         <Header />
