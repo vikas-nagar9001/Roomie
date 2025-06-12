@@ -384,7 +384,7 @@ export default function EntriesPage() {
   return (
     <TooltipProvider>
       <Header />
-      <div className="min-h-screen p-8 pt-28 bg-[#0f0f1f]">
+      <div className="min-h-screen p-8 pt-28 pb-28 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
           <div className="relative group mb-8">
             {/* Blurred border layer */}

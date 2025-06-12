@@ -43,7 +43,6 @@ export function MobileNav() {
           </Link>
         ))}
       </nav>
-      <div className="h-24" /> {/* Bottom Spacing */}
     </>
   );
 }
