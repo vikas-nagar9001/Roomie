@@ -1,7 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Toaster as ShadcnToaster } from "@/components/ui/toaster";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "@/hooks/use-auth";
 import NotFound from "@/pages/not-found";
@@ -41,16 +40,15 @@ function App() {
   useEffect(() => {
     checkForNewVersion(); // ✅ Run check on app load
   }, []);
-  
+
   const isLoading = useLoader();
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router />
-        {/* ShadCN Toaster for compatibility with existing code */}
-        <ShadcnToaster />
-        
-        {/* React Hot Toast for new toast service */}
+
+        {/* ✅ React Hot Toast Only */}
         <Toaster
           position="top-right"
           toastOptions={{
@@ -61,37 +59,31 @@ function App() {
             },
           }}
         />
-        
+
         {isLoading && <Loader />}
       </AuthProvider>
     </QueryClientProvider>
   );
 }
 
-// cache clear
-
+// 🔁 Version Check Logic (unchanged)
 const checkForNewVersion = async () => {
   try {
     console.log("checking app version");
     const response = await apiRequest("GET", "/api/version");
-    const latestVersion = (await response.json()).version;// Get latest version from backend
+    const latestVersion = (await response.json()).version;
     let storedVersion = localStorage.getItem("app_version");
 
     if (!storedVersion) {
-      // 🔹 First-time user or cleared storage → Set version
       console.log("🆕 No previous version found. Setting initial version...");
-      storedVersion = "1.0"; // Default version
+      storedVersion = "1.0";
       localStorage.setItem("app_version", storedVersion);
-      return; // No need to clear cache since it's the first time
+      return;
     }
 
     if (storedVersion !== latestVersion) {
       console.log(`🔄 New version detected! Clearing cache... (Old: ${storedVersion}, New: ${latestVersion})`);
-
-      // 🔹 Clear browser cache
       clearAllCache();
-
-      // 🔹 Update local storage version
       localStorage.setItem("app_version", latestVersion);
     } else {
       console.log("✅ App is up-to-date.");
@@ -105,11 +97,7 @@ const clearAllCache = () => {
   caches.keys().then((names) => {
     names.forEach((name) => caches.delete(name));
   });
-
-  window.location.reload(); // ✅ Hard refresh to load the latest assets
+  window.location.reload();
 };
-
-
-
 
 export default App;
