@@ -6,13 +6,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LuUserPlus } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
+import { showSuccess, showError, showInfo, showWarning } from "@/services/toastService";
 import { Link } from "wouter";
 import favicon from "../../favroomie.png";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
-import { useToast } from "@/hooks/use-toast";
 import CreatableSelect from "react-select/creatable";
 import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
@@ -43,7 +43,6 @@ import { BsThreeDots } from "react-icons/bs";
 
 // Create a separate component for editing an entry.
 function EditEntryDialog({ entry }: { entry: Entry }) {
-  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const handleDelete = () => {
@@ -53,15 +52,12 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
     })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-        toast({
-          title: "Entry Deleted",
-          description: `Entry "${entry.name}" has been deleted successfully.`,
-          variant: "destructive",
-        });
+        showSuccess(`Entry "${entry.name}" has been deleted successfully.`);
         hideLoader(); // Hide loader after successful deletion
       })
       .catch((error) => {
         console.error(error);
+        showError(`Failed to delete entry: ${error.message}`);
         hideLoader(); // Hide loader on error
       });
   };
@@ -91,8 +87,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
         <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
-          </DialogHeader>
-          <form            onSubmit={(e) => {
+          </DialogHeader>          <form            onSubmit={(e) => {
               e.preventDefault();
               showLoader(); // Show loader before updating the entry
               const formData = new FormData(e.currentTarget);
@@ -106,15 +101,13 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
               })
                 .then(() => {
                   queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                  toast({
-                    title: "Entry Updated",
-                    description: `Entry "${entry.name}" has been updated successfully.`,
-                  });
+                  showSuccess(`Entry "${entry.name}" has been updated successfully.`);
                   setOpen(false); // Close the dialog on success
                   hideLoader(); // Hide loader after successful update
                 })
                 .catch((error) => {
                   console.error(error);
+                  showError(`Failed to update entry: ${error.message}`);
                   hideLoader(); // Hide loader on error
                 });
             }}
@@ -162,7 +155,6 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
 
 export default function EntriesPage() {
   const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
   const [newEntry, setNewEntry] = useState({ name: "", amount: "" });
   const [openAddDialog, setOpenAddDialog] = useState(false); // State for controlling the Add Entry dialog
   const [currentPage, setCurrentPage] = useState(1);
@@ -186,13 +178,10 @@ export default function EntriesPage() {
       hideLoader();
     }
   }, [dataLoading]);
-  
-  const { data: entries } = useQuery<Entry[]>({
+  const { data: entries } = useQuery({
     queryKey: ["/api/entries"],
-    onSuccess: () => {
-      setDataLoading(false);
-    },
-    onError: () => {
+    queryFn: getQueryFn({ on401: "throw" }),
+    onSettled: () => {
       setDataLoading(false);
     }
   });
@@ -299,22 +288,14 @@ export default function EntriesPage() {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
         
-        toast({
-          title: "Entries Deleted",
-          description: `${selectedEntries.length} entries have been deleted successfully.`,
-          variant: "destructive",
-        });
+        showSuccess(`${selectedEntries.length} entries have been deleted successfully.`);
         
         setSelectedEntries([]);
         setBulkDeleteDialogOpen(false);
       })
       .catch(error => {
         console.error("Failed to delete entries:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete entries. Please try again.",
-          variant: "destructive",
-        });
+        showError("Failed to delete entries. Please try again.");
         setBulkDeleteDialogOpen(false);
         setDataLoading(false);
       });
@@ -336,8 +317,7 @@ export default function EntriesPage() {
   const { data: canAddEntryData, refetch: refetchCanAddEntry } = useQuery({
     queryKey: ["/api/can-add-entry"],
     refetchOnWindowFocus: false
-  });
-  const addEntryMutation = useMutation({
+  });  const addEntryMutation = useMutation({
     mutationFn: async (data: { name: string; amount: number }) => {
       showLoader();
       
@@ -360,17 +340,13 @@ export default function EntriesPage() {
       setDataLoading(true);
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
-      toast({ title: "Entry added successfully" });
+      showSuccess("Entry added successfully");
       setOpenAddDialog(false); // Close the Add Entry dialog on success
       setNewEntry({ name: "", amount: "" }); // Optionally, clear the form
       hideLoader();
     },
     onError: (error: any) => {
-      toast({
-        title: "Cannot add entry",
-        description: error.message || "You've exceeded your fair share of contributions.",
-        variant: "destructive"
-      });
+      showError(error.message || "You've exceeded your fair share of contributions.");
       hideLoader();
     }
   });
@@ -436,22 +412,18 @@ export default function EntriesPage() {
 
                         const data = await res.json();
 
-                        toast({
-                          title: "Contribution Check Complete",
-                          description: data.message,
-                          variant: data.deficitUsers?.length > 0 ? "destructive" : "default"
-                        });
+                        if (data.deficitUsers?.length > 0) {
+                          showWarning(data.message);
+                        } else {
+                          showSuccess("Contribution Check Complete: " + data.message);
+                        }
 
                         // Refresh the penalties data
                         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
                         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                         queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
                       } catch (error) {
-                        toast({
-                          title: "Error",
-                          description: "Failed to run contribution check",
-                          variant: "destructive"
-                        });
+                        showError("Failed to run contribution check");
                         setDataLoading(false);
                       }
                     }}

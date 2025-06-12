@@ -7,6 +7,8 @@ import {
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError } from "@/services/toastService";
+import { showLoader, hideLoader } from "@/services/loaderService";
 
 type AuthContextType = {
   user: SelectUser | null;
@@ -33,21 +35,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/user"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
-
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
-      const res = await apiRequest("POST", "/api/login", credentials);
-      return await res.json();
+      showLoader();
+      try {
+        const res = await apiRequest("POST", "/api/login", credentials);
+        return await res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      showSuccess("Login successful! Welcome back.");
+      hideLoader();
     },
     onError: (error: Error) => {
+      showError("Login failed: " + error.message);
       toast({
         title: "Login failed",
         description: error.message,
         variant: "destructive",
       });
+      hideLoader();
     },
   });
 

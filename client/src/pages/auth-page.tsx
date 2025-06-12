@@ -13,6 +13,7 @@ import { FiUsers, FiList, FiCreditCard } from "react-icons/fi";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError } from "@/services/toastService";
 import { useState, useEffect } from "react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -50,24 +51,24 @@ export default function AuthPage() {
       flatUsername: "",
     },
   });
-
   const forgotPasswordMutation = useMutation({
     mutationFn: async (email: string) => {
-      await apiRequest("POST", "/api/forgot-password", { email });
+      showLoader();
+      try {
+        await apiRequest("POST", "/api/forgot-password", { email });
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
     },
     onSuccess: () => {
-      toast({
-        title: "Reset link sent",
-        description: "Check your email for password reset instructions",
-      });
+      showSuccess("Reset link sent. Check your email for instructions.");
+      hideLoader();
       setForgotPasswordOpen(false);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to send reset link",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError("Failed to send reset link: " + error.message);
+      hideLoader();
     },
   });
 
