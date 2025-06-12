@@ -422,9 +422,9 @@ export default function ProfilePage() {
 
           {/* Main Content - Enhanced */}
           <Card className="bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl border border-white/5 shadow-xl transform transition-all duration-100 hover:shadow-purple-500/10">
-            <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full ">
-                <TabsList className=" w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-10 shadow-inner hidden md:grid">
+            <CardContent className="px-3 sm:px-4 md:px-6 py-4 md:py-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="w-full grid-cols-3 bg-black/30 rounded-xl p-1.5 mb-6 sm:mb-8 md:mb-10 shadow-inner hidden md:grid">
                   <TabsTrigger 
                     value="profile" 
                     className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#582c84] data-[state=active]:to-[#5433a7] data-[state=active]:text-white text-white/70 rounded-lg py-3 transition-all duration-300 transform hover:scale-105"
@@ -459,83 +459,82 @@ export default function ProfilePage() {
 
                 {/* Tab Content remains the same */}
                 
-                <TabsContent value="profile" className="space-y-6 mt-4">
-                  <div className="space-y-5">
-                    <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-4 ">
-                      <h3 className="text-lg font-semibold text-white">Profile</h3>
-                      {!isEditingProfile && (
-                        <Button
-                          onClick={() => setIsEditingProfile(true)}
-                          variant="outline"
-                          className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
-                        >
-                          <FaEdit className="h-4 w-4" />
-                          Edit
-                        </Button>
-                      )}
-                    </div>
+                <TabsContent value="profile" className="space-y-6 mt-4">                    <div className="space-y-4 sm:space-y-5">
+                      <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-3 sm:p-4">
+                        <h3 className="text-base sm:text-lg font-semibold text-white">Profile</h3>
+                        {!isEditingProfile && (
+                          <Button
+                            onClick={() => setIsEditingProfile(true)}
+                            variant="outline"
+                            className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2 px-2 sm:px-4 py-1 sm:py-2 text-sm sm:text-base"
+                          >
+                            <FaEdit className="h-3 w-3 sm:h-4 sm:w-4" />
+                            Edit
+                          </Button>
+                        )}
+                      </div>
                     
                     {isEditingProfile ? (
-                      <div className="space-y-5 bg-gradient-to-b from-black/40 to-black/20 rounded-xl p-5 border border-white/10 shadow-lg">
-                        <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
-                          <Label htmlFor="name" className="text-white/80 text-sm font-medium mb-1.5 block">Name</Label>
+                      <div className="space-y-4 sm:space-y-5 bg-gradient-to-b from-black/40 to-black/20 rounded-xl p-3 sm:p-5 border border-white/10 shadow-lg">
+                        <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                          <Label htmlFor="name" className="text-white/80 text-xs sm:text-sm font-medium mb-1 sm:mb-1.5 block">Name</Label>
                           <Input
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
-                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-10 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                             placeholder="Enter your name"
                           />
                         </div>
-                        <div className="bg-black/30 rounded-xl p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
-                          <Label htmlFor="email" className="text-white/80 text-sm font-medium mb-1.5 block">Email</Label>
+                        <div className="bg-black/30 rounded-xl p-3 sm:p-4 border border-white/10 shadow-inner transition-all duration-300 hover:border-white/20">
+                          <Label htmlFor="email" className="text-white/80 text-xs sm:text-sm font-medium mb-1 sm:mb-1.5 block">Email</Label>
                           <Input
                             id="email"
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="bg-black/40 border-white/10 text-white rounded-lg h-12 px-4 focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
+                            className="bg-black/40 border-white/10 text-white rounded-lg h-10 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-[#582c84] focus:ring-1 focus:ring-[#582c84] transition-all"
                             placeholder="Enter your email"
                           />
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
                           <Button
                             onClick={() => {
                               updateProfileMutation.mutate({ name, email });
                               setIsEditingProfile(false);
                             }}
                             disabled={updateProfileMutation.isPending}
-                            className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-6 rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white font-medium py-4 sm:py-6 text-sm sm:text-base rounded-xl shadow-lg transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                           >
                             {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                           </Button>
                           <Button
                             onClick={() => setIsEditingProfile(false)}
-                            className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-6 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
+                            className="w-full sm:w-auto bg-black/40 hover:bg-black/60 text-white border-white/10 font-medium py-4 sm:py-6 text-sm sm:text-base rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2"
                           >
                             Cancel
                           </Button>
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-4">
-                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
-                          <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
-                              <FiUser className="h-5 w-5 text-white" />
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-3 sm:p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                          <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-1.5 sm:p-2 rounded-full">
+                              <FiUser className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                             </div>
-                            <Label className="text-white/80 font-medium">Name</Label>
+                            <Label className="text-white/80 font-medium text-sm sm:text-base">Name</Label>
                           </div>
-                          <p className="text-white font-medium mt-1 ml-11">{name}</p>
+                          <p className="text-white font-medium mt-1 ml-8 sm:ml-11 text-sm sm:text-base">{name}</p>
                         </div>
-                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
-                          <div className="flex items-center gap-3 mb-1">
-                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-2 rounded-full">
-                              <FiMail className="h-5 w-5 text-white" />
+                        <div className="bg-gradient-to-r from-black/30 to-black/20 p-3 sm:p-5 rounded-xl border border-white/10 shadow-md transition-all duration-300 hover:bg-black/40 hover:border-white/20 transform hover:scale-[1.02]">
+                          <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                            <div className="bg-gradient-to-br from-[#582c84]/40 to-[#5433a7]/30 p-1.5 sm:p-2 rounded-full">
+                              <FiMail className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                             </div>
-                            <Label className="text-white/80 font-medium">Email</Label>
+                            <Label className="text-white/80 font-medium text-sm sm:text-base">Email</Label>
                           </div>
-                          <p className="text-white font-medium mt-1 ml-11">{email}</p>
+                          <p className="text-white font-medium mt-1 ml-8 sm:ml-11 text-sm sm:text-base break-all">{email}</p>
                         </div>
                         {/* Clear Cache button removed from desktop view and moved to mobile settings popup */}
                       </div>
