@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError } from "@/services/toastService";
 import { Eye, EyeOff } from "lucide-react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
@@ -14,7 +14,6 @@ export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
   
   // Show loader when page loads
   useEffect(() => {
@@ -30,8 +29,7 @@ export default function ResetPasswordPage() {
   }, []);
   
   // Get token from URL
-  const token = new URLSearchParams(window.location.search).get("token");
-    const resetPasswordMutation = useMutation({
+  const token = new URLSearchParams(window.location.search).get("token");    const resetPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
       showLoader();
       try {
@@ -43,19 +41,12 @@ export default function ResetPasswordPage() {
       }
     },
     onSuccess: () => {
-      toast({
-        title: "Password reset successfully",
-        description: "You can now log in with your new password",
-      });
+      showSuccess("You can now log in with your new password");
       hideLoader();
       setLocation("/auth");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to reset password",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
   });

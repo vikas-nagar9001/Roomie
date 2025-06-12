@@ -19,7 +19,7 @@ import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MobileNav } from "@/components/mobile-nav";
 import { CustomPagination } from "@/components/custom-pagination";
@@ -122,7 +122,6 @@ function PenaltyTimer() {
 
 // Penalty Settings Form Component
 export function PenaltySettingsForm() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [penaltyPercentage, setPenaltyPercentage] = useState<number>(3);
@@ -170,20 +169,12 @@ export function PenaltySettingsForm() {
       const res = await apiRequest("PATCH", "/api/penalty-settings", data);
       if (!res.ok) throw new Error("Failed to update settings");
       return res.json();
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] });
-      toast({
-        title: "Settings Updated",
-        description: "Penalty settings have been updated successfully.",
-      });
+      showSuccess("Penalty settings have been updated successfully.");
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update settings. Please try again.",
-        variant: "destructive",
-      });
+      showError("Failed to update settings. Please try again.");
     },
     onSettled: () => setLoading(false),
   });
@@ -443,7 +434,6 @@ export function PenaltySettingsForm() {
 
 // Create a separate component for editing a penalty
 function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
-  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -452,23 +442,15 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
     showLoader();
     fetch(`/api/penalties/${penalty._id}`, {
       method: "DELETE",
-    })
-      .then(() => {
+    })      .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-        toast({
-          title: "Success",
-          description: `Penalty has been deleted successfully.`,
-        });
+        showSuccess("Penalty has been deleted successfully.");
         setDeleteDialogOpen(false);
         hideLoader();
       })
       .catch((error) => {
         console.error("Delete error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete penalty. Please try again.",
-          variant: "destructive",
-        });
+        showError("Failed to delete penalty. Please try again.");
         hideLoader();
       });
   };
@@ -517,23 +499,15 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                   }
                   return response.json();
-                })
-                .then((data) => {
+                })                .then((data) => {
                   queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-                  toast({
-                    title: "Success",
-                    description: `Penalty has been updated successfully.`,
-                  });
+                  showSuccess("Penalty has been updated successfully.");
                   setOpen(false); // Close the dialog on success
                   hideLoader();
                 })
                 .catch((error) => {
                   console.error("Update error:", error);
-                  toast({
-                    title: "Error",
-                    description: "Failed to update penalty. Please try again.",
-                    variant: "destructive",
-                  });
+                  showError("Failed to update penalty. Please try again.");
                   hideLoader();
                 });
             }}
@@ -602,7 +576,6 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
 
 export default function PenaltiesPage() {
   const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
   const [dataLoading, setDataLoading] = useState(true);
   const [newPenalty, setNewPenalty] = useState({
     userId: "",
@@ -692,24 +665,16 @@ export default function PenaltiesPage() {
           throw new Error(`${failedResponses.length} deletions failed`);
         }
         return responses;
-      })
-      .then(() => {
+      })      .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-        toast({
-          title: "Success",
-          description: `${selectedPenalties.length} penalties have been deleted successfully.`,
-        });
+        showSuccess(`${selectedPenalties.length} penalties have been deleted successfully.`);
         setSelectedPenalties([]);
         setBulkDeleteDialogOpen(false);
         hideLoader();
       })
       .catch((error) => {
         console.error("Bulk delete error:", error);
-        toast({
-          title: "Error",
-          description: "Failed to delete penalties. Please try again.",
-          variant: "destructive",
-        });
+        showError("Failed to delete penalties. Please try again.");
         setBulkDeleteDialogOpen(false);
         hideLoader();
       });
@@ -742,13 +707,9 @@ export default function PenaltiesPage() {
         hideLoader();
         throw error;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-      toast({
-        title: "Success",
-        description: "Penalty added successfully"
-      });
+      showSuccess("Penalty added successfully");
       setOpenAddDialog(false);
       setNewPenalty({
         userId: "",
@@ -761,23 +722,14 @@ export default function PenaltiesPage() {
     },
     onError: (error) => {
       console.error("Add penalty error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add penalty. Please try again.",
-        variant: "destructive",
-      });
+      showError("Failed to add penalty. Please try again.");
       hideLoader();
     },
   });
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPenalty.userId || !newPenalty.amount || !newPenalty.description) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
+      showError("Please fill in all required fields.");
       return;
     }
 

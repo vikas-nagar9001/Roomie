@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { FaClipboardList } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
+import { showSuccess, showError } from "@/services/toastService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+
 import { LuMail, LuCheck, LuX, } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import favicon from "../../favroomie.png";
@@ -49,7 +50,6 @@ interface Bill {
 
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
   const [dataLoading, setDataLoading] = useState(true);
   
   // Show loader when the component mounts and set up cleanup
@@ -105,10 +105,9 @@ export default function PaymentsPage() {
         hideLoader();
         throw error;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       setIsSettingsOpen(false);
-      toast({ title: "Settings updated successfully" });
+      showSuccess("Settings updated successfully");
       hideLoader();
     },
     onError: () => {
@@ -163,7 +162,7 @@ export default function PaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
       setIsCreateBillOpen(false);
-      toast({ title: "Bill created successfully" });
+      showSuccess("Bill created successfully");
       setNewBillItems([{ name: "", amount: "" }]);
       hideLoader();
     },
@@ -181,10 +180,9 @@ export default function PaymentsPage() {
         hideLoader();
         throw error;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      toast({ title: "Payment status updated" });
+      showSuccess("Payment status updated");
       hideLoader();
     },
     onError: () => {
@@ -201,9 +199,8 @@ export default function PaymentsPage() {
         hideLoader();
         throw error;
       }
-    },
-    onSuccess: () => {
-      toast({ title: "Reminder sent successfully" });
+    },    onSuccess: () => {
+      showSuccess("Reminder sent successfully");
       hideLoader();
     },
     onError: () => {

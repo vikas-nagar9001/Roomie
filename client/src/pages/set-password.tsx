@@ -6,13 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError } from "@/services/toastService";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
 
   // Show loader when page loads
   useEffect(() => {
@@ -28,8 +27,7 @@ export default function SetPasswordPage() {
   }, []);
   
   // Get token from URL
-  const token = new URLSearchParams(window.location.search).get("token");
-  const setPasswordMutation = useMutation({
+  const token = new URLSearchParams(window.location.search).get("token");  const setPasswordMutation = useMutation({
     mutationFn: async (data: { token: string; password: string }) => {
       showLoader();
       try {
@@ -41,19 +39,12 @@ export default function SetPasswordPage() {
       }
     },
     onSuccess: () => {
-      toast({
-        title: "Password set successfully",
-        description: "You can now log in with your email and password",
-      });
+      showSuccess("You can now log in with your email and password");
       hideLoader();
       setLocation("/auth");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to set password",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
   });

@@ -10,7 +10,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
 import { FaCamera, FaEdit } from "react-icons/fa";
@@ -42,7 +42,6 @@ interface CropArea {
 
 export default function ProfilePage() {
   const { user, logoutMutation } = useAuth();
-  const { toast } = useToast();
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
   const [currentPage, setCurrentPage] = useState(1);
@@ -184,7 +183,6 @@ export default function ProfilePage() {
       reader.readAsDataURL(file);
     }
   };
-
   const handleCropSave = async () => {
     try {
       const croppedImageUrl = await getCroppedImage();
@@ -196,14 +194,9 @@ export default function ProfilePage() {
       setIsCropperOpen(false);
     } catch (error) {
       console.error("Error saving cropped image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to save cropped image",
-        variant: "destructive",
-      });
+      showError("Failed to save cropped image");
     }
-  };
-  const updateProfileMutation = useMutation({
+  };  const updateProfileMutation = useMutation({
     mutationFn: async (data: Partial<User>) => {
       showLoader();
       try {
@@ -216,22 +209,14 @@ export default function ProfilePage() {
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData(["/api/user"], updatedUser);
-      toast({
-        title: "Profile updated",
-        description: "Your profile has been updated successfully",
-      });
+      showSuccess("Your profile has been updated successfully");
       hideLoader();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to update profile",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
-  });
-  const uploadProfilePictureMutation = useMutation({
+  });  const uploadProfilePictureMutation = useMutation({
     mutationFn: async (file: File) => {
       showLoader();
       try {
@@ -253,18 +238,11 @@ export default function ProfilePage() {
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData(["/api/user"], updatedUser);
-      toast({
-        title: "Profile picture updated",
-        description: "Your profile picture has been updated successfully",
-      });
+      showSuccess("Your profile picture has been updated successfully");
       hideLoader();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to upload profile picture",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
   });
@@ -283,8 +261,7 @@ export default function ProfilePage() {
   // ✅ Explicitly define mutation type
   const clearCacheMutation = useMutation<void, Error>({
     mutationFn: handleClearCache,
-  });
-  const clearActivitiesMutation = useMutation({
+  });  const clearActivitiesMutation = useMutation({
     mutationFn: async () => {
       showLoader();
       try {
@@ -297,22 +274,14 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/activities"] });
-      toast({
-        title: "Activities cleared",
-        description: "All activities have been cleared successfully",
-      });
+      showSuccess("All activities have been cleared successfully");
       hideLoader();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to clear activities",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
-  });
-  const updateFlatSettingsMutation = useMutation({
+  });  const updateFlatSettingsMutation = useMutation({
     mutationFn: async (data: { name?: string; minApprovalAmount?: number }) => {
       showLoader();
       try {
@@ -325,19 +294,12 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/flats", user?.flatId] });
-      toast({
-        title: "Settings updated",
-        description: "Flat settings have been updated successfully",
-      });
+      showSuccess("Flat settings have been updated successfully");
       setIsEditingFlatSettings(false);
       hideLoader();
     },
     onError: (error: Error) => {
-      toast({
-        title: "Failed to update settings",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError(error.message);
       hideLoader();
     },
   });

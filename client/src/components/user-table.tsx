@@ -24,8 +24,8 @@ import ResponsivePagination from "react-responsive-pagination";
 import { CustomPagination } from "@/components/custom-pagination";
 import "react-responsive-pagination/themes/classic.css";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { useToast } from "@/hooks/use-toast";
 import { showLoader, hideLoader } from "@/services/loaderService";
+import { showSuccess, showError } from "@/services/toastService";
 
 interface UserTableProps {
   search: string;
@@ -94,7 +94,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
   const [userToDeleteDetails, setUserToDeleteDetails] = useState<User | null>(null);
-  const { toast } = useToast();
+
   const usersPerPage = 6;
 
   // Filtered users based on search input
@@ -125,18 +125,10 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
       // Invalidate the query to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       
-      toast({
-        title: "User Deleted",
-        description: "The user has been successfully deleted.",
-        variant: "destructive",
-      });
+      showSuccess("The user has been successfully deleted.");
     } catch (error) {
       console.error('Error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete user. Please try again.",
-        variant: "destructive",
-      });
+      showError("Failed to delete user. Please try again.");
     } finally {
       // Ensure the loader is hidden
       setTimeout(() => {

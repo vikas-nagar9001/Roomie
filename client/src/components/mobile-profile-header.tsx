@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { showSuccess, showError } from "@/services/toastService";
 
 
 export function MobileProfileHeader() {
@@ -15,7 +16,6 @@ export function MobileProfileHeader() {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
   // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
@@ -23,14 +23,22 @@ export function MobileProfileHeader() {
       return res.json();
     },
     onSuccess: () => {
+      showSuccess("Cache cleared successfully");
       queryClient.clear();
       window.location.reload();
     },
+    onError: (error: Error) => {
+      showError(error.message || "Failed to clear cache");
+    },
   });
-
   const handleSignOut = async () => {
-    await logoutMutation.mutateAsync();
-    navigate("/auth");
+    try {
+      await logoutMutation.mutateAsync();
+      showSuccess("Logged out successfully");
+      navigate("/auth");
+    } catch (error) {
+      showError("Failed to log out");
+    }
   };
 
   const getInitials = (name) => {

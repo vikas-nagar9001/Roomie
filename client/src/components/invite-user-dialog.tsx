@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { showLoader, hideLoader } from "@/services/loaderService";
+import { showSuccess, showError } from "@/services/toastService";
 
 interface InviteUserDialogProps {
   open: boolean;
@@ -24,15 +25,16 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         hideLoader();
         throw error;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      showSuccess("User invitation sent successfully");
       onOpenChange(false);
       setName("");
       setEmail("");
       hideLoader();
     },
     onError: () => {
+      showError("Failed to send invitation. Please try again.");
       hideLoader();
     },
   });
