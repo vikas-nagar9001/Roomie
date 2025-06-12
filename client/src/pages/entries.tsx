@@ -87,30 +87,30 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
         <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
-          </DialogHeader>          <form            onSubmit={(e) => {
-              e.preventDefault();
-              showLoader(); // Show loader before updating the entry
-              const formData = new FormData(e.currentTarget);
-              fetch(`/api/entries/${entry._id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  name: formData.get("name"),
-                  amount: parseFloat(formData.get("amount") as string),
-                }),
+          </DialogHeader>          <form onSubmit={(e) => {
+            e.preventDefault();
+            showLoader(); // Show loader before updating the entry
+            const formData = new FormData(e.currentTarget);
+            fetch(`/api/entries/${entry._id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: formData.get("name"),
+                amount: parseFloat(formData.get("amount") as string),
+              }),
+            })
+              .then(() => {
+                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                showSuccess(`Entry "${entry.name}" has been updated successfully.`);
+                setOpen(false); // Close the dialog on success
+                hideLoader(); // Hide loader after successful update
               })
-                .then(() => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                  showSuccess(`Entry "${entry.name}" has been updated successfully.`);
-                  setOpen(false); // Close the dialog on success
-                  hideLoader(); // Hide loader after successful update
-                })
-                .catch((error) => {
-                  console.error(error);
-                  showError(`Failed to update entry: ${error.message}`);
-                  hideLoader(); // Hide loader on error
-                });
-            }}
+              .catch((error) => {
+                console.error(error);
+                showError(`Failed to update entry: ${error.message}`);
+                hideLoader(); // Hide loader on error
+              });
+          }}
             className="space-y-4"
           >
             <Input
@@ -161,11 +161,11 @@ export default function EntriesPage() {
   const entriesPerPage = 6; // Limit of 10 per page
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
-  
+
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
     showLoader();
-    
+
     // Force hide the loader when component unmounts to prevent stuck loaders
     return () => {
       forceHideLoader();
@@ -202,7 +202,7 @@ export default function EntriesPage() {
   // all user penalty total  
   const [allUserPenalties, setPenalties] = useState<{ [userId: string]: { totalAmount: number; entries: number } }>({});
   const [totalPenaltyAmount, setTotalAmount] = useState(0);
-  const [totalPenaltyEntries, setTotalEntries] = useState(0);  useEffect(() => {
+  const [totalPenaltyEntries, setTotalEntries] = useState(0); useEffect(() => {
     const fetchPenalties = async () => {
       try {
         // Loader is already shown from component mount
@@ -228,7 +228,7 @@ export default function EntriesPage() {
           // Update overall totals
           overallTotalAmount += penalty.amount;
           overallTotalEntries += 1;
-        });        
+        });
         setPenalties(penaltyMap);
         setTotalAmount(overallTotalAmount);
         setTotalEntries(overallTotalEntries);
@@ -275,10 +275,10 @@ export default function EntriesPage() {
     if (selectedEntries.length === 0) return;
 
     setBulkDeleteDialogOpen(true);
-  };  const confirmBulkDelete = () => {
+  }; const confirmBulkDelete = () => {
     showLoader();
     setDataLoading(true);
-    
+
     fetch('/api/entries/bulk', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -287,9 +287,9 @@ export default function EntriesPage() {
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
-        
+
         showSuccess(`${selectedEntries.length} entries have been deleted successfully.`);
-        
+
         setSelectedEntries([]);
         setBulkDeleteDialogOpen(false);
       })
@@ -317,10 +317,10 @@ export default function EntriesPage() {
   const { data: canAddEntryData, refetch: refetchCanAddEntry } = useQuery({
     queryKey: ["/api/can-add-entry"],
     refetchOnWindowFocus: false
-  });  const addEntryMutation = useMutation({
+  }); const addEntryMutation = useMutation({
     mutationFn: async (data: { name: string; amount: number }) => {
       showLoader();
-      
+
       try {
         // First check if user can add entry
         await refetchCanAddEntry();
@@ -399,15 +399,16 @@ export default function EntriesPage() {
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <Button
                     variant="outline"
-                    className="bg-white/80 hover:bg-white/90 text-gray-700"                    onClick={async () => {
+                    className="bg-white/80 hover:bg-white/90 text-gray-700"
+                    onClick={async () => {
                       showLoader();
                       setDataLoading(true);
-                      
+
                       try {
                         const res = await fetch('/api/check-contribution-penalties', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ skipAdmins: false })
+                          body: JSON.stringify({ skipAdmins: false }),
                         });
 
                         const data = await res.json();
@@ -415,16 +416,18 @@ export default function EntriesPage() {
                         if (data.deficitUsers?.length > 0) {
                           showWarning(data.message);
                         } else {
-                          showSuccess("Contribution Check Complete: " + data.message);
+                          showSuccess(data.message);
                         }
 
-                        // Refresh the penalties data
+                        // Refresh data
                         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
                         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
                         queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
                       } catch (error) {
                         showError("Failed to run contribution check");
-                        setDataLoading(false);
+                      } finally {
+                        setDataLoading(false); // ensure loading state is cleared
+                        hideLoader(); // stop the loader regardless of success/failure
                       }
                     }}
                   >
@@ -1155,7 +1158,7 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"                            onClick={() => {
+                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white" onClick={() => {
                               showLoader(); // Show loader before approving
                               fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
                                 .then(() => {
@@ -1178,7 +1181,7 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"                            onClick={() => {
+                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500" onClick={() => {
                               showLoader(); // Show loader before rejecting
                               fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
                                 .then(() => {
