@@ -79,6 +79,8 @@ export default function AuthPage() {
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#582c84]/10 blur-3xl"></div>
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
 
+  
+
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
         <div className="flex items-center justify-center">
           <Card className="w-full max-w-md bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
@@ -87,7 +89,7 @@ export default function AuthPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center justify-center mb-6">
-                <img src="favroomie.png" alt="Roomie Logo" className="w-16 h-16 mb-2" />
+                <img src="Roomie.png" alt="Roomie Logo" className="w-20 h-14 mb-2" />
                 <h2 className="text-xl font-bold text-white">
                   {activeTab === 'login' ? headerLogin : headerRegister}
                 </h2>
