@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
+import { FaUserCircle, FaEdit, FaTrash, FaClipboardList, FaSearch } from "react-icons/fa";
 import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
@@ -23,6 +23,13 @@ import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MobileNav } from "@/components/mobile-nav";
 import { CustomPagination } from "@/components/custom-pagination";
+
+// Interfaces
+interface PenaltySettings {
+  contributionPenaltyPercentage: number;
+  warningPeriodDays: number;
+  selectedUsers: string[];
+}
 
 interface User {
   _id: string;
@@ -54,6 +61,22 @@ interface PenaltyTimerData {
   lastPenaltyAppliedAt: string;
   warningPeriodDays: number;
 }
+
+// Helper function to format penalty type
+const formatPenaltyType = (type: PenaltyType): string => {
+  switch (type) {
+    case PenaltyType.LATE_PAYMENT:
+      return "Late Payment";
+    case PenaltyType.DAMAGE:
+      return "Damage";
+    case PenaltyType.RULE_VIOLATION:
+      return "Rule Violation";
+    case PenaltyType.OTHER:
+      return "Other";
+    default:
+      return type;
+  }
+};
 
 // Penalty Timer Component
 function PenaltyTimer() {
@@ -577,9 +600,16 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
 export default function PenaltiesPage() {
   const { user, logoutMutation } = useAuth();
   const [dataLoading, setDataLoading] = useState(true);
-  const [newPenalty, setNewPenalty] = useState({
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newPenalty, setNewPenalty] = useState<{
+    userId: string;
+    type: PenaltyType;
+    amount: string;
+    description: string;
+    image: string;
+  }>({
     userId: "",
-    type: "LATE_PAYMENT" as PenaltyType,
+    type: PenaltyType.LATE_PAYMENT,
     amount: "",
     description: "",
     image: "",
@@ -600,7 +630,7 @@ export default function PenaltiesPage() {
       forceHideLoader();
     };
   }, []);
-  const { data: penalties, isLoading: penaltiesLoading } = useQuery<Penalty[]>({
+  const { data: penalties = [], isLoading: penaltiesLoading } = useQuery<Penalty[]>({
     queryKey: ["/api/penalties"]
   });
 
@@ -608,7 +638,7 @@ export default function PenaltiesPage() {
     queryKey: ["/api/penalties/total"],
   });
   
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
   
@@ -680,14 +710,52 @@ export default function PenaltiesPage() {
       });
   };
 
-  // Reverse penalties and apply pagination
-  const paginatedPenalties = penalties?.slice(
+  // Format penalty type for display
+  const formatPenaltyType = (type: PenaltyType) => {
+    switch (type) {
+      case "LATE_PAYMENT":
+        return "Late Payment";
+      case "DAMAGE":
+        return "Damage";
+      case "RULE_VIOLATION":
+        return "Rule Violation";
+      case "OTHER":
+        return "Other";
+      default:
+        return type;
+    }
+  };
+
+  // Filter and paginate penalties
+  const filteredPenalties = penalties.filter((penalty: Penalty) => {
+    if (!searchQuery) return true;
+    
+    const searchText = searchQuery.toLowerCase();
+    const penaltyDate = new Date(penalty.createdAt).toLocaleDateString();
+    const userName = typeof penalty.userId === "object" && penalty.userId?.name ? 
+                    penalty.userId.name : 
+                    users?.find((u: User) => u._id === penalty.userId)?.name || "";
+    
+    return (
+      // Search by username
+      userName.toLowerCase().includes(searchText) ||
+      // Search by type
+      formatPenaltyType(penalty.type).toLowerCase().includes(searchText) ||
+      // Search by amount
+      penalty.amount.toString().includes(searchText) ||
+      // Search by description
+      penalty.description.toLowerCase().includes(searchText) ||
+      // Search by date
+      penaltyDate.toLowerCase().includes(searchText)
+    );
+  });
+
+  // Update the pagination logic to handle undefined cases
+  const totalPages = Math.ceil((filteredPenalties?.length || 0) / penaltiesPerPage);
+  const paginatedPenalties = filteredPenalties?.slice(
     (currentPage - 1) * penaltiesPerPage,
     currentPage * penaltiesPerPage
-  );
-
-
-  const totalPages = Math.ceil((penalties?.length || 0) / penaltiesPerPage);
+  ) || [];
 
   const queryClient = useQueryClient();
   const addPenaltyMutation = useMutation({
@@ -740,22 +808,6 @@ export default function PenaltiesPage() {
       description: newPenalty.description,
       image: newPenalty.image,
     });
-  };
-
-  // Function to format penalty type for display
-  const formatPenaltyType = (type: PenaltyType) => {
-    switch (type) {
-      case "LATE_PAYMENT":
-        return "Late Payment";
-      case "DAMAGE":
-        return "Damage";
-      case "RULE_VIOLATION":
-        return "Rule Violation";
-      case "OTHER":
-        return "Other";
-      default:
-        return type;
-    }
   };
 
   return (
@@ -929,19 +981,16 @@ export default function PenaltiesPage() {
                           users?.find(u => u._id === userId)?.profilePicture ||
                           "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
 
-                        const progressPercentage = Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100).toFixed(0);
-
-                        // Color Logic
-                        const getBorderColor = () => {
+                        // Fix progressPercentage type issues
+                        const progressPercentage = parseInt(Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100).toFixed(0));
+                        const getBorderColor = (progressPercentage: number): string => {
                           if (progressPercentage >= 81) return "#FF4500"; // Red (81-100%)
                           if (progressPercentage >= 51) return "#FFD700"; // Yellow (51-80%)
                           return "#00FF00"; // Green (0-50%)
                         };
 
-                        // Calculate position for percentage text
-                        const progressAngle = (progressPercentage / 100) * 360;
                         const radius = 28; // Radius for positioning text
-                        const angleRad = (progressAngle - 90) * (Math.PI / 180);
+                        const angleRad = ((progressPercentage / 100) * 360 - 90) * (Math.PI / 180);
                         const textX = Math.cos(angleRad) * radius;
                         const textY = Math.sin(angleRad) * radius;
 
@@ -953,7 +1002,7 @@ export default function PenaltiesPage() {
                               <div
                                 className="absolute inset-0 rounded-full flex items-center justify-center"
                                 style={{
-                                  background: `conic-gradient(${getBorderColor()} ${progressPercentage}%, rgba(255, 255, 255, 0.1) ${progressPercentage}%)`,
+                                  background: `conic-gradient(${getBorderColor(progressPercentage)} ${progressPercentage}%, rgba(255, 255, 255, 0.1) ${progressPercentage}%)`,
                                   padding: "3px",
                                   borderRadius: "50%",
                                 }}
@@ -984,7 +1033,7 @@ export default function PenaltiesPage() {
                                   padding: "2px 4px",
                                   background: "rgba(0, 0, 0, 0.75)",
                                   borderRadius: "4px",
-                                  color: getBorderColor(),
+                                  color: getBorderColor(progressPercentage),
                                 }}
                               >
                                 {progressPercentage}%
@@ -1084,7 +1133,7 @@ export default function PenaltiesPage() {
                       {penalties?.filter(p => {
                         // Handle different userId formats
                         const penaltyUserId = typeof p.userId === 'object' && p.userId !== null
-                          ? (p.userId._id || p.userId.id || p.userId)
+                          ? (typeof p.userId === 'object' ? p.userId._id : p.userId)
                           : p.userId;
 
                         const userIdStr = penaltyUserId?.toString();
@@ -1129,8 +1178,19 @@ export default function PenaltiesPage() {
 
 
 
-          {selectedPenalties.length > 0 && (
-            <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex justify-between items-center gap-4">
+            <div className="relative flex-1 max-w-xl">
+              <Input
+                type="text"
+                placeholder="Search penalties by user, type, amount, description..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-[#151525] border-[#582c84]/30 text-white placeholder:text-white/50 pl-10 py-6 rounded-xl shadow-md focus:ring-2 focus:ring-[#582c84] transition-all duration-200"
+              />
+              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-lg" />
+            </div>
+
+            {selectedPenalties.length > 0 && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -1140,8 +1200,8 @@ export default function PenaltiesPage() {
                 <FaTrash className="text-sm" />
                 Delete Selected ({selectedPenalties.length})
               </Button>
-            </div>
-          )}
+            )}
+          </div>
 
           <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl" >
             <TableHeader>
@@ -1235,7 +1295,6 @@ export default function PenaltiesPage() {
                         <Tooltip
                           delayDuration={0}
                           disableHoverableContent
-                          closeDelay={200}
                           supportMobileTap={true}
                         >
                           <TooltipTrigger asChild>

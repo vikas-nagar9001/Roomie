@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
 import CreatableSelect from "react-select/creatable";
-import { FaUserCircle, FaEdit, FaTrash, FaClipboardList } from "react-icons/fa";
+import { FaUserCircle, FaEdit, FaTrash, FaClipboardList, FaSearch } from "react-icons/fa";
 import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import { CustomPagination } from "@/components/custom-pagination";
 import { Header } from "@/components/header";
@@ -28,6 +28,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -161,6 +168,9 @@ export default function EntriesPage() {
   const entriesPerPage = 6; // Limit of 10 per page
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
+  
+  // Search filter state
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
@@ -302,13 +312,34 @@ export default function EntriesPage() {
   };
 
 
-  // Reverse entries and apply pagination
-  const paginatedEntries = entries?.slice().reverse().slice(
+  // Filter and sort entries
+  const filteredEntries = entries?.filter(entry => {
+    if (!searchQuery) return true;
+    
+    const searchText = searchQuery.toLowerCase();
+    const entryDate = new Date(entry.dateTime).toLocaleDateString();
+    
+    return (
+      // Search by entry name
+      entry.name.toLowerCase().includes(searchText) ||
+      // Search by amount
+      entry.amount.toString().includes(searchText) ||
+      // Search by user name
+      (typeof entry.userId === 'object' && entry.userId?.name?.toLowerCase().includes(searchText)) ||
+      // Search by status
+      entry.status.toLowerCase().includes(searchText) ||
+      // Search by date
+      entryDate.toLowerCase().includes(searchText)
+    );
+  });
+
+  // Reverse filtered entries and apply pagination
+  const paginatedEntries = filteredEntries?.slice().reverse().slice(
     (currentPage - 1) * entriesPerPage,
     currentPage * entriesPerPage
   );
 
-  const totalPages = Math.ceil((entries?.length || 0) / entriesPerPage);
+  const totalPages = Math.ceil((filteredEntries?.length || 0) / entriesPerPage);
 
 
 
@@ -1009,19 +1040,35 @@ export default function EntriesPage() {
 
 
 
-          {selectedEntries.length > 0 && (
-            <div className="mb-4 flex justify-end">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <FaTrash className="text-sm" />
-                Delete Selected ({selectedEntries.length})
-              </Button>
+          
+            <div className="mb-4 flex justify-between items-center gap-4">
+              <div className="relative flex-1 max-w-xl">
+                <Input
+                  type="text"
+                  placeholder="Search by name, amount, date, status..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-[#151525] border-[#582c84]/30 text-white placeholder:text-white/50 pl-10 py-6 rounded-xl shadow-md focus:ring-2 focus:ring-[#582c84] transition-all duration-200"
+                />
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-lg" />
+              </div>
+
+              {/* Delete Selected Button */}
+              <div className="flex justify-end">
+                {selectedEntries.length > 0 && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleBulkDelete}
+                    className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <FaTrash className="text-sm" />
+                    Delete Selected ({selectedEntries.length})
+                  </Button>
+                )}
+              </div>
             </div>
-          )}
+          
 
           <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
             <TableHeader>
