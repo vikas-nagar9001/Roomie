@@ -6,8 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { insertUserSchema, User as SelectUser, InsertUser } from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { showSuccess, showError } from "@/services/toastService";
+import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { showLoader, hideLoader } from "@/services/loaderService";
 
 type AuthContextType = {
@@ -26,7 +25,6 @@ type LoginData = {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast();
   const {
     data: user,
     error,
@@ -50,18 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], user);
       showSuccess("Login successful! Welcome back.");
       hideLoader();
-    },
-    onError: (error: Error) => {
+    },    onError: (error: Error) => {
       showError("Login failed: " + error.message);
-      toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
-      });
       hideLoader();
     },
   });
-
   const registerMutation = useMutation({
     mutationFn: async (credentials: InsertUser) => {
       const res = await apiRequest("POST", "/api/register", credentials);
@@ -69,16 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      showSuccess("Registration successful!");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Registration failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError("Registration failed: " + error.message);
     },
   });
-
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await apiRequest("POST", "/api/logout");
@@ -87,11 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(["/api/user"], null);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Logout failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      showError("Logout failed: " + error.message);
     },
   });
 

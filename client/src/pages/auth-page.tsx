@@ -8,11 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { insertUserSchema, InsertUser } from "@shared/schema";
 import { Redirect } from "wouter";
-import { LuBuilding2 } from "react-icons/lu";
 import { FiUsers, FiList, FiCreditCard } from "react-icons/fi";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
 import { showSuccess, showError } from "@/services/toastService";
 import { useState, useEffect } from "react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
@@ -21,7 +19,6 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
-  const { toast } = useToast();
   const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
