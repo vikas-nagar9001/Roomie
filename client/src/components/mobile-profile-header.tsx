@@ -5,7 +5,7 @@ import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon, FiBell } 
 import { MdOutlineCached } from "react-icons/md";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { showSuccess, showError } from "@/services/toastService";
 
@@ -16,19 +16,48 @@ export function MobileProfileHeader() {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  // Clear cache mutation
+  
+  // Fetch user statistics
+  const { data: userStats } = useQuery({
+    queryKey: ["/api/user/stats"],
+    queryFn: async () => {
+      if (!user) return { entriesCount: 0, pendingCount: 0, totalAmount: 0 };
+      const res = await apiRequest("GET", "/api/user/stats");
+      return res.json();
+    },
+    enabled: !!user,
+  });// Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/clear-cache");
-      return res.json();
+      try {
+        // Use the correct endpoint that exists on the server
+        const res = await apiRequest("POST", "/api/set-version-new");
+        
+        // Check if the response is OK before trying to parse JSON
+        if (!res.ok) {
+          throw new Error(`Server responded with ${res.status}: ${res.statusText}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Cache clear error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       showSuccess("Cache cleared successfully");
+      
+      // Clear the query cache
       queryClient.clear();
-      window.location.reload();
+      
+      // Add small timeout to ensure toast is seen before reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 800);
     },
     onError: (error: Error) => {
-      showError(error.message || "Failed to clear cache");
+      showError("Failed to clear cache");
+      console.error('Cache clear error details:', error.message);
     },
   });
   const handleSignOut = async () => {
@@ -177,21 +206,19 @@ export function MobileProfileHeader() {
 
         {/* User Info */}
         <h2 className="text-xl font-bold text-white mb-1">{user?.name || "User"}</h2>
-        <p className="text-white/70 text-sm mb-4">{user?.email || "No email"}</p>
-
-        {/* Stats */}
+        <p className="text-white/70 text-sm mb-4">{user?.email || "No email"}</p>        {/* Stats - Dynamic User Data */}
         <div className="flex w-full justify-around bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl p-3 border border-white/5 shadow-inner">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">12</span>
+            <span className="text-lg font-bold text-white">{userStats?.entriesCount || 0}</span>
             <span className="text-xs text-white/70">Entries</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">₹2,400</span>
-            <span className="text-xs text-white/70">Paid</span>
+            <span className="text-lg font-bold text-white">{userStats?.pendingCount || 0}</span>
+            <span className="text-xs text-white/70">Pending</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">₹0</span>
-            <span className="text-xs text-white/70">Due</span>
+            <span className="text-lg font-bold text-white">₹{userStats?.totalAmount || 0}</span>
+            <span className="text-xs text-white/70">Amount</span>
           </div>
         </div>
       </div>
