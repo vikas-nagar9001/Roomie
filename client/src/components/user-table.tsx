@@ -166,10 +166,18 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
         throw new Error("Failed to delete user");
       }
 
-      // Invalidate the query to refresh the data
+      // Invalidate and refetch the query to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
+      await queryClient.refetchQueries({ queryKey: ["/api/allUsers"] });
 
       showSuccess(`${userToDeleteDetails.name} has been successfully deleted.`);
+      
+      // Reset pagination to first page if current page would be empty
+      const remainingUsers = filteredUsers.filter(u => u._id !== userToDelete);
+      const remainingPages = Math.ceil((remainingUsers.length) / usersPerPage);
+      if (currentPage > remainingPages && remainingPages > 0) {
+        setCurrentPage(remainingPages);
+      }
     } catch (error) {
       console.error("Error:", error);
       showError("Failed to delete user. Please try again.");

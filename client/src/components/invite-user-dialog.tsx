@@ -26,15 +26,18 @@ export function InviteUserDialog({ open, onOpenChange }: InviteUserDialogProps) 
         throw error;
       }
     },    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      showSuccess("User invitation sent successfully");
+      // Invalidate and refresh the users data
+      queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
+      queryClient.refetchQueries({ queryKey: ["/api/allUsers"] });
+      
+      showSuccess(`Invitation sent to ${email} successfully`);
       onOpenChange(false);
       setName("");
       setEmail("");
       hideLoader();
     },
-    onError: () => {
-      showError("Failed to send invitation. Please try again.");
+    onError: (error: Error) => {
+      showError("Failed to send invitation: " + error.message);
       hideLoader();
     },
   });
