@@ -54,11 +54,11 @@ export async function sendInviteEmail(email: string, name: string, inviteToken: 
     html: `
       <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header with Logo and Gradient -->
-        <div style="text-align: center; background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">
-            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
-            Welcome to Roomie
-          </h1>
+        <div style="background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Welcome to Roomie</h1>
+          </div>
         </div>
 
         <!-- Main Content -->
@@ -107,11 +107,11 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
     html: `
       <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header with Logo and Gradient -->
-        <div style="text-align: center; background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">
-            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
-            Password Reset
-          </h1>
+        <div style="background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Password Reset</h1>
+          </div>
         </div>
 
         <!-- Main Content -->
