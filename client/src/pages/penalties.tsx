@@ -791,7 +791,7 @@ export default function PenaltiesPage() {
       setOpenAddDialog(false);
       setNewPenalty({
         userId: "",
-        type: "LATE_PAYMENT",
+        type: PenaltyType.LATE_PAYMENT,
         amount: "",
         description: "",
         image: "",
@@ -997,11 +997,10 @@ export default function PenaltiesPage() {
                             users?.find(u => u._id === userId)?.profilePicture;
 
                         // Fix progressPercentage type issues
-                        const progressPercentage = parseInt(Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100).toFixed(0));
-                        const getBorderColor = (progressPercentage: number): string => {
-                          if (progressPercentage >= 81) return "#FF4500"; // Red (81-100%)
-                          if (progressPercentage >= 51) return "#FFD700"; // Yellow (51-80%)
-                          return "#00FF00"; // Green (0-50%)
+                        const progressPercentage = parseInt(Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100).toFixed(0));                        const getBorderColor = (progressPercentage: number): string => {
+                          if (progressPercentage >= 70) return "#FF4500"; // Red for high penalties (>70%)
+                          if (progressPercentage >= 40) return "#FFD700"; // Yellow for medium penalties (40-70%)
+                          return "#4CAF50"; // Green for low penalties (<40%)
                         };
 
                         const radius = 28; // Radius for positioning text

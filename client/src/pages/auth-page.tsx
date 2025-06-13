@@ -24,8 +24,8 @@ export default function AuthPage() {
   const [resetEmail, setResetEmail] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login'|'register'>('login');
-  
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+
   // Ensure loader is cleaned up when component unmounts
   useEffect(() => {
     return () => {
@@ -80,7 +80,7 @@ export default function AuthPage() {
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#582c84]/10 blur-3xl"></div>
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
 
-  
+
 
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
         <div className="flex items-center justify-center">
@@ -100,7 +100,7 @@ export default function AuthPage() {
               </div>
               <Tabs
                 value={activeTab}
-                onValueChange={(val) => setActiveTab(val as 'login'|'register')}
+                onValueChange={(val) => setActiveTab(val as 'login' | 'register')}
                 className="w-full"
               >
                 <TabsList className="grid w-full grid-cols-2 bg-[#1a1a2e] mb-6">
@@ -119,83 +119,83 @@ export default function AuthPage() {
                 </TabsList>
 
                 <TabsContent value="login">                <form onSubmit={loginForm.handleSubmit((data) => {
-                      showLoader();
-                      loginMutation.mutate(data, {
-                        onSuccess: () => {
-                          // Don't hide loader here as we'll redirect to dashboard
-                          // The loader will be cleared on component unmount
-                        },
-                        onError: () => {
-                          hideLoader();
-                        }
-                      });
-                    })}>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="email" className="text-gray-300">Email</Label>
-                        <Input
-                          id="email"
-                          {...loginForm.register("email")}
-                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
-                          placeholder="Enter your email"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="password" className="text-gray-300">Password</Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={showLoginPassword ? "text" : "password"}
-                            {...loginForm.register("password")}
-                            className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
-                            placeholder="Enter your password"
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-gray-400 hover:text-white"
-                            onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          >
-                            {showLoginPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full relative group overflow-hidden rounded-lg"
-                        disabled={loginMutation.isPending}
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#582c84] group-hover:scale-105 transition-transform duration-300"></div>
-                        <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
-                          Login
-                        </span>
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="w-full text-indigo-300 hover:text-indigo-200"
-                        onClick={() => setForgotPasswordOpen(true)}
-                      >
-                        Forgot Password?
-                      </Button>
+                  showLoader();
+                  loginMutation.mutate(data, {
+                    onSuccess: () => {
+                      // Don't hide loader here as we'll redirect to dashboard
+                      // The loader will be cleared on component unmount
+                    },
+                    onError: () => {
+                      hideLoader();
+                    }
+                  });
+                })}>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="email" className="text-gray-300">Email</Label>
+                      <Input
+                        id="email"
+                        {...loginForm.register("email")}
+                        className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
+                        placeholder="Enter your email"
+                      />
                     </div>
-                  </form>
+                    <div>
+                      <Label htmlFor="password" className="text-gray-300">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showLoginPassword ? "text" : "password"}
+                          {...loginForm.register("password")}
+                          className="bg-[#1a1a2e] border-[#582c84]/50 focus:border-[#582c84] text-white"
+                          placeholder="Enter your password"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-gray-400 hover:text-white"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                        >
+                          {showLoginPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full relative group overflow-hidden rounded-lg"
+                      disabled={loginMutation.isPending}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-[#5433a7] to-[#582c84] group-hover:scale-105 transition-transform duration-300"></div>
+                      <span className="relative z-10 flex items-center justify-center gap-2 text-white font-medium">
+                        Login
+                      </span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="w-full text-indigo-300 hover:text-indigo-200"
+                      onClick={() => setForgotPasswordOpen(true)}
+                    >
+                      Forgot Password?
+                    </Button>
+                  </div>
+                </form>
                 </TabsContent>
 
                 <TabsContent value="register">
-                <form onSubmit={registerForm.handleSubmit((data) => {
-                      showLoader();
-                      registerMutation.mutate(data, {
-                        onSettled: () => {
-                          hideLoader();
-                        }
-                      });
-                    })}>
+                  <form onSubmit={registerForm.handleSubmit((data) => {
+                    showLoader();
+                    registerMutation.mutate(data, {
+                      onSettled: () => {
+                        hideLoader();
+                      }
+                    });
+                  })}>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="name" className="text-gray-300">Full Name</Label>
@@ -301,7 +301,7 @@ export default function AuthPage() {
       </div>
 
       <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
-        <DialogContent className="max-w-md w-full p-6 rounded-xl bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
+        <DialogContent className="max-w-md w-full p-8 rounded-xl bg-[#0f0f1f] border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)]">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold text-white">Reset Password</DialogTitle>
           </DialogHeader>          <form
@@ -314,7 +314,7 @@ export default function AuthPage() {
                 }
               });
             }}
-            className="space-y-4"
+            className="space-y-6"
           >
             <div className="space-y-2">
               <Label htmlFor="resetEmail" className="text-gray-300 font-medium">Email</Label>

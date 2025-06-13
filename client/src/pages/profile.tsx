@@ -313,6 +313,31 @@ export default function ProfilePage() {
     },
   });
 
+  // Queries for statistics
+  const { data: entries = [] } = useQuery<any[]>({
+    queryKey: ["/api/entries"],
+  });
+
+  const { data: payments = [] } = useQuery<any[]>({
+    queryKey: ["/api/payments"],
+  });
+
+  // Calculate statistics
+  const userEntries = entries?.filter((e) => {
+    const entryUserId = typeof e.userId === 'object' && e.userId !== null
+      ? (e.userId._id || e.userId.id || e.userId)
+      : e.userId;
+    const userIdStr = entryUserId?.toString();
+    const currentUserIdStr = user?._id?.toString();
+    return userIdStr === currentUserIdStr;
+  }) || [];
+
+  const pendingEntries = userEntries.filter(e => e.status === "PENDING");
+  
+  const totalAmount = userEntries.reduce((sum, entry) => {
+    return sum + (typeof entry.amount === 'number' ? entry.amount : 0);
+  }, 0);
+
   return (
     <div className="min-h-screen bg-[#0f0f1f] sm:pt-10 pb-20">
       {/* Header - Hidden on mobile */}
@@ -381,20 +406,18 @@ export default function ProfilePage() {
                   <p className="text-sm text-white/70">{user?.email}</p>
                   <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-2"></div>
                   <p className="text-xs text-white/50 uppercase tracking-wider font-medium">Role: {user?.role}</p>
-                </div>
-
-                {/* Stats Section - New Addition */}
+                </div>                {/* Stats Section - New Addition */}
                 <div className="grid grid-cols-3 gap-2 w-full mt-2">
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">{user?.entriesCount || 0}</span>
+                    <span className="text-lg font-bold text-white">{userEntries.length}</span>
                     <span className="text-xs text-white/60">Entries</span>
                   </div>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">{user?.pendingCount || 0}</span>
+                    <span className="text-lg font-bold text-white">{pendingEntries.length}</span>
                     <span className="text-xs text-white/60">Pending</span>
                   </div>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">₹{user?.totalAmount || 0}</span>
+                    <span className="text-lg font-bold text-white">₹{totalAmount.toFixed(2)}</span>
                     <span className="text-xs text-white/60">Amount</span>
                   </div>
                 </div>

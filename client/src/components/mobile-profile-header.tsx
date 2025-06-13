@@ -26,7 +26,30 @@ export function MobileProfileHeader() {
       return res.json();
     },
     enabled: !!user,
-  });// Clear cache mutation
+  });
+
+  // Fetch entries and payments data
+  const { data: entries = [] } = useQuery<any[]>({
+    queryKey: ["/api/entries"],
+  });
+
+  // Calculate user statistics
+  const userEntries = entries?.filter((e) => {
+    const entryUserId = typeof e.userId === 'object' && e.userId !== null
+      ? (e.userId._id || e.userId.id || e.userId)
+      : e.userId;
+    const userIdStr = entryUserId?.toString();
+    const currentUserIdStr = user?._id?.toString();
+    return userIdStr === currentUserIdStr;
+  }) || [];
+
+  const pendingEntries = userEntries.filter(e => e.status === "PENDING");
+  
+  const totalAmount = userEntries.reduce((sum, entry) => {
+    return sum + (typeof entry.amount === 'number' ? entry.amount : 0);
+  }, 0);
+
+  // Clear cache mutation
   const clearCacheMutation = useMutation({
     mutationFn: async () => {
       try {
@@ -69,12 +92,11 @@ export function MobileProfileHeader() {
       showError("Failed to log out");
     }
   };
-
-  const getInitials = (name) => {
+  const getInitials = (name?: string | null) => {
     if (!name) return "U";
     return name
       .split(" ")
-      .map((n) => n[0])
+      .map((n: string) => n[0])
       .join("")
       .toUpperCase();
   };
@@ -209,15 +231,15 @@ export function MobileProfileHeader() {
         <p className="text-white/70 text-sm mb-4">{user?.email || "No email"}</p>        {/* Stats - Dynamic User Data */}
         <div className="flex w-full justify-around bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl p-3 border border-white/5 shadow-inner">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">{userStats?.entriesCount || 0}</span>
+            <span className="text-lg font-bold text-white">{userEntries.length}</span>
             <span className="text-xs text-white/70">Entries</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">{userStats?.pendingCount || 0}</span>
+            <span className="text-lg font-bold text-white">{pendingEntries.length}</span>
             <span className="text-xs text-white/70">Pending</span>
           </div>
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">₹{userStats?.totalAmount || 0}</span>
+            <span className="text-lg font-bold text-white">₹{totalAmount.toFixed(2)}</span>
             <span className="text-xs text-white/70">Amount</span>
           </div>
         </div>
