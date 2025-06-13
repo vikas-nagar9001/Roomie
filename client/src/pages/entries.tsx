@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LuUserPlus } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
@@ -47,6 +48,14 @@ import { ContributionStatus } from "@/components/contribution-status";
 import { LuMoreHorizontal } from "react-icons/lu";
 import { BsThreeDots } from "react-icons/bs";
 
+const getInitials = (name: string | undefined) => {
+  if (!name) return "U";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+};
 
 // Create a separate component for editing an entry.
 function EditEntryDialog({ entry }: { entry: Entry }) {
@@ -641,20 +650,16 @@ export default function EntriesPage() {
                                   padding: "3px",
                                   borderRadius: "50%",
                                 }}
-                              >
-                                {/* Profile Image */}
-                                <img
-                                  src={userProfile}
-                                  alt={`${userName} profile picture`}
-                                  loading="lazy"
-                                  className="w-full h-full rounded-full border border-white object-cover bg-gray-200"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.onerror = null;
-                                    target.src =
-                                      "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                                  }}
-                                />
+                              >                                <Avatar className="w-full h-full">
+                                  <AvatarImage
+                                    src={userProfile}
+                                    alt={`${userName} profile picture`}
+                                    className="object-cover"
+                                  />
+                                  <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                                    {getInitials(userName)}
+                                  </AvatarFallback>
+                                </Avatar>
                               </div>
 
                               {/* ✅ Percentage Text at Progress End Point - Smaller Size & Better Padding */}
@@ -803,16 +808,16 @@ export default function EntriesPage() {
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
 
                 {/* Left Side: User Profile */}
-                <div className="flex items-center space-x-3">
-                  {user?.profilePicture ? (
-                    <img
-                      src={user.profilePicture}
+                <div className="flex items-center space-x-3">                  <Avatar className="w-12 h-12 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105">
+                    <AvatarImage
+                      src={user?.profilePicture}
                       alt="User Profile"
-                      className="w-12 h-12 rounded-full border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105"
+                      className="object-cover"
                     />
-                  ) : (
-                    <FaUserCircle className="text-5xl text-white/50 transition-transform duration-300 hover:scale-110" />
-                  )}
+                    <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                      {getInitials(user?.name)}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
                     <div className="text-sm font-semibold text-white">{user?.name || "Guest User"}</div>
                     <div className="text-xs text-white/60 truncate w-40 sm:w-32">{user?.email || "No Email"}</div>
@@ -1115,22 +1120,27 @@ export default function EntriesPage() {
                   className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
                 >
                   <TableCell className="min-w-[200px] py-4 px-3">
-                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-                      <img
-                        src={
-                          typeof entry.userId === 'object' && entry.userId?.profilePicture
-                            ? entry.userId.profilePicture
-                            : users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture ||
-                            entry.user?.profilePicture ||
-                            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
-                        }
-                        alt="User"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                        }}
-                      />
+                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                        <AvatarImage
+                          src={
+                            typeof entry.userId === 'object' && entry.userId?.profilePicture
+                              ? entry.userId.profilePicture
+                              : users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.profilePicture ||
+                              entry.user?.profilePicture
+                          }
+                          alt="User"
+                          className="object-cover"
+                        />
+                        <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                          {getInitials(
+                            typeof entry.userId === 'object' && entry.userId?.name
+                              ? entry.userId.name
+                              : users?.find(u => u._id === (typeof entry.userId === 'string' ? entry.userId : ''))?.name ||
+                              entry.user?.name || "Unknown User"
+                          )}
+                        </AvatarFallback>
+                      </Avatar>
+                      
                       <div className="truncate max-w-[140px] sm:max-w-[180px]">
                         <span className="font-medium text-white">{typeof entry.userId === 'object' && entry.userId?.name
                           ? entry.userId.name

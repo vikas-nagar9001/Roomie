@@ -20,7 +20,7 @@ import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
 import { format } from "date-fns";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LuMail, LuCheck, LuX, } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
 import favicon from "../../Roomie.png";
@@ -47,6 +47,16 @@ interface Bill {
   splitAmount: number;
   dueDate: string;
 }
+
+const getInitials = (name: string) => {
+  if (!name) return "";
+  // Split by spaces and filter out empty strings
+  const words = name.split(" ").filter(word => word.length > 0);
+  // Get the first letter of each word and convert to uppercase
+  const initials = words.map(word => word[0]?.toUpperCase() || "");
+  // Return all initials, no limit
+  return initials.join("");
+};
 
 export default function PaymentsPage() {
   const { user, logoutMutation } = useAuth();
@@ -357,15 +367,14 @@ export default function PaymentsPage() {
                       >
                         <TableCell className="min-w-[200px] py-4 px-3">
                           <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-                            <img
-                              src={payment.userId?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
-                              alt="User"
-                              className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                              }}
-                            />
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">                              <AvatarImage
+                                src={payment.userId?.profilePicture}
+                                alt={payment.userId?.name || "User"}
+                                className="object-cover"
+                              /><AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                                {getInitials(payment.userId?.name || "")}
+                              </AvatarFallback>
+                            </Avatar>
                             <div className="truncate max-w-[140px] sm:max-w-[180px]">
                               <span className="font-medium text-white">{payment.userId?.name || "Unknown User"}</span>
                             </div>
@@ -542,7 +551,6 @@ export default function PaymentsPage() {
                       newItems[index].name = e.target.value;
                       setNewBillItems(newItems);
                     }}
-                    className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
                   />
                     <Input
                       type="number"

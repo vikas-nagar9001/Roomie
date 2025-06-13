@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,17 @@ interface UserTableProps {
   onLoadComplete?: () => void;
 }
 
+// Utility function to get initials from name
+const getInitials = (name: string) => {
+  if (!name) return "";
+  // Split by spaces and filter out empty strings
+  const words = name.split(" ").filter((word) => word.length > 0);
+  // Get the first letter of each word and convert to uppercase
+  const initials = words.map((word) => word[0]?.toUpperCase() || "");
+  // Return all initials, no limit
+  return initials.join("");
+};
+
 export function UserTable({ search, onLoadComplete }: UserTableProps) {
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -47,12 +59,18 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
         if (onLoadComplete) {
           onLoadComplete();
         }
-      }, 300); 
+      }, 300);
     }
   }, [usersLoading, users, onLoadComplete]);
 
   const updateUserMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: Partial<User> }) => {
+    mutationFn: async ({
+      userId,
+      data,
+    }: {
+      userId: string;
+      data: Partial<User>;
+    }) => {
       showLoader();
       try {
         const res = await apiRequest("PATCH", `/api/users/${userId}`, data);
@@ -93,7 +111,9 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
-  const [userToDeleteDetails, setUserToDeleteDetails] = useState<User | null>(null);
+  const [userToDeleteDetails, setUserToDeleteDetails] = useState<User | null>(
+    null
+  );
 
   const usersPerPage = 6;
 
@@ -110,24 +130,25 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * usersPerPage,
     currentPage * usersPerPage
-  );  const handleDeleteUser = async () => {
+  );
+  const handleDeleteUser = async () => {
     if (!userToDelete) return;
-    
+
     showLoader();
     try {
       const response = await fetch(`/api/users/${userToDelete}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        throw new Error("Failed to delete user");
       }
-      
+
       // Invalidate the query to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      
+
       showSuccess("The user has been successfully deleted.");
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       showError("Failed to delete user. Please try again.");
     } finally {
       // Ensure the loader is hidden
@@ -148,70 +169,84 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
               <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
                 <span className="block">User</span>
               </TableHead>
-              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Role</TableHead>
-              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Status</TableHead>
-              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">Created</TableHead>
-              <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>
+              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">
+                Role
+              </TableHead>
+              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">
+                Status
+              </TableHead>
+              <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none">
+                Created
+              </TableHead>
+              <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedUsers?.map((user) => (
-              <TableRow 
+              <TableRow
                 key={user._id}
                 className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
               >
                 <TableCell className="min-w-[200px] py-4 px-3">
                   <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-                    {user.profilePicture ? (
-                      <img
+              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                      <AvatarImage
                         src={user.profilePicture}
                         alt={user.name}
-                        className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                        }}
+                        className="object-cover"
                       />
-                    ) : (
-                      <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center bg-[#582c84]/20 border-2 border-[#582c84]/50">
-                        <FiUser className="w-6 h-6 sm:w-8 sm:h-8 text-[#582c84]" />
-                      </div>
-                    )}
+                      <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                        {getInitials(user.name)}
+                      </AvatarFallback>
+                    </Avatar>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-white truncate">{user.name}</p>
-                      <p className="text-sm text-white/60 truncate hover:text-clip hover:whitespace-normal" title={user.email}>
+                      <p className="font-medium text-white truncate">
+                        {user.name}
+                      </p>
+                      <p
+                        className="text-sm text-white/60 truncate hover:text-clip hover:whitespace-normal"
+                        title={user.email}
+                      >
                         {user.email}
                       </p>
                     </div>
                   </div>
                 </TableCell>
                 <TableCell className="py-4 px-3">
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${
-                    user.role === "ADMIN"
-                      ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
-                      : user.role === "CO_ADMIN"
-                      ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                      : "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
-                  } transition-all duration-200`}>
+                  <span
+                    className={`px-3 py-1 rounded-lg text-sm font-medium border ${
+                      user.role === "ADMIN"
+                        ? "bg-purple-500/20 text-purple-300 border-purple-500/30"
+                        : user.role === "CO_ADMIN"
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
+                        : "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                    } transition-all duration-200`}
+                  >
                     {user.role}
                   </span>
                 </TableCell>
                 <TableCell className="py-4 px-3">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      user.status === "ACTIVE"
-                        ? "bg-emerald-400 animate-pulse"
-                        : user.status === "PENDING"
-                        ? "bg-yellow-400"
-                        : "bg-red-400"
-                    }`} />
-                    <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${
-                      user.status === "ACTIVE"
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                        : user.status === "PENDING"
-                        ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
-                        : "bg-red-500/20 text-red-300 border-red-500/30"
-                    } transition-all duration-200`}>
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        user.status === "ACTIVE"
+                          ? "bg-emerald-400 animate-pulse"
+                          : user.status === "PENDING"
+                          ? "bg-yellow-400"
+                          : "bg-red-400"
+                      }`}
+                    />
+                    <span
+                      className={`px-3 py-1 rounded-lg text-sm font-medium border ${
+                        user.status === "ACTIVE"
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                          : user.status === "PENDING"
+                          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/30"
+                          : "bg-red-500/20 text-red-300 border-red-500/30"
+                      } transition-all duration-200`}
+                    >
                       {user.status}
                     </span>
                   </div>
@@ -224,11 +259,18 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                 <TableCell className="text-center">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="hover:bg-[#582c84]/20 text-white/70">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-[#582c84]/20 text-white/70"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="bg-[#151525] border border-[#582c84]/30">
+                    <DropdownMenuContent
+                      align="end"
+                      className="bg-[#151525] border border-[#582c84]/30"
+                    >
                       {user.status === "PENDING" && (
                         <DropdownMenuItem
                           onClick={() => resendInviteMutation.mutate(user._id)}
@@ -292,7 +334,9 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
           <div className="flex flex-col items-center justify-center space-y-3">
             <FiUser className="w-12 h-12 text-[#582c84] opacity-50" />
             <p className="text-lg font-medium">No users found</p>
-            <p className="text-sm text-white/40">Try adjusting your search or add new users</p>
+            <p className="text-sm text-white/40">
+              Try adjusting your search or add new users
+            </p>
           </div>
         </div>
       )}
@@ -318,8 +362,12 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
               <FiUser className="w-4 h-4 text-red-400" />
             </div>
             <div className="flex flex-col">
-              <span className="text-sm font-medium text-white">{userToDeleteDetails?.name}</span>
-              <span className="text-xs text-white/60">{userToDeleteDetails?.email}</span>
+              <span className="text-sm font-medium text-white">
+                {userToDeleteDetails?.name}
+              </span>
+              <span className="text-xs text-white/60">
+                {userToDeleteDetails?.email}
+              </span>
             </div>
           </div>
         }

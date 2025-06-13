@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
+import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { Header } from "@/components/header";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
@@ -19,7 +21,6 @@ import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
 import { apiRequest } from "@/lib/queryClient";
-import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MobileNav } from "@/components/mobile-nav";
 import { CustomPagination } from "@/components/custom-pagination";
@@ -151,6 +152,17 @@ export function PenaltySettingsForm() {
   const [warningDays, setWarningDays] = useState<number>(3);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
 
+  // Helper function to get initials from name
+  const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    // Split by spaces and filter out empty strings
+    const words = name.split(" ").filter(word => word.length > 0);
+    // Get the first letter of each word and convert to uppercase, handle undefined safely
+    const initials = words.map(word => (word[0] || "").toUpperCase());
+    // Return all initials, no limit
+    return initials.join("") || "U";
+  };
+
   // Fetch users with proper typing
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
@@ -192,7 +204,7 @@ export function PenaltySettingsForm() {
       const res = await apiRequest("PATCH", "/api/penalty-settings", data);
       if (!res.ok) throw new Error("Failed to update settings");
       return res.json();
-    },    onSuccess: () => {
+    }, onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalty-settings"] });
       showSuccess("Penalty settings have been updated successfully.");
     },
@@ -366,19 +378,17 @@ export function PenaltySettingsForm() {
                   />
                   <label htmlFor={user._id} className="flex items-center gap-4 cursor-pointer w-full min-w-0">
                     <div className="relative">
-                      <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-[#582c84]/30 shadow-sm transition-transform duration-300 group-hover/card:scale-105">
-                        <img
-                          src={
-                            user?.profilePicture
-                            || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
-                          }
-                          alt={user?.name || "User"}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                          }}
-                        />
+                      <div className=" w-12 h-12 rounded-xl overflow-hidden transition-transform duration-300 group-hover/card:scale-105 ">
+                        <Avatar className="w-full h-full border-2 border-[#ffff]/30 bg-[#1c1b2d] shadow-sm">
+                          <AvatarImage
+                            src={user?.profilePicture}
+                            alt={user?.name || "User"}
+                            className="object-cover  "
+                          />
+                          <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                            {getInitials(user?.name || "")}
+                          </AvatarFallback>
+                        </Avatar>
                       </div>
 
                       {selectedUsers.includes(user._id) && (
@@ -465,12 +475,12 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
     showLoader();
     fetch(`/api/penalties/${penalty._id}`, {
       method: "DELETE",
-    })      .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-        showSuccess("Penalty has been deleted successfully.");
-        setDeleteDialogOpen(false);
-        hideLoader();
-      })
+    }).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+      showSuccess("Penalty has been deleted successfully.");
+      setDeleteDialogOpen(false);
+      hideLoader();
+    })
       .catch((error) => {
         console.error("Delete error:", error);
         showError("Failed to delete penalty. Please try again.");
@@ -522,7 +532,7 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                   }
                   return response.json();
-                })                .then((data) => {
+                }).then((data) => {
                   queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
                   showSuccess("Penalty has been updated successfully.");
                   setOpen(false); // Close the dialog on success
@@ -620,11 +630,11 @@ export default function PenaltiesPage() {
   const [selectedPenalties, setSelectedPenalties] = useState<string[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const isAdmin = user?.role === "ADMIN";
-  
+
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
     showLoader();
-    
+
     // Force hide the loader when component unmounts to prevent stuck loaders
     return () => {
       forceHideLoader();
@@ -637,18 +647,18 @@ export default function PenaltiesPage() {
   const { data: totals, isLoading: totalsLoading } = useQuery<{ userTotal: number; flatTotal: number }>({
     queryKey: ["/api/penalties/total"],
   });
-  
+
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
   });
-  
+
   // Manage loading state based on query states
   useEffect(() => {
     const isLoading = penaltiesLoading || totalsLoading || usersLoading;
-    
+
     // Update dataLoading based on query states
     setDataLoading(isLoading);
-    
+
     // Hide loader when all queries are done
     if (!isLoading) {
       hideLoader();
@@ -695,7 +705,7 @@ export default function PenaltiesPage() {
           throw new Error(`${failedResponses.length} deletions failed`);
         }
         return responses;
-      })      .then(() => {
+      }).then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
         showSuccess(`${selectedPenalties.length} penalties have been deleted successfully.`);
         setSelectedPenalties([]);
@@ -729,13 +739,13 @@ export default function PenaltiesPage() {
   // Filter and paginate penalties
   const filteredPenalties = penalties.filter((penalty: Penalty) => {
     if (!searchQuery) return true;
-    
+
     const searchText = searchQuery.toLowerCase();
     const penaltyDate = new Date(penalty.createdAt).toLocaleDateString();
-    const userName = typeof penalty.userId === "object" && penalty.userId?.name ? 
-                    penalty.userId.name : 
-                    users?.find((u: User) => u._id === penalty.userId)?.name || "";
-    
+    const userName = typeof penalty.userId === "object" && penalty.userId?.name ?
+      penalty.userId.name :
+      users?.find((u: User) => u._id === penalty.userId)?.name || "";
+
     return (
       // Search by username
       userName.toLowerCase().includes(searchText) ||
@@ -775,7 +785,7 @@ export default function PenaltiesPage() {
         hideLoader();
         throw error;
       }
-    },    onSuccess: () => {
+    }, onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
       showSuccess("Penalty added successfully");
       setOpenAddDialog(false);
@@ -808,6 +818,14 @@ export default function PenaltiesPage() {
       description: newPenalty.description,
       image: newPenalty.image,
     });
+  }; const getInitials = (name?: string | null) => {
+    if (!name) return "U";
+    // Split by spaces and filter out empty strings
+    const words = name.split(" ").filter(word => word.length > 0);
+    // Get the first letter of each word and convert to uppercase, handle undefined safely
+    const initials = words.map(word => (word[0] || "").toUpperCase());
+    // Return all initials, no limit
+    return initials.join("") || "U";
   };
 
   return (
@@ -975,11 +993,8 @@ export default function PenaltiesPage() {
                         const totalUserAmount = userPenalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0);
 
                         const userName = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.name) ||
-                          (users?.find(u => u._id === userId)?.name) || "User";
-
-                        const userProfile = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.profilePicture) ||
-                          users?.find(u => u._id === userId)?.profilePicture ||
-                          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
+                          (users?.find(u => u._id === userId)?.name) || "User"; const userProfile = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.profilePicture) ||
+                            users?.find(u => u._id === userId)?.profilePicture;
 
                         // Fix progressPercentage type issues
                         const progressPercentage = parseInt(Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100).toFixed(0));
@@ -1007,19 +1022,17 @@ export default function PenaltiesPage() {
                                   borderRadius: "50%",
                                 }}
                               >
-                                {/* Profile Image */}
-                                <img
-                                  src={userProfile}
-                                  alt={`${userName} profile picture`}
-                                  loading="lazy"
-                                  className="w-full h-full rounded-full border border-white object-cover bg-gray-200"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.onerror = null;
-                                    target.src =
-                                      "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                                  }}
-                                />
+                                {/* Profile Image */}                                <Avatar className="w-full h-full">
+                                  <AvatarImage
+                                    src={userProfile}
+                                    alt={`${userName} profile picture`}
+                                    className="object-cover"
+                                  />
+                                  <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                                    {getInitials(userName)}
+                                  </AvatarFallback>
+                                </Avatar>
+
                               </div>
 
                               {/* Percentage Text at Progress End Point */}
@@ -1091,16 +1104,16 @@ export default function PenaltiesPage() {
               {/* Header with Profile & Date-Time */}
               <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
                 {/* Left Side: User Profile */}
-                <div className="flex items-center space-x-3">
-                  {user?.profilePicture ? (
-                    <img
-                      src={user.profilePicture}
-                      alt="User Profile"
-                      className="w-12 h-12 rounded-full border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105"
-                    />
-                  ) : (
-                    <FaUserCircle className="text-5xl text-white/50 transition-transform duration-300 hover:scale-110" />
-                  )}
+                <div className="flex items-center space-x-3">                  <Avatar className="w-12 h-12 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105">
+                  <AvatarImage
+                    src={user?.profilePicture}
+                    alt="User Profile"
+                    className="object-cover"
+                  />
+                  <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                    {getInitials(user?.name)}
+                  </AvatarFallback>
+                </Avatar>
                   <div>
                     <div className="text-sm font-semibold text-white">{user?.name || "Guest User"}</div>
                     <div className="text-xs text-white/60 truncate w-40 sm:w-32">{user?.email || "No Email"}</div>
@@ -1246,24 +1259,31 @@ export default function PenaltiesPage() {
                   >
                     <TableCell className="min-w-[200px] py-4 px-3">
                       <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-                        <img
-                          src={
-                            typeof penalty.userId === "object" && penalty.userId?.profilePicture
-                              ? penalty.userId.profilePicture
-                              : users?.find((u) =>
-                                u._id ===
-                                (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                              )?.profilePicture ||
-                              "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"
-                          }
-                          alt="User"
-                          className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-[#582c84]/50 bg-gray-300"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src =
-                              "https://i.pinimg.com/236x/34/cc/de/34ccde761b4737df092c6efec66d035e.jpg";
-                          }}
-                        />
+                        <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                          <AvatarImage
+                            src={
+                              typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                                ? penalty.userId.profilePicture
+                                : users?.find((u) =>
+                                  u._id ===
+                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                )?.profilePicture
+                            }
+                            alt="User"
+                            className="object-cover"
+                          />
+                          <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                            {getInitials(
+                              typeof penalty.userId === "object" && penalty.userId?.name
+                                ? penalty.userId.name
+                                : users?.find((u) =>
+                                  u._id ===
+                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                )?.name || "User"
+                            )}
+                          </AvatarFallback>
+                        </Avatar>
+
                         <div className="truncate max-w-[140px] sm:max-w-[180px]">
                           <span className="font-medium text-white">
                             {typeof penalty.userId === "object" && penalty.userId?.name
