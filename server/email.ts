@@ -25,7 +25,7 @@ async function getBaseUrl() {
   return baseUrl;
 }
 
-async function sendEmail({ to, subject, text, html }) {
+async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }) {
   try {
     const info = await transporter.sendMail({
       from: `"${process.env.APP_NAME || "Roomie"}" <${process.env.EMAIL_USER}>`,
@@ -43,7 +43,7 @@ async function sendEmail({ to, subject, text, html }) {
   }
 }
 
-export async function sendInviteEmail(email, name, inviteToken) {
+export async function sendInviteEmail(email: string, name: string, inviteToken: string) {
   const baseUrl = await getBaseUrl();
   const inviteLink = `${baseUrl}/set-password?token=${inviteToken}`;
 
@@ -52,25 +52,51 @@ export async function sendInviteEmail(email, name, inviteToken) {
     subject: "Welcome to Roomie - Set Your Password",
     text: `Hello ${name},\n\nYou've been invited to join Roomie. Click the following link to set your password and activate your account:\n\n${inviteLink}\n\nThis link will expire in 24 hours.\n\nBest regards,\nRoomie Team`,
     html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2 style="color: #4F46E5;">Welcome to Roomie</h2>
-        <p>Hello <strong>${name}</strong>,</p>
-        <p>You've been invited to join <strong>Roomie</strong>. Click the button below to set your password and activate your account:</p>
-        <p>
-          <a href="${inviteLink}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2);">
-            Set Your Password
-          </a>
-        </p>
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="background: #f4f4f4; padding: 10px; border-radius: 5px;">${inviteLink}</p>
-        <p style="color: red;">This link will expire in 24 hours.</p>
-        <p>Best regards,<br><strong>Roomie Team</strong></p>
+      <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <!-- Header with Logo and Gradient -->
+        <div style="text-align: center; background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">
+            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
+            Welcome to Roomie
+          </h1>
+        </div>
+
+        <!-- Main Content -->
+        <div style="background: #1a1a2e; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 24px; color: #fff; margin-bottom: 20px;">
+          <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong style="color: #a78bfa;">${name}</strong>,</p>
+          
+          <p style="font-size: 16px; margin-bottom: 24px; color: rgba(255, 255, 255, 0.9);">You've been invited to join <strong>Roomie</strong>. Click the button below to set your password and activate your account:</p>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${inviteLink}" style="display: inline-block; background: linear-gradient(to right, #582c84, #5433a7); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; box-shadow: 0 4px 12px rgba(88, 44, 132, 0.3); transition: all 0.3s;">
+              Set Your Password
+            </a>
+          </div>
+
+          <!-- Alternative Link -->
+          <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; margin-top: 20px;">
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; margin: 0 0 8px 0;">Or copy and paste this link in your browser:</p>
+            <p style="color: #a78bfa; font-size: 14px; word-break: break-all; margin: 0;">${inviteLink}</p>
+          </div>
+
+          <!-- Expiry Warning -->
+          <p style="color: #f87171; font-size: 14px; margin-top: 24px;">
+            <strong>⚠️ This link will expire in 24 hours.</strong>
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-top: 24px;">
+          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;">Roomie Team</strong></p>
+          <p style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">© ${new Date().getFullYear()} Roomie. All rights reserved.</p>
+        </div>
       </div>
     `,
   });
 }
 
-export async function sendPasswordResetEmail(email, name, resetToken) {
+export async function sendPasswordResetEmail(email: string, name: string, resetToken: string) {
   const baseUrl = await getBaseUrl();
   const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
 
@@ -79,20 +105,50 @@ export async function sendPasswordResetEmail(email, name, resetToken) {
     subject: "Roomie - Password Reset Request",
     text: `Hello ${name},\n\nWe received a request to reset your password. Click the following link to set a new password:\n\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nRoomie Team`,
     html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2 style="color: #E53E3E;">Password Reset Request</h2>
-        <p>Hello <strong>${name}</strong>,</p>
-        <p>We received a request to reset your password. Click the button below to set a new password:</p>
-        <p>
-          <a href="${resetLink}" style="display: inline-block; background-color: #E53E3E; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; box-shadow: 2px 2px 6px rgba(0,0,0,0.2);">
-            Reset Password
-          </a>
-        </p>
-        <p>Or copy and paste this link in your browser:</p>
-        <p style="background: #f4f4f4; padding: 10px; border-radius: 5px;">${resetLink}</p>
-        <p style="color: red;">This link will expire in 1 hour.</p>
-        <p>If you didn't request this, please ignore this email.</p>
-        <p>Best regards,<br><strong>Roomie Team</strong></p>
+      <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <!-- Header with Logo and Gradient -->
+        <div style="text-align: center; background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">
+            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
+            Password Reset
+          </h1>
+        </div>
+
+        <!-- Main Content -->
+        <div style="background: #1a1a2e; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 24px; color: #fff; margin-bottom: 20px;">
+          <p style="font-size: 16px; margin-bottom: 20px;">Hello <strong style="color: #a78bfa;">${name}</strong>,</p>
+          
+          <p style="font-size: 16px; margin-bottom: 24px; color: rgba(255, 255, 255, 0.9);">We received a request to reset your password. Click the button below to set a new password:</p>
+          
+          <!-- Action Button -->
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${resetLink}" style="display: inline-block; background: linear-gradient(to right, #582c84, #5433a7); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; font-size: 16px; box-shadow: 0 4px 12px rgba(88, 44, 132, 0.3); transition: all 0.3s;">
+              Reset Password
+            </a>
+          </div>
+
+          <!-- Alternative Link -->
+          <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 12px; margin-top: 20px;">
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; margin: 0 0 8px 0;">Or copy and paste this link in your browser:</p>
+            <p style="color: #a78bfa; font-size: 14px; word-break: break-all; margin: 0;">${resetLink}</p>
+          </div>
+
+          <!-- Warning Message -->
+          <div style="margin-top: 24px; padding: 12px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px;">
+            <p style="color: #f87171; font-size: 14px; margin: 0;">
+              <strong>⚠️ This link will expire in 1 hour.</strong>
+            </p>
+            <p style="color: rgba(255, 255, 255, 0.7); font-size: 14px; margin: 8px 0 0 0;">
+              If you didn't request this, please ignore this email.
+            </p>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-top: 24px;">
+          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;">Roomie Team</strong></p>
+          <p style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">© ${new Date().getFullYear()} Roomie. All rights reserved.</p>
+        </div>
       </div>
     `,
   });
