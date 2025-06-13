@@ -429,15 +429,15 @@ export default function ProfilePage() {
                 </div>                {/* Stats Section - New Addition */}
                 <div className="grid grid-cols-3 gap-2 w-full mt-2">
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">{userEntries.length}</span>
-                    <span className="text-xs text-white/60">Entries</span>
+                    <span className="text-lg font-bold text-white">{userEntries.filter(entry => entry.status === "APPROVED").length || 0}</span>
+                    <span className="text-xs text-white/60">Approved</span>
                   </div>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">{pendingEntries.length}</span>
+                    <span className="text-lg font-bold text-white">{pendingEntries.length || 0}</span>
                     <span className="text-xs text-white/60">Pending</span>
                   </div>
                   <div className="flex flex-col items-center p-2 rounded-lg bg-black/30 border border-white/5 hover:border-white/10 transition-all">
-                    <span className="text-lg font-bold text-white">₹{totalAmount.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-white">₹{totalAmount.toFixed(2) || 0}</span>
                     <span className="text-xs text-white/60">Amount</span>
                   </div>
                 </div>

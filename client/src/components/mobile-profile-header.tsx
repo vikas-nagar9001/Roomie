@@ -253,8 +253,8 @@ export function MobileProfileHeader() {
         <p className="text-white/70 text-sm mb-4">{user?.email || "No email"}</p>        {/* Stats - Dynamic User Data */}
         <div className="flex w-full justify-around bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl p-3 border border-white/5 shadow-inner">
           <div className="flex flex-col items-center">
-            <span className="text-lg font-bold text-white">{userEntries.length}</span>
-            <span className="text-xs text-white/70">Entries</span>
+            <span className="text-lg font-bold text-white">{userEntries.filter(entry => entry.status === "APPROVED").length}</span>
+            <span className="text-xs text-white/70">Approved</span>
           </div>
           <div className="flex flex-col items-center">
             <span className="text-lg font-bold text-white">{pendingEntries.length}</span>

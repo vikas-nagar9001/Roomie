@@ -725,8 +725,8 @@ export default function EntriesPage() {
                         ? (() => {
                           // Calculate the total approved amount
                           const totalApproved = entries
-                            .filter((e) => e.status === "APPROVED")
-                            .reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                            .filter((e: Entry) => e.status === "APPROVED")
+                            .reduce((sum: number, entry: Entry) => sum + (entry.amount || 0), 0);
 
                           // Ensure penaltiesTotal is a valid number
                           const totalAfterPenalty = totalApproved - (totalPenaltyAmount || 0);
@@ -734,68 +734,25 @@ export default function EntriesPage() {
                           return totalAfterPenalty.toFixed(2);
                         })()
                         : "0.00"}
-
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
-                      }).length || 0} Entries
+                      {entries && Array.isArray(entries) ? entries.filter((e: Entry) => e.status === "APPROVED").length : 0} Entries
                     </div>
                   </div>
                 </div>
-
-                {/* Penalty */}
-                {/* <div className="flex justify-between items-center">
-                  <span className="text-white/80">Penalty:</span>
-                  <div className="text-end sm:text-right">
-                    <div className="font-bold text-yellow-400 text-lg">
-                      ₹{totalPenaltyAmount}
-                    </div>
-                    <div className="text-sm text-white/60">
-                      {totalPenaltyEntries} Entries
-                    </div>
-                  </div>
-                </div> */}
 
                 {/* Pending */}
                 <div className="flex justify-between items-center">
                   <span className="text-white/80">Pending:</span>
                   <div className="text-end sm:text-right">
                     <div className="font-bold text-yellow-400 text-lg">
-                      ₹{entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-
-                        return userIdStr === currentUserIdStr && e.status === "PENDING";
-                      })
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
+                      ₹{entries && Array.isArray(entries) 
+                          ? entries.filter((e: Entry) => e.status === "PENDING")
+                              .reduce((sum: number, entry: Entry) => sum + (entry.amount || 0), 0).toFixed(2) 
+                          : "0.00"}
                     </div>
                     <div className="text-sm text-white/60">
-                      {entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-                        return userIdStr === currentUserIdStr && e.status === "PENDING";
-                      }).length || 0} Entries
+                      {entries && Array.isArray(entries) ? entries.filter((e: Entry) => e.status === "PENDING").length : 0} Entries
                     </div>
                   </div>
                 </div>

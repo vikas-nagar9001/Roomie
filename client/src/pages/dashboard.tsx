@@ -68,7 +68,7 @@ export default function Dashboard() {
           <div className="relative group">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10">
-              <p className="text-indigo-200/60 text-sm">Total Entries</p>
+              <p className="text-indigo-200/60 text-sm">Approved Entries</p>
               <p className="text-2xl font-bold text-white">
                 {entries?.filter((e) => {
                   const entryUserId = typeof e.userId === 'object' && e.userId !== null
@@ -76,7 +76,7 @@ export default function Dashboard() {
                     : e.userId;
                   const userIdStr = entryUserId?.toString();
                   const currentUserIdStr = user?._id?.toString();
-                  return userIdStr === currentUserIdStr;
+                  return userIdStr === currentUserIdStr && e.status === "APPROVED";
                 }).length || 0}
               </p>
             </div>

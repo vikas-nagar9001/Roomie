@@ -115,7 +115,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
     null
   );
 
-  const usersPerPage = 6;
+  const usersPerPage = 4;
 
   // Filtered users based on search input
   const filteredUsers =
