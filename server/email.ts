@@ -11,7 +11,7 @@ const transporter = nodemailer.createTransport({
 
 async function getBaseUrl() {
   let baseUrl = process.env.BASE_URL;
- 
+
   //for ngrok 
 
   // try {
@@ -55,10 +55,16 @@ export async function sendInviteEmail(email: string, name: string, inviteToken: 
       <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header with Logo and Gradient -->
         <div style="background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
-            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Welcome to Roomie</h1>
-          </div>
+           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td style="width: 60px;">
+          <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+        </td>
+        <td style="text-align: right;">
+          <h1 style="color: white; margin: 0; font-size: 18px; font-weight: 500;">Welcome to Roomie</h1>
+        </td>
+      </tr>
+    </table>
         </div>
 
         <!-- Main Content -->
@@ -88,7 +94,7 @@ export async function sendInviteEmail(email: string, name: string, inviteToken: 
 
         <!-- Footer -->
         <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-top: 24px;">
-          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;">Roomie Team</strong></p>
+          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;"> Team Roomie </strong></p>
           <p style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">© ${new Date().getFullYear()} Roomie. All rights reserved.</p>
         </div>
       </div>
@@ -108,10 +114,16 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
       <div style="font-family: Inter, system-ui, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px;">
         <!-- Header with Logo and Gradient -->
         <div style="background: linear-gradient(to right, #582c84, #5433a7); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-          <div style="display: flex; align-items: center; justify-content: space-between;">
-            <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
-            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 600;">Password Reset</h1>
-          </div>
+           <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+      <tr>
+        <td style="width: 60px;">
+          <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+        </td>
+        <td style="text-align: right;">
+          <h1 style="color: white; margin: 0; font-size: 18px; font-weight: 500;">Password Reset</h1>
+        </td>
+      </tr>
+    </table>
         </div>
 
         <!-- Main Content -->
@@ -146,7 +158,7 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
 
         <!-- Footer -->
         <div style="text-align: center; color: rgba(255, 255, 255, 0.7); font-size: 14px; margin-top: 24px;">
-          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;">Roomie Team</strong></p>
+          <p style="margin-bottom: 12px;">Best regards,<br><strong style="color: #a78bfa;"> Team Roomie </strong></p>
           <p style="font-size: 12px; color: rgba(255, 255, 255, 0.5);">© ${new Date().getFullYear()} Roomie. All rights reserved.</p>
         </div>
       </div>
