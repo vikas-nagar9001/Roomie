@@ -83,7 +83,7 @@ export default function AuthPage() {
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
 
       {/* Install App FAB */}
-      <InstallAppFab />
+     <InstallAppFab />
 
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
         <div className="flex items-center justify-center">

@@ -54,7 +54,7 @@ export function InstallAppFab({ className }: InstallAppFabProps) {
 
   return (
     <div
-      className={`fixed ${isMobile ? 'top-20' : 'bottom-6'} right-6 transform transition-all duration-700 ease-out 
+      className={`fixed ${isMobile ? 'top-2' : 'bottom-6'} right-6 transform transition-all duration-700 ease-out 
         ${isButtonVisible 
           ? isMobile 
             ? 'translate-y-0 opacity-100' 
