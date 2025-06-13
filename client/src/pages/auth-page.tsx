@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff } from "lucide-react";
+import Logo from "../../Roomie.png";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();
@@ -89,7 +90,7 @@ export default function AuthPage() {
             </CardHeader>
             <CardContent>
               <div className="flex flex-col items-center justify-center mb-6">
-                <img src="Roomie.png" alt="Roomie Logo" className="w-20 h-14 mb-2" />
+                <img src={Logo} alt="Roomie Logo" className="w-20 h-14 mb-2" />
                 <h2 className="text-xl font-bold text-white">
                   {activeTab === 'login' ? headerLogin : headerRegister}
                 </h2>

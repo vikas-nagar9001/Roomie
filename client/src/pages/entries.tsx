@@ -1281,14 +1281,22 @@ export default function EntriesPage() {
                 <p className="text-sm text-white/40">Start by adding your first entry!</p>
               </div>
             </div>
-          ) : (
-            /* Pagination Component - Only shown when entries exist */
+          ) : filteredEntries && filteredEntries.length > 0 ? (
+            /* Pagination Component - Only shown when filtered entries exist */
             <div className="flex justify-center mt-4">
               <CustomPagination
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
               />
+            </div>
+          ) : (
+            <div className="py-8 text-center text-white/60">
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
+                <p className="text-lg font-medium">No matching entries found</p>
+                <p className="text-sm text-white/40">Try adjusting your search criteria</p>
+              </div>
             </div>
           )}
 

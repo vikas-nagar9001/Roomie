@@ -191,7 +191,7 @@ export function MobileProfileHeader() {
             <AvatarImage src={user?.profilePicture} alt={user?.name || "User"} />
             <AvatarFallback className="bg-[#1a1a2e] text-white text-2xl">
               {getInitials(user?.name)}
-            </AvatarFallback>
+            </AvatarFallback> 
           </Avatar>
           
           {/* Pencil Icon Overlay */}

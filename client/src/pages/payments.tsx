@@ -424,7 +424,7 @@ export default function PaymentsPage() {
                   </TableBody>
                 </Table>
 
-                {(!payments || payments.length === 0) && (
+                {(!payments || payments.length === 0) ? (
                   <div className="py-8 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
@@ -432,15 +432,16 @@ export default function PaymentsPage() {
                       <p className="text-sm text-white/40">Start by creating a new bill!</p>
                     </div>
                   </div>
+                ) : (
+                  <div className="flex justify-center mt-4 mb-20 md:mb-4">
+                    <CustomPagination
+                      currentPage={currentPage}
+                      totalPages={Math.ceil(payments.length / itemsPerPage)}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
                 )}
 
-                <div className="flex justify-center mt-4 mb-20 md:mb-4">
-                  <CustomPagination
-                    currentPage={currentPage}
-                    totalPages={Math.ceil(payments.length / itemsPerPage)}
-                    onPageChange={setCurrentPage}
-                  />
-                </div>
               </TabsContent>
 
               <TabsContent value="bills" className="mt-4">
@@ -501,7 +502,7 @@ export default function PaymentsPage() {
 
                 </Table>
 
-                {(!bills || bills.length === 0) && (
+                {(!bills || bills.length === 0) ? (
                   <div className="py-8 text-center text-white/60">
                     <div className="flex flex-col items-center justify-center space-y-3">
                       <FaClipboardList className="w-12 h-12 text-[#582c84] opacity-50" />
@@ -509,15 +510,15 @@ export default function PaymentsPage() {
                       <p className="text-sm text-white/40">Create your first bill!</p>
                     </div>
                   </div>
+                ) : (
+                  <div className="flex justify-center mt-4 mb-20 md:mb-4">
+                    <CustomPagination
+                      currentPage={currentBillsPage}
+                      totalPages={Math.ceil(bills.length / itemsPerPage)}
+                      onPageChange={setCurrentBillsPage}
+                    />
+                  </div>
                 )}
-
-                <div className="flex justify-center mt-4 mb-20 md:mb-4">
-                  <CustomPagination
-                    currentPage={currentBillsPage}
-                    totalPages={Math.ceil(bills.length / itemsPerPage)}
-                    onPageChange={setCurrentBillsPage}
-                  />
-                </div>
               </TabsContent>
             </Tabs>
           </div>

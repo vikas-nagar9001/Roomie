@@ -40,6 +40,15 @@ interface CropArea {
   height: number;
 }
 
+const getInitials = (name: string | undefined) => {
+  if (!name) return "U";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
+};
+
 export default function ProfilePage() {
   const { user, logoutMutation } = useAuth();
   const [name, setName] = useState(user?.name || "");
@@ -340,11 +349,11 @@ export default function ProfilePage() {
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full opacity-70 blur-sm group-hover:opacity-100 transition-all duration-300"></div>
                   <Avatar className="h-28 w-28 border-2 border-white/20 group-hover:border-white/40 transition-all relative">
                     <AvatarImage
-                      src={user?.profilePicture || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s"}
+                      src={user?.profilePicture}
                       className="object-cover"
                     />
-                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-purple-700 text-xl font-semibold">
-                      {user?.name?.charAt(0).toUpperCase()}
+                    <AvatarFallback className="bg-[#1a1a2e] text-white text-2xl">
+                      {getInitials(user?.name)}
                     </AvatarFallback>
                   </Avatar>
 
