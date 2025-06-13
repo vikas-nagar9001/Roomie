@@ -16,7 +16,7 @@ import { useState, useEffect } from "react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff } from "lucide-react";
-import Logo from "../../Roomie.png";
+const Logo = "/static/images/Roomie.png";
 
 export default function AuthPage() {
   const { user, loginMutation, registerMutation } = useAuth();

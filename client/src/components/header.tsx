@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { FiUser } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import Logo from "../../Roomie.png";
+const Logo = "/static/images/Roomie.png";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const getInitials = (name: string | undefined) => {

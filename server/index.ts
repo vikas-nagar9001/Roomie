@@ -15,23 +15,33 @@ const server = registerRoutes(app);
   try {
     await storage.connect();
 
-    // 🔹 Middleware to set cache-control headers
+    // Static assets caching middleware
     app.use((req, res, next) => {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.setHeader("Surrogate-Control", "no-store"); // For CDNs
+      // Cache static images for 1 week
+      if (req.path.startsWith("/static/images/")) {
+        res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+      }
+      // Cache other static assets for 1 day
+      else if (req.path.startsWith("/static/")) {
+        res.setHeader("Cache-Control", "public, max-age=86400, must-revalidate");
+      }
+      // No caching for API and other routes
+      else {
+        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        res.setHeader("Pragma", "no-cache");
+        res.setHeader("Expires", "0");
+        res.setHeader("Surrogate-Control", "no-store");
+      }
       next();
     });
 
-    // 🔹 Error-handling middleware
+    // Error-handling middleware
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
 
       console.error(`❌ Error [${status}]: ${message}`);
-
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate"); // Ensure error responses are not cached
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
       res.status(status).json({ message });
     });
 
@@ -42,7 +52,7 @@ const server = registerRoutes(app);
     }
 
     const PORT = process.env.SERVER_PORT || 5000;
-    server.listen( PORT , () => {
+    server.listen(PORT, () => {
       log(`🚀 Server running on port ${PORT}`);
     });
   } catch (error) {
