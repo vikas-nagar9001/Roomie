@@ -8,18 +8,18 @@ import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { showSuccess, showError } from "@/services/toastService";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [, setLocation] = useLocation();
 
   // Show loader when page loads
   useEffect(() => {
     // Hide any existing loaders first
     hideLoader();
-    // Then show the loader
-    showLoader();
-    
+
     // Force hide the loader when component unmounts to prevent stuck loaders
     return () => {
       forceHideLoader();
@@ -88,15 +88,30 @@ export default function SetPasswordPage() {
           >
             <div>
               <Label htmlFor="password">Password</Label>
-              <Input
-                className="bg-transparent"
-                placeholder="Set your password"
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <Input
+                  className="bg-transparent text-white pr-10"
+                  placeholder="Set your password"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent text-gray-400 hover:text-white"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
             <Button
               type="submit"

@@ -26,6 +26,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { MobileProfileHeader } from "@/components/mobile-profile-header";
 import { MobileProfileTabs } from "@/components/mobile-profile-tabs";
+import { InstallAppFab } from "@/components/install-app-fab";
 
 interface Activity {
   _id: string;
@@ -359,7 +360,9 @@ export default function ProfilePage() {
   const totalAmount = approvedAmount - totalPenalties;
 
   return (
+    
     <div className="min-h-screen bg-[#0f0f1f] sm:pt-10 pb-20">
+     
       {/* Header - Hidden on mobile */}
       <div className="hidden md:block">
         <Header />
@@ -820,11 +823,15 @@ export default function ProfilePage() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Install App FAB */}
+      <InstallAppFab className="top-20 bottom-6 md:top-auto" />
 
       {/* Mobile Navigation */}
       <div className="block md:hidden">
         <MobileNav />
       </div>
+    
     </div>
+    
   );
 }
