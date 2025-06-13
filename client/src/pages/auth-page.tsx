@@ -16,6 +16,7 @@ import { useState, useEffect } from "react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, EyeOff } from "lucide-react";
+import { InstallAppFab } from "@/components/install-app-fab";
 const Logo = "/static/images/Roomie.png";
 
 export default function AuthPage() {
@@ -70,6 +71,7 @@ export default function AuthPage() {
     },
   });
 
+
   if (user) {
     return <Redirect to="/" />;
   }
@@ -80,7 +82,8 @@ export default function AuthPage() {
       <div className="absolute top-0 left-0 w-full h-[50vh] bg-gradient-to-br from-[#5433a7]/20 to-[#582c84]/10 blur-3xl"></div>
       <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl"></div>
 
-
+      {/* Install App FAB */}
+      <InstallAppFab />
 
       <div className="grid md:grid-cols-2 gap-8 max-w-6xl w-full p-4 md:p-8 relative z-10">
         <div className="flex items-center justify-center">
@@ -341,7 +344,6 @@ export default function AuthPage() {
           </form>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
