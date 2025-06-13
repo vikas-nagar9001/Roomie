@@ -27,6 +27,8 @@ import "react-responsive-pagination/themes/classic.css";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { showLoader, hideLoader } from "@/services/loaderService";
 import { showSuccess, showError } from "@/services/toastService";
+import { useAuth } from "@/hooks/use-auth";
+import { useLocation } from "wouter";
 
 interface UserTableProps {
   search: string;
@@ -45,6 +47,8 @@ const getInitials = (name: string) => {
 };
 
 export function UserTable({ search, onLoadComplete }: UserTableProps) {
+  const { user: currentUser } = useAuth();
+  const [, navigate] = useLocation();
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/allUsers"],
   });
@@ -80,11 +84,28 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
         throw error;
       }
     },
-    onSuccess: () => {
+    onSuccess: (updatedUser, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
+
+      // If the updated user is the current user and the role was changed
+      if (variables.userId === currentUser?._id && "role" in variables.data) {
+        // Show a message and redirect to dashboard
+        showSuccess("Your role has been updated. Redirecting to dashboard...");
+        setTimeout(() => {
+          // Navigate to dashboard and force a page reload
+          navigate("/");
+          window.location.reload();
+        }, 1500);
+      } else if ("status" in variables.data) {
+        // Status update was handled in the click handler
+      } else if ("role" in variables.data) {
+        // Role update for other users was handled in the click handler
+      }
+
       hideLoader();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      showError("Update failed: " + error.message);
       hideLoader();
     },
   });
@@ -100,9 +121,11 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
       }
     },
     onSuccess: () => {
+      showSuccess("Invite has been resent successfully");
       hideLoader();
     },
-    onError: () => {
+    onError: (error: Error) => {
+      showError("Failed to resend invite: " + error.message);
       hideLoader();
     },
   });
@@ -132,7 +155,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
     currentPage * usersPerPage
   );
   const handleDeleteUser = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || !userToDeleteDetails) return;
 
     showLoader();
     try {
@@ -146,7 +169,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
       // Invalidate the query to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
 
-      showSuccess("The user has been successfully deleted.");
+      showSuccess(`${userToDeleteDetails.name} has been successfully deleted.`);
     } catch (error) {
       console.error("Error:", error);
       showError("Failed to delete user. Please try again.");
@@ -191,7 +214,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
               >
                 <TableCell className="min-w-[200px] py-4 px-3">
                   <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                    <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
                       <AvatarImage
                         src={user.profilePicture}
                         alt={user.name}
@@ -281,14 +304,19 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
-                        onClick={() =>
+                        onClick={() => {
+                          const newRole = user.role === "USER" ? "ADMIN" : "USER";
                           updateUserMutation.mutate({
                             userId: user._id,
                             data: {
-                              role: user.role === "USER" ? "ADMIN" : "USER",
+                              role: newRole,
                             },
-                          })
+                          });
+                          // Show feedback message right away if this is the current user
+                          if (user._id != currentUser?._id) {
+                            showSuccess(`User role updated to ${newRole}`);
                         }
+                        }}
                         className="text-white hover:bg-[#582c84]/20"
                       >
                         Toggle Role
@@ -296,17 +324,16 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                       {user.status !== "PENDING" && (
                         <DropdownMenuItem
                           className="text-white hover:bg-[#582c84]/20"
-                          onClick={() =>
+                          onClick={() => {
+                            const newStatus = user.status === "ACTIVE" ? "DEACTIVATED" : "ACTIVE";
                             updateUserMutation.mutate({
                               userId: user._id,
                               data: {
-                                status:
-                                  user.status === "ACTIVE"
-                                    ? "DEACTIVATED"
-                                    : "ACTIVE",
+                                status: newStatus,
                               },
-                            })
-                          }
+                            });
+                            showSuccess(`User ${newStatus === "ACTIVE" ? "activated" : "deactivated"} successfully`);
+                          }}
                         >
                           {user.status === "ACTIVE" ? "Deactivate" : "Activate"}
                         </DropdownMenuItem>

@@ -14,10 +14,12 @@ interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: React.ReactNode;
   onConfirm: () => void;
   confirmText?: string;
   cancelText?: string;
+  className?: string;
+  variant?: "default" | "destructive";
 }
 
 export function ConfirmDialog({
