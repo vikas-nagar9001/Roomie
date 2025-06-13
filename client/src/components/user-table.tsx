@@ -46,7 +46,7 @@ const getInitials = (name: string) => {
 
 export function UserTable({ search, onLoadComplete }: UserTableProps) {
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
-    queryKey: ["/api/users"],
+    queryKey: ["/api/allUsers"],
   });
   // Hide loader when data fetching is done
   useEffect(() => {
@@ -81,7 +81,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
       hideLoader();
     },
     onError: () => {
@@ -144,7 +144,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
       }
 
       // Invalidate the query to refresh the data
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
 
       showSuccess("The user has been successfully deleted.");
     } catch (error) {

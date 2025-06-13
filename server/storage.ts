@@ -11,6 +11,10 @@ import {
   UserStatus,
   Activity as ActivitySchema,
   InsertActivity,
+  Entry,
+  InsertPenalty,
+  Penalty,
+  PenaltySettings,
 } from "@shared/schema";
 import session from "express-session";
 import MongoStore from "connect-mongo";
@@ -166,6 +170,7 @@ export interface IStorage {
   getUserByInviteToken(token: string): Promise<UserSchema | undefined>;
   getUserByResetToken(token: string): Promise<UserSchema | undefined>;
   getUsersByFlatId(flatId: string): Promise<UserSchema[]>;
+  getAllUsersByFlatId(flatId: string): Promise<UserSchema[]>; // New method
   createUser(user: Partial<UserSchema>): Promise<UserSchema>;
   createFlat(flat: InsertFlat): Promise<Flat>;
   updateUser(
@@ -204,10 +209,10 @@ export class MongoStorage implements IStorage {
       ttl: 30 * 24 * 60 * 60, // 30 days
       autoRemove: 'native'
     });
-  }   
-  
-//in auth.ts
-//browser cookie will be set to expire in 30 days so in mongo the stored session will be removed after 30 days
+  }
+
+  //in auth.ts
+  //browser cookie will be set to expire in 30 days so in mongo the stored session will be removed after 30 days
 
 
   async getFlatById(flatId: string): Promise<Flat | undefined> {
@@ -291,16 +296,16 @@ export class MongoStorage implements IStorage {
 
 
 
-async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.Types.ObjectId }): Promise<PenaltySettingsDocument> {
+  async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.Types.ObjectId }): Promise<PenaltySettingsDocument> {
     const settings = new PenaltySettingsModel({
-        ...data,
-        updatedAt: new Date(),
-        lastPenaltyAppliedAt: new Date(), // ✅ Store the current date instead of null
+      ...data,
+      updatedAt: new Date(),
+      lastPenaltyAppliedAt: new Date(), // ✅ Store the current date instead of null
     });
 
     await settings.save();
     return settings.toObject(); // Ensure it returns the correct structure
-}
+  }
 
 
 
@@ -329,20 +334,20 @@ async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.
     console.log("Flat ID:", flatId);
 
     const result = await PenaltySettingsModel.updateOne(
-        { flatId: new mongoose.Types.ObjectId(flatId) },
-        { $set: { lastPenaltyAppliedAt: date } }
+      { flatId: new mongoose.Types.ObjectId(flatId) },
+      { $set: { lastPenaltyAppliedAt: date } }
     );
 
     console.log("Update result:", result);
-    
-    if (result.modifiedCount > 0) {
-        console.log("✅ Success: lastPenaltyAppliedAt updated for Flat ID:", flatId);
-    } else {
-        console.warn("⚠️ Warning: No document updated for Flat ID:", flatId);
-    }
-}
 
-  
+    if (result.modifiedCount > 0) {
+      console.log("✅ Success: lastPenaltyAppliedAt updated for Flat ID:", flatId);
+    } else {
+      console.warn("⚠️ Warning: No document updated for Flat ID:", flatId);
+    }
+  }
+
+
 
   async connect() {
     await mongoose.connect(process.env.MONGODB_URI!);
@@ -397,8 +402,24 @@ async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.
   }
 
   async getUsersByFlatId(flatId: string): Promise<UserSchema[]> {
-    const users = await UserModel.find({ flatId });
-    return users.map((user) => this.convertId(user.toObject()));
+    const users = await UserModel.find({
+      flatId,
+      status: { $ne: "PENDING" } // Exclude users with PENDING status
+    }).lean();
+    return users.map(user => ({
+      ...user,
+      _id: user._id.toString(),
+      flatId: user.flatId.toString()
+    })) as UserSchema[];
+  }
+
+  async getAllUsersByFlatId(flatId: string): Promise<UserSchema[]> {
+    const users = await UserModel.find({ flatId }).lean();
+    return users.map(user => ({
+      ...user,
+      _id: user._id.toString(),
+      flatId: user.flatId.toString()
+    })) as UserSchema[];
   }
 
   async createUser(userData: Partial<UserSchema>): Promise<UserSchema> {
@@ -547,7 +568,7 @@ async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.
       { $set: update },
       { new: true }
     ).exec();
-    
+
     return updatedFlat ? this.convertId(updatedFlat.toObject()) : undefined;
   }
 }

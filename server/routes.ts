@@ -54,12 +54,20 @@ export function registerRoutes(app: Express): Server {
     mkdirAsync(uploadsDir, { recursive: true }).catch(console.error);
   }
 
-  // Get all users in the flat
+  // Get users in the flat except pending users
   app.get("/api/users", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     const users = await storage.getUsersByFlatId(req.user.flatId);
     res.json(users);
   });
+
+  // Get all users include pending users
+  app.get("/api/allUsers", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    const users = await storage.getAllUsersByFlatId(req.user.flatId);
+    res.json(users);
+  });
+
 
   // Get user activities
   app.get("/api/user/activities", async (req, res) => {
