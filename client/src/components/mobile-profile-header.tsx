@@ -17,16 +17,6 @@ export function MobileProfileHeader() {
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
-  // Fetch user statistics
-  const { data: userStats } = useQuery({
-    queryKey: ["/api/user/stats"],
-    queryFn: async () => {
-      if (!user) return { entriesCount: 0, pendingCount: 0, totalAmount: 0 };
-      const res = await apiRequest("GET", "/api/user/stats");
-      return res.json();
-    },
-    enabled: !!user,
-  });
 
   // Fetch entries and payments data
   const { data: entries = [] } = useQuery<any[]>({
@@ -45,9 +35,41 @@ export function MobileProfileHeader() {
 
   const pendingEntries = userEntries.filter(e => e.status === "PENDING");
   
-  const totalAmount = userEntries.reduce((sum, entry) => {
-    return sum + (typeof entry.amount === 'number' ? entry.amount : 0);
-  }, 0);
+  // Calculate amount only from approved entries
+  const approvedAmount = userEntries
+    .filter(entry => entry.status === "APPROVED")
+    .reduce((sum, entry) => sum + (typeof entry.amount === 'number' ? entry.amount : 0), 0);
+
+  // Get total penalties
+  const [totalPenalties, setTotalPenalties] = useState(0);
+
+  // Fetch penalties
+  useEffect(() => {
+    const fetchPenalties = async () => {
+      try {
+        const response = await fetch("/api/penalties");
+        const data = await response.json();
+        
+        // Calculate user penalties
+        const userPenalties = data.filter(penalty => {
+          const penaltyUserId = typeof penalty.userId === 'object' ? penalty.userId._id : penalty.userId;
+          return penaltyUserId?.toString() === user?._id?.toString();
+        });
+        
+        const penaltyTotal = userPenalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0);
+        setTotalPenalties(penaltyTotal);
+      } catch (error) {
+        console.error("Error fetching penalties:", error);
+      }
+    };
+    
+    if (user?._id) {
+      fetchPenalties();
+    }
+  }, [user?._id]);
+
+  // Final amount after subtracting penalties
+  const totalAmount = approvedAmount - totalPenalties;
 
   // Clear cache mutation
   const clearCacheMutation = useMutation({

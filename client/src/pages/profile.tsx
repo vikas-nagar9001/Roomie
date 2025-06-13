@@ -332,11 +332,31 @@ export default function ProfilePage() {
     return userIdStr === currentUserIdStr;
   }) || [];
 
+  // Get only approved entries
+  const approvedEntries = userEntries.filter(e => e.status === "APPROVED");
   const pendingEntries = userEntries.filter(e => e.status === "PENDING");
+
+  // Get penalties for the user
+  const { data: penaltiesData } = useQuery<Penalty[]>({
+    queryKey: ["/api/penalties"],
+  });
+
+  const userPenalties = penaltiesData?.filter((p) => {
+    const penaltyUserId = typeof p.userId === 'object' ? p.userId._id : p.userId;
+    return penaltyUserId?.toString() === user?._id?.toString();
+  }) || [];
+
+  // Calculate total penalties
+  const totalPenalties = userPenalties.reduce((sum, penalty) => {
+    return sum + (typeof penalty.amount === 'number' ? penalty.amount : 0);
+  }, 0);
   
-  const totalAmount = userEntries.reduce((sum, entry) => {
+  // Calculate total amount (approved entries - penalties)
+  const approvedAmount = approvedEntries.reduce((sum, entry) => {
     return sum + (typeof entry.amount === 'number' ? entry.amount : 0);
   }, 0);
+  
+  const totalAmount = approvedAmount - totalPenalties;
 
   return (
     <div className="min-h-screen bg-[#0f0f1f] sm:pt-10 pb-20">
