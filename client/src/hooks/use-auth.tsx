@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
-      showSuccess("Login successful! Welcome back.");
+      showSuccess("Login successful!");
       hideLoader();
     },    onError: (error: Error) => {
       showError("Login failed: " + error.message);

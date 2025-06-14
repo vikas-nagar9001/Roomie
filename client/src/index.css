@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+* {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html,
+body {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: none;
+}
+
 @layer base {
   * {
     @apply border-border;
