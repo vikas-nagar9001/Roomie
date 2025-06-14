@@ -311,19 +311,23 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                           Resend Invite
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem
-                        onClick={() => {
+                      <DropdownMenuItem                        onClick={() => {
                           const newRole = user.role === "USER" ? "ADMIN" : "USER";
-                          updateUserMutation.mutate({
-                            userId: user._id,
-                            data: {
-                              role: newRole,
+                          updateUserMutation.mutate(
+                            {
+                              userId: user._id,
+                              data: {
+                                role: newRole,
+                              },
                             },
-                          });
-                          // Show feedback message right away if this is the current user
-                          if (user._id != currentUser?._id) {
-                            showSuccess(`User role updated to ${newRole}`);
-                        }
+                            {
+                              onSuccess: () => {
+                                if (user._id !== currentUser?._id) {
+                                  showSuccess(`User role updated to ${newRole}`);
+                                }
+                              }
+                            }
+                          );
                         }}
                         className="text-white hover:bg-[#582c84]/20"
                       >
@@ -332,15 +336,20 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                       {user.status !== "PENDING" && (
                         <DropdownMenuItem
                           className="text-white hover:bg-[#582c84]/20"
-                          onClick={() => {
-                            const newStatus = user.status === "ACTIVE" ? "DEACTIVATED" : "ACTIVE";
-                            updateUserMutation.mutate({
-                              userId: user._id,
-                              data: {
-                                status: newStatus,
+                          onClick={() => {                            const newStatus = user.status === "ACTIVE" ? "DEACTIVATED" : "ACTIVE";
+                            updateUserMutation.mutate(
+                              {
+                                userId: user._id,
+                                data: {
+                                  status: newStatus,
+                                },
                               },
-                            });
-                            showSuccess(`User ${newStatus === "ACTIVE" ? "activated" : "deactivated"} successfully`);
+                              {
+                                onSuccess: () => {
+                                  showSuccess(`User ${newStatus === "ACTIVE" ? "activated" : "deactivated"} successfully`);
+                                }
+                              }
+                            );
                           }}
                         >
                           {user.status === "ACTIVE" ? "Deactivate" : "Activate"}

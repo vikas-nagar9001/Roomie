@@ -370,7 +370,7 @@ export function registerRoutes(app: Express): Server {
       if (currentSettings.warningPeriodDays !== Number(warningPeriodDays)) {
         const now = new Date();
         await storage.updateLastPenaltyDate(flatId, now);
-        console.log("Penalty Setting Updated LastAppliedDate updated to "+now)
+        console.log("Penalty Setting Updated LastAppliedDate updated to " + now)
         await updatePenaltyScheduler(flatId);
       }
 
@@ -576,14 +576,14 @@ export function registerRoutes(app: Express): Server {
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
       return res.status(403).json({ message: "Only admins can run contribution checks" });
     }
-  
+
     try {
       const flatId = req.user.flatId;
       const flat = await storage.getFlatById(flatId);
       const settings = await storage.getPenaltySettings(flatId);
-  
-      const deficitUsers = await applyPenaltiesForFlat(flat, settings,'Manual');
-  
+
+      const deficitUsers = await applyPenaltiesForFlat(flat, settings, 'Manual');
+
       res.json({
         message: `Contribution check completed. ${deficitUsers} users penalized.`,
         deficitUsers
@@ -884,6 +884,12 @@ export function registerRoutes(app: Express): Server {
         return res.sendStatus(404);
       }
 
+      // If deactivating a user, destroy their sessions
+      if (req.body.status === "DEACTIVATED") {
+        await storage.destroySessionsByUserId(userId);
+      }
+
+
       const updatedUser = await storage.updateUser(userId, req.body);
       res.json(updatedUser);
     } catch (error) {
@@ -1055,11 +1061,11 @@ export function registerRoutes(app: Express): Server {
     try {
       const { flatId } = req.params;
       const flat = await storage.getFlatById(flatId);
-      
+
       if (!flat) {
         return res.status(404).json({ message: "Flat not found" });
       }
-      
+
       res.json(flat);
     } catch (error) {
       console.error("Failed to get flat details:", error);
@@ -1082,11 +1088,11 @@ export function registerRoutes(app: Express): Server {
         name,
         minApprovalAmount: Number(minApprovalAmount)
       });
-      
+
       if (!flat) {
         return res.status(404).json({ message: "Flat not found" });
       }
-      
+
       res.json(flat);
     } catch (error) {
       console.error("Failed to update flat settings:", error);

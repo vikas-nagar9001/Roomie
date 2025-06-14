@@ -195,25 +195,45 @@ export interface IStorage {
   updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined>;
   sessionStore: session.Store;
 }
-
+import type { MongoClient } from 'mongodb';
 
 export class MongoStorage implements IStorage {
   sessionStore: session.Store;
+  clientPromise: Promise<MongoClient>;
 
   constructor() {
     if (!process.env.MONGODB_URI) {
       throw new Error('MONGODB_URI environment variable is required');
     }
-    this.sessionStore = MongoStore.create({
+
+    const store = MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 30 * 24 * 60 * 60, // 30 days
+      ttl: 30 * 24 * 60 * 60,
       autoRemove: 'native'
     });
+
+    this.sessionStore = store;
+
+    // ⛳ Extract the clientPromise if available
+    this.clientPromise = (store as any).clientPromise;
+    if (!this.clientPromise) {
+      throw new Error('clientPromise is not available on the session store');
+    }
   }
+
+
+  async destroySessionsByUserId(userId: string) {
+    // Access the sessions collection directly using the MongoDB client from the session store
+    const client = await this.clientPromise;
+    const db = client.db(); // Uses the default database from the connection string
+    await db.collection('sessions');
+  }
+
+
+
 
   //in auth.ts
   //browser cookie will be set to expire in 30 days so in mongo the stored session will be removed after 30 days
-
 
   async getFlatById(flatId: string): Promise<Flat | undefined> {
     try {
