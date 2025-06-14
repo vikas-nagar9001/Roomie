@@ -199,38 +199,44 @@ import type { MongoClient } from 'mongodb';
 
 export class MongoStorage implements IStorage {
   sessionStore: session.Store;
-  clientPromise: Promise<MongoClient>;
+  private client: MongoClient | null = null;
 
   constructor() {
     if (!process.env.MONGODB_URI) {
       throw new Error('MONGODB_URI environment variable is required');
     }
 
-    const store = MongoStore.create({
+    this.sessionStore = MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
-      ttl: 30 * 24 * 60 * 60,
+      ttl: 30 * 24 * 60 * 60, // 30 days
       autoRemove: 'native'
     });
 
-    this.sessionStore = store;
+    // Initialize MongoDB client
+    mongoose.connection.on('connected', () => {
+      this.client = mongoose.connection.getClient();
+    });
+  }
 
-    // ⛳ Extract the clientPromise if available
-    this.clientPromise = (store as any).clientPromise;
-    if (!this.clientPromise) {
-      throw new Error('clientPromise is not available on the session store');
+  async destroySessionsByUserId(userId: string): Promise<void> {
+    try {
+      if (!this.client) {
+        throw new Error('MongoDB client not initialized');
+      }
+
+      const db = this.client.db();
+      const collection = db.collection('sessions');
+      
+      const result = await collection.deleteMany({
+        session: new RegExp(`.*"passport":{"user":"${userId}"}.*`)
+      });
+
+      console.log(`Deleted ${result.deletedCount} sessions for user ${userId}`);
+    } catch (error) {
+      console.error('Error destroying sessions:', error);
+      throw error;
     }
   }
-
-
-  async destroySessionsByUserId(userId: string) {
-    // Access the sessions collection directly using the MongoDB client from the session store
-    const client = await this.clientPromise;
-    const db = client.db(); // Uses the default database from the connection string
-    await db.collection('sessions');
-  }
-
-
-
 
   //in auth.ts
   //browser cookie will be set to expire in 30 days so in mongo the stored session will be removed after 30 days
