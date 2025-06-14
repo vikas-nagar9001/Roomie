@@ -878,18 +878,22 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const userId = req.params.id;
-      const user = await storage.getUser(userId);
-
-      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
+      const user = await storage.getUser(userId);      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
         return res.sendStatus(404);
       }
 
-      // If deactivating a user, destroy their sessions
+      // Special handling for self-deactivation
+      if (req.body.status === "DEACTIVATED" && userId === req.user._id) {
+        const updatedUser = await storage.updateUser(userId, req.body);  // Update user first
+        res.json(updatedUser);  // Send response while session still exists
+        await storage.destroySessionsByUserId(userId);  // Then destroy session
+        return;  // Stop here
+      }
+
+      // Normal flow for updating other users
       if (req.body.status === "DEACTIVATED") {
         await storage.destroySessionsByUserId(userId);
       }
-
-
       const updatedUser = await storage.updateUser(userId, req.body);
       res.json(updatedUser);
     } catch (error) {
