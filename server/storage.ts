@@ -87,10 +87,7 @@ const penaltySchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   description: { type: String, required: true },
   image: { type: String },
-  createdAt: { type: Date, default: Date.now },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  isDeleted: { type: Boolean, default: false },
-  deletedAt: { type: Date },
+  createdAt: { type: Date, default: Date.now },  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   nextPenaltyDate: { type: Date }
 });
 
@@ -113,10 +110,7 @@ const entrySchema = new mongoose.Schema({
     enum: ["PENDING", "APPROVED", "REJECTED"],
     default: "PENDING",
   },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  isDeleted: { type: Boolean, default: false },
-  deletedAt: { type: Date },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true }
 });
 
 // MongoDB Models
@@ -231,7 +225,7 @@ export class MongoStorage implements IStorage {
         session: new RegExp(`.*"passport":{"user":"${userId}"}.*`)
       });
 
-      console.log(`Deleted ${result.deletedCount} sessions for user ${userId}`);
+      // console.log(`Deleted ${result.deletedCount} sessions for user ${userId}`);
     } catch (error) {
       console.error('Error destroying sessions:', error);
       throw error;
@@ -256,9 +250,8 @@ export class MongoStorage implements IStorage {
     const penalty = await PenaltyModel.create(penaltyData);
     return this.convertId(penalty.toObject());
   }
-
   async getPenaltiesByFlatId(flatId: string): Promise<Penalty[]> {
-    const penalties = await PenaltyModel.find({ flatId, isDeleted: false })
+    const penalties = await PenaltyModel.find({ flatId })
       .populate('userId', 'name email profilePicture')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
@@ -270,9 +263,8 @@ export class MongoStorage implements IStorage {
 
     return convertedPenalties;
   }
-
   async getPenaltiesByUserId(userId: string): Promise<Penalty[]> {
-    const penalties = await PenaltyModel.find({ userId, isDeleted: false })
+    const penalties = await PenaltyModel.find({ userId })
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
       .lean();
@@ -292,16 +284,16 @@ export class MongoStorage implements IStorage {
   }
 
   async deletePenalty(id: string): Promise<boolean> {
-    const result = await PenaltyModel.findByIdAndUpdate(
-      id,
-      { isDeleted: true, deletedAt: new Date() },
-      { new: true }
-    );
-    return !!result;
+    try {
+      const result = await PenaltyModel.findByIdAndDelete(id);
+      return !!result;
+    } catch (error) {
+      console.error("Failed to delete penalty:", error);
+      return false;
+    }
   }
-
   async getPenaltyTotalsByFlatId(flatId: string, userId?: string): Promise<{ userTotal: number; flatTotal: number }> {
-    const penalties = await PenaltyModel.find({ flatId, isDeleted: false }).lean();
+    const penalties = await PenaltyModel.find({ flatId }).lean();
 
     // Calculate total penalties for the flat
     const flatTotal = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
@@ -482,9 +474,8 @@ export class MongoStorage implements IStorage {
   async clearUserActivities(userId: string): Promise<void> {
     await ActivityModel.deleteMany({ userId });
   }
-
   async getUserEntriesTotal(userId: string): Promise<number> {
-    const entries = await EntryModel.find({ userId: userId, isDeleted: false });
+    const entries = await EntryModel.find({ userId: userId });
     return entries.reduce((total, entry) => {
       // Ensure we're comparing the correct userId
       const entryUserId = typeof entry.userId === 'object' ? entry.userId._id?.toString() : entry.userId?.toString();
@@ -495,9 +486,8 @@ export class MongoStorage implements IStorage {
     }, 0);
   }
 
-
   async getEntriesByFlatId(flatId: string) {
-    const entries = await EntryModel.find({ flatId, isDeleted: false })
+    const entries = await EntryModel.find({ flatId })
       .populate('userId', 'name email profilePicture');
     return entries.map((entry) => this.convertId(entry.toObject()));
   }

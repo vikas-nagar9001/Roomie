@@ -647,12 +647,10 @@ export function registerRoutes(app: Express): Server {
       const entry = await storage.createEntry({
         name,
         amount,
-        dateTime: new Date(),
-        status:
+        dateTime: new Date(),        status:
           amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
         userId: req.user._id,
         flatId: req.user.flatId,
-        isDeleted: false,
       });
 
       await storage.logActivity({
@@ -958,11 +956,7 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/entries/:id", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     try {
-      const { id } = req.params;
-      const entry = await storage.updateEntry(id, {
-        isDeleted: true,
-        deletedAt: new Date(),
-      });
+      const { id } = req.params;      const entry = await storage.deleteEntry(id);
 
       if (!entry) {
         return res.status(404).json({ message: "Entry not found" });

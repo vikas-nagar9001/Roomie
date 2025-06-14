@@ -38,11 +38,8 @@ export interface Entry {
   name: string;
   amount: number;
   dateTime: Date;
-  status: EntryStatus;
-  userId: string;
+  status: EntryStatus;  userId: string;
   flatId: string;
-  isDeleted: boolean;
-  deletedAt?: Date;
 }
 
 export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER" | "MINIMUM_ENTRY";
@@ -55,10 +52,7 @@ export interface Penalty {
   amount: number;
   description: string;
   image?: string;
-  createdAt: Date;
-  createdBy: string;
-  isDeleted: boolean;
-  deletedAt?: Date;
+  createdAt: Date;  createdBy: string;
   nextPenaltyDate?: Date; // Date when the next penalty will be applied if contribution deficit persists
 }
 
@@ -97,34 +91,12 @@ export const insertPenaltySchema = z.object({
   nextPenaltyDate: z.date().optional(),
 });
 
-
-// Interface for MongoDB document (full schema)
-export interface PenaltySettingsDocument extends Document {
-  flatId: mongoose.Types.ObjectId;
-  contributionPenaltyPercentage: number;
-  warningPeriodDays: number;
-  updatedAt: Date;
-  updatedBy: mongoose.Types.ObjectId;
-  lastPenaltyAppliedAt: Date; // Ensure this is included
-  selectedUsers: mongoose.Types.ObjectId[]; // Array of user IDs who should receive penalties
-}
-
-// Interface for inserting new settings (without _id and timestamps)
-export interface InsertPenaltySettings {
-  flatId: mongoose.Types.ObjectId; // Keep it consistent with your schema
-  contributionPenaltyPercentage: number;
-  warningPeriodDays: number;
-  updatedBy: mongoose.Types.ObjectId;
-}
-
-
-
-
-
-export const insertEntrySchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  amount: z.number().min(0),
-  dateTime: z.date(),
+export const insertPenaltySettingsSchema = z.object({
+  flatId: z.string(),
+  contributionPenaltyPercentage: z.number().min(0),
+  warningPeriodDays: z.number().min(0),
+  updatedBy: z.string(),
+  selectedUsers: z.array(z.string()).optional()
 });
 
 // Define Zod schemas for validation
@@ -132,6 +104,7 @@ export const insertFlatSchema = z.object({
   name: z.string().min(1, "Name is required"),
   flatUsername: z.string().min(3).max(50),
 });
+export type InsertFlat = z.infer<typeof insertFlatSchema>;
 
 export const insertUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -139,6 +112,7 @@ export const insertUserSchema = z.object({
   password: z.string().optional(),
   flatUsername: z.string().min(3).max(50),
 });
+export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export const insertActivitySchema = z.object({
   userId: z.string(),
@@ -146,6 +120,7 @@ export const insertActivitySchema = z.object({
   description: z.string(),
   timestamp: z.date().default(() => new Date()),
 });
+export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
 // Types for TypeScript
 export interface Flat {
@@ -186,8 +161,5 @@ export interface Activity {
   timestamp: Date;
 }
 
-export type InsertFlat = z.infer<typeof insertFlatSchema>;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type InsertPenalty = z.infer<typeof insertPenaltySchema>;
 export type InsertPenaltySettings = z.infer<typeof insertPenaltySettingsSchema>;
