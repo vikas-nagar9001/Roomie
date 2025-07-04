@@ -15,6 +15,7 @@ import fs from "fs";
 import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
 import { applyPenaltiesForFlat } from "./penalty-checker";
 import { pushNotificationManager } from "./push-notifications"; // Import push notification manager
+import { notificationScheduler } from "./notification-scheduler";
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
@@ -134,6 +135,105 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("❌ Failed to send test notification:", error);
       res.status(500).json({ message: "Failed to send test notification" });
+    }
+  });
+
+  // 🔔 Manual trigger for personalized notifications (Admin only)
+  app.post("/api/trigger-personalized-notifications", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can trigger notifications" });
+    }
+
+    try {
+      await pushNotificationManager.processPersonalizedNotifications();
+      res.json({ message: "Personalized notifications processed successfully" });
+    } catch (error) {
+      console.error("❌ Failed to process personalized notifications:", error);
+      res.status(500).json({ message: "Failed to process personalized notifications" });
+    }
+  });
+
+  // 📆 Send penalty reminder to specific user (Admin only)
+  app.post("/api/send-penalty-reminder/:userId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can send penalty reminders" });
+    }
+
+    try {
+      const { userId } = req.params;
+      const settings = await storage.getPenaltySettings(req.user.flatId);
+      
+      if (!settings) {
+        return res.status(404).json({ message: "Penalty settings not found" });
+      }
+
+      const nextPenaltyDate = new Date();
+      nextPenaltyDate.setDate(nextPenaltyDate.getDate() + 1); // Tomorrow
+      
+      await pushNotificationManager.sendPenaltyReminderNotification(
+        userId, 
+        nextPenaltyDate, 
+        settings
+      );
+      
+      res.json({ message: "Penalty reminder sent successfully" });
+    } catch (error) {
+      console.error("❌ Failed to send penalty reminder:", error);
+      res.status(500).json({ message: "Failed to send penalty reminder" });
+    }
+  });
+
+  // 📉 Send low contribution alert to specific user (Admin only)
+  app.post("/api/send-low-contribution-alert/:userId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can send contribution alerts" });
+    }
+
+    try {
+      const { userId } = req.params;
+      const { contributionPercentage, fairShareThreshold } = req.body;
+      
+      if (!contributionPercentage || !fairShareThreshold) {
+        return res.status(400).json({ 
+          message: "contributionPercentage and fairShareThreshold are required" 
+        });
+      }
+      
+      await pushNotificationManager.sendLowContributionAlert(
+        userId, 
+        contributionPercentage, 
+        fairShareThreshold
+      );
+      
+      res.json({ message: "Low contribution alert sent successfully" });
+    } catch (error) {
+      console.error("❌ Failed to send low contribution alert:", error);
+      res.status(500).json({ message: "Failed to send low contribution alert" });
+    }
+  });
+
+  // 🗑️ Clear notification tracking for user (Admin only)
+  app.delete("/api/notification-tracking/:userId/:type", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can clear notification tracking" });
+    }
+
+    try {
+      const { userId, type } = req.params;
+      
+      if (!['PENALTY_REMINDER', 'PENALTY_APPLIED', 'LOW_CONTRIBUTION'].includes(type)) {
+        return res.status(400).json({ message: "Invalid notification type" });
+      }
+      
+      await storage.acknowledgeNotification(userId, type as any);
+      res.json({ message: "Notification tracking cleared successfully" });
+    } catch (error) {
+      console.error("❌ Failed to clear notification tracking:", error);
+      res.status(500).json({ message: "Failed to clear notification tracking" });
     }
   });
 
@@ -730,6 +830,16 @@ export function registerRoutes(app: Express): Server {
         // Don't fail the entry creation if notifications fail
       }
 
+      // 📉 Check for low contribution alerts after entry is added
+      try {
+        // Trigger low contribution check for all users in the flat
+        await pushNotificationManager.processLowContributionAlerts();
+        console.log(`📉 Low contribution alerts processed after entry creation`);
+      } catch (contributionError) {
+        console.error("❌ Failed to process contribution alerts:", contributionError);
+        // Don't fail the entry creation if contribution alerts fail
+      }
+
       res.status(201).json(entry);
     } catch (error) {
       console.error("Failed to create entry:", error);
@@ -1189,7 +1299,7 @@ export function registerRoutes(app: Express): Server {
 async function checkAndApplyPenalties() {
   try {
     const { checkAndApplyPenalties: penaltyChecker } = await import('./penalty-checker.js');
-    return await penaltyChecker();
+    return await penaltyChecker('manual-trigger');
   } catch (error) {
     console.error('[ERROR] Failed to check and apply penalties:', error);
     throw error;

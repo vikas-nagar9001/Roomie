@@ -1,5 +1,6 @@
 import { storage } from "./storage";
 import mongoose from "mongoose";
+import { pushNotificationManager } from "./push-notifications";
 
 const penaltyIntervals = new Map<string, NodeJS.Timeout>(); // Store intervals per flat
 
@@ -41,7 +42,7 @@ export async function checkAndApplyPenalties(flatId: string) {
       nextPenaltyDate.setDate(nextPenaltyDate.getDate() + warningPeriodDays);
     }
 
-    if (!lastPenalty || now >= nextPenaltyDate) {
+    if (!lastPenalty || (nextPenaltyDate && now >= nextPenaltyDate)) {
     
       await applyPenaltiesForFlat(flat, settings);
       await storage.updateLastPenaltyDate(flatId, now);
@@ -102,7 +103,7 @@ export async function updatePenaltyScheduler(flatId: string) {
 
 
 // Apply penalties for a flat
-export async function applyPenaltiesForFlat(flat, settings, extraParam?: string) {
+export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam?: string) {
   let deficitUser = 0;
 
   const users = await storage.getUsersByFlatId(flat._id);
@@ -118,8 +119,8 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
   //flat data
   const entries = await storage.getEntriesByFlatId(flat._id);
   // Filter out entries with 'PENDING' or 'REJECTED' status
-  const approvedEntries = entries.filter(entry => entry.status !== 'PENDING' && entry.status !== 'REJECTED');
-  const totalAmount = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const approvedEntries = entries.filter(entry => entry && entry.status !== 'PENDING' && entry.status !== 'REJECTED');
+  const totalAmount = approvedEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
   const fairShare = totalAmount / users.length;
   const totalUsers = users.length;
 
@@ -138,18 +139,21 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
 
   for (const user of users) {
   
-    const userPenaltyEntries = penaltyEntries.filter(entry => entry.userId._id.toString() === user._id.toString());
+    const userPenaltyEntries = penaltyEntries.filter(entry => {
+      const entryUserId = typeof entry.userId === 'string' ? entry.userId : (entry.userId as any)?._id?.toString() || entry.userId;
+      return entryUserId === user._id.toString();
+    });
     const userPenaltyAmount = userPenaltyEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
-    const userEntries = approvedEntries.filter(entry => entry.userId._id.toString() === user._id.toString());
-    const userContribution = userEntries.reduce((sum, entry) => sum + entry.amount, 0);
+    const userEntries = approvedEntries.filter(entry => entry && entry.userId._id.toString() === user._id.toString());
+    const userContribution = userEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
     const finalUserContribution = userContribution - userPenaltyAmount;
     const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
 
 
     // Check if user is selected for penalties or if no users are specifically selected
   const isUserSelected = settings.selectedUsers && settings.selectedUsers.length > 0 ?
-    settings.selectedUsers.some(id => id?.toString() === user._id.toString()) :
+    settings.selectedUsers.some((id: any) => id?.toString() === user._id.toString()) :
     true; // If no users are selected, apply to all
 
 
@@ -161,17 +165,30 @@ export async function applyPenaltiesForFlat(flat, settings, extraParam?: string)
       const msg = extraParam ? extraParam :"Automatic" ;
       
       const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000"); 
-      await storage.createPenalty({
+      const createdPenalty = await storage.createPenalty({
         userId: user._id,
         flatId: flat._id,
         type: "MINIMUM_ENTRY",
         amount: penaltyAmount,
         description:  `${msg} penalty for less entry ₹${finalUserContribution.toFixed(2)} < ₹${finalFairShare}`,
-        createdBy: SYSTEM_USER_ID,
+        createdBy: SYSTEM_USER_ID.toString(),
         nextPenaltyDate: new Date(),
       });
 
       deficitUser++;
+
+      // 🔔 Send penalty applied notification to the user
+      try {
+        await pushNotificationManager.sendPenaltyAppliedNotification(
+          user._id, 
+          penaltyAmount, 
+          `${msg} penalty for less entry ₹${finalUserContribution.toFixed(2)} < ₹${finalFairShare}`
+        );
+        console.log(`📲 Penalty applied notification sent to user ${user._id}`);
+      } catch (notificationError) {
+        console.error(`❌ Failed to send penalty notification to user ${user._id}:`, notificationError);
+        // Don't fail penalty creation if notification fails
+      }
 
  
 

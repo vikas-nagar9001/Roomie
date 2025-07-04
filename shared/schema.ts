@@ -3,7 +3,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export type Role = "ADMIN" | "CO_ADMIN" | "USER";
 export type UserStatus = "PENDING" | "ACTIVE" | "DEACTIVATED";
-export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT" | "ENTRY_ADDED" | "ENTRY_UPDATED" | "ENTRY_DELETED" | "ENTRY_RESTORED" | "PAYMENT_ADDED" | "PAYMENT_STATUS_UPDATED" | "PENALTY_ADDED" | "PENALTY_UPDATED" | "PENALTY_DELETED";
+export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT" | "ENTRY_ADDED" | "ENTRY_UPDATED" | "ENTRY_DELETED" | "ENTRY_RESTORED" | "PAYMENT_ADDED" | "PAYMENT_STATUS_UPDATED" | "PENALTY_ADDED" | "PENALTY_UPDATED" | "PENALTY_DELETED" | "USER_DELETED";
 
 export interface Payment {
   _id: string;
@@ -169,6 +169,36 @@ export interface Activity {
   type: ActivityType;
   description: string;
   timestamp: Date;
+}
+
+// Notification tracking for personalized notifications
+export interface NotificationTracking {
+  _id?: string;
+  userId: string;
+  notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION';
+  sentCount: number;
+  firstSentAt: Date;
+  lastSentAt: Date;
+  acknowledged: boolean;
+  metadata?: {
+    penaltyAmount?: number;
+    contributionPercentage?: number;
+    fairShareThreshold?: number;
+    penaltyDate?: Date;
+  };
+  createdAt: Date;
+}
+
+// Penalty settings interface for TypeScript type checking
+export interface PenaltySettings {
+  _id: string;
+  flatId: string;
+  contributionPenaltyPercentage: number;
+  warningPeriodDays: number;
+  updatedAt: Date;
+  updatedBy: string;
+  lastPenaltyAppliedAt: Date;
+  selectedUsers: string[];
 }
 
 export type InsertPenalty = z.infer<typeof insertPenaltySchema>;
