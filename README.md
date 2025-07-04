@@ -135,6 +135,19 @@ Admins can manage users in the flat:
 - Manage user profiles
 </details>
 
+<details>
+<summary><b>🔔 Push Notifications</b></summary>
+<br>
+
+Stay informed about important activities in your flat:
+
+- Real-time notifications when flatmates add new entries
+- Notifications when your entries are approved or rejected
+- Easy permission management through the dashboard
+- Test notifications to ensure everything works
+- Works on both desktop and mobile devices
+</details>
+
 ---
 
 ## 📖 How to Use

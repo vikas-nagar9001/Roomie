@@ -49,6 +49,13 @@ const userSchema = new mongoose.Schema({
   inviteExpiry: { type: Date },
   resetToken: { type: String },
   resetExpiry: { type: Date },
+  pushSubscription: {
+    endpoint: { type: String },
+    keys: {
+      p256dh: { type: String },
+      auth: { type: String }
+    }
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

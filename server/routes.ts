@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
 import { applyPenaltiesForFlat } from "./penalty-checker";
+import { pushNotificationManager } from "./push-notifications"; // Import push notification manager
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
@@ -74,6 +75,66 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     const activities = await storage.getUserActivities(req.user._id);
     res.json(activities);
+  });
+
+  // 🔔 Push Notification Routes
+  
+  // Get VAPID public key
+  app.get("/api/vapid-public-key", (req, res) => {
+    res.json({ 
+      publicKey: pushNotificationManager.getVapidPublicKey() 
+    });
+  });
+
+  // Subscribe to push notifications
+  app.post("/api/push-subscription", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      const { subscription } = req.body;
+      
+      // Save subscription to user's record
+      await storage.updateUser(req.user._id, {
+        pushSubscription: subscription
+      });
+
+      console.log(`✅ Push subscription saved for user ${req.user._id}`);
+      res.json({ message: "Subscription saved successfully" });
+    } catch (error) {
+      console.error("❌ Failed to save push subscription:", error);
+      res.status(500).json({ message: "Failed to save subscription" });
+    }
+  });
+
+  // Unsubscribe from push notifications
+  app.delete("/api/push-subscription", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      // Remove subscription from user's record
+      await storage.updateUser(req.user._id, {
+        pushSubscription: null
+      });
+
+      console.log(`✅ Push subscription removed for user ${req.user._id}`);
+      res.json({ message: "Subscription removed successfully" });
+    } catch (error) {
+      console.error("❌ Failed to remove push subscription:", error);
+      res.status(500).json({ message: "Failed to remove subscription" });
+    }
+  });
+
+  // Send test push notification
+  app.post("/api/test-push-notification", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      await pushNotificationManager.sendTestNotification(req.user._id);
+      res.json({ message: "Test notification sent successfully" });
+    } catch (error) {
+      console.error("❌ Failed to send test notification:", error);
+      res.status(500).json({ message: "Failed to send test notification" });
+    }
   });
 
   // Bulk delete entries
@@ -660,6 +721,15 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
+      // 🔔 Send push notification to all flatmates except the entry creator
+      try {
+        await pushNotificationManager.sendEntryAddedNotification(entry, req.user._id);
+        console.log(`📲 Push notifications sent for new entry: ${entry.name}`);
+      } catch (notificationError) {
+        console.error("❌ Failed to send push notifications:", notificationError);
+        // Don't fail the entry creation if notifications fail
+      }
+
       res.status(201).json(entry);
     } catch (error) {
       console.error("Failed to create entry:", error);
@@ -988,6 +1058,21 @@ export function registerRoutes(app: Express): Server {
       const entry = await storage.updateEntry(id, {
         status: action.toUpperCase(),
       });
+
+      // 🔔 Send push notification for entry approval/rejection
+      try {
+        if (action.toLowerCase() === 'approved') {
+          await pushNotificationManager.sendEntryApprovedNotification(entry, req.user._id);
+          console.log(`📲 Push notification sent for entry approval: ${entry.name}`);
+        } else if (action.toLowerCase() === 'rejected') {
+          await pushNotificationManager.sendEntryRejectedNotification(entry, req.user._id);
+          console.log(`📲 Push notification sent for entry rejection: ${entry.name}`);
+        }
+      } catch (notificationError) {
+        console.error("❌ Failed to send push notification for entry status update:", notificationError);
+        // Don't fail the status update if notifications fail
+      }
+
       res.json(entry);
     } catch (error) {
       console.error("Failed to update entry status:", error);

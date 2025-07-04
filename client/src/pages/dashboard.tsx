@@ -2,16 +2,20 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FiUsers, FiList, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { useQuery } from "@tanstack/react-query";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
+import { smartNotificationService } from "@/services/smartNotificationService";
+import { isFirstPWAOpen, logPWAStatus } from "@/lib/pwa-utils";
+import { NotificationDebugPanel } from "@/components/debug/notification-debug-panel";
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState("");
   const [location] = useLocation();
+  const notificationInitRef = useRef(false);
 
   // Show loader when the page first loads
   useEffect(() => {
@@ -22,6 +26,53 @@ export default function Dashboard() {
       forceHideLoader();
     };
   }, []);
+
+  // 🔔 Smart notification permission handling - only run once per dashboard visit
+  useEffect(() => {
+    if (notificationInitRef.current || !user) return;
+    notificationInitRef.current = true;
+
+    const handleSmartNotificationPermission = async () => {
+      try {
+        console.log('🎯 Dashboard loaded - checking notification permission...');
+        
+        // Log PWA status for debugging
+        logPWAStatus();
+        
+        // Check if this is first PWA open
+        const isFirstPWA = isFirstPWAOpen();
+        if (isFirstPWA) {
+          console.log('🚀 First PWA open detected!');
+          smartNotificationService.markFirstPWAOpen();
+        }
+        
+        // Check if we should ask for permission
+        const shouldAsk = await smartNotificationService.shouldAskForPermission();
+        
+        if (shouldAsk) {
+          console.log('🔔 Requesting notification permission on dashboard...');
+          // Add a small delay to let the dashboard render first
+          setTimeout(async () => {
+            try {
+              await smartNotificationService.requestPermissionSmart();
+            } catch (error) {
+              console.error('❌ Failed to request permission:', error);
+            }
+          }, 1500);
+        } else {
+          // If permission is already granted, ensure notifications are initialized
+          if (Notification.permission === 'granted') {
+            console.log('✅ Permission already granted - initializing notifications...');
+            await smartNotificationService.initializeNotifications();
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error handling notification permission:', error);
+      }
+    };
+
+    handleSmartNotificationPermission();
+  }, [user]);
   // Fetch entries data
   const { data: entries, isLoading: entriesLoading } = useQuery<any[]>({
     queryKey: ["/api/entries"],
@@ -62,6 +113,8 @@ export default function Dashboard() {
           <h2 className="text-lg text-indigo-200/80">{greeting},</h2>
           <h1 className="text-3xl font-bold text-white tracking-tight">{user?.name?.split(" ")[0]} 👋</h1>
         </div>
+
+
 
         {/* Quick Stats Cards */}
         <div className="grid grid-cols-2 gap-4 mb-8">
@@ -195,6 +248,8 @@ export default function Dashboard() {
             <h1 className="text-4xl font-bold text-white tracking-tight">{user?.name?.split(" ")[0]} <span className="inline-block animate-wave">👋</span></h1>
           </div>
 
+
+
           {/* Cards Section */}
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             <Link href="/entries">
@@ -314,6 +369,11 @@ export default function Dashboard() {
       {/* Show Desktop View for md and larger screens */}
       <div className="hidden md:block">
         <DesktopView />
+      </div>
+
+      {/* Debug Panel (Development Only) */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <NotificationDebugPanel />
       </div>
     </>
   );

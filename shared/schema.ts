@@ -150,7 +150,17 @@ export interface User {
   inviteExpiry: Date | null;
   resetToken: string | null;
   resetExpiry: Date | null;
+  pushSubscription?: PushSubscription | null; // Added for push notifications
   createdAt: Date;
+}
+
+// Push notification subscription interface
+export interface PushSubscription {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
 }
 
 export interface Activity {
