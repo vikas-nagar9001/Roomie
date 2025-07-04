@@ -633,8 +633,7 @@ export default function EntriesPage() {
                           users?.find(u => u._id === userId)?.name || "Unknown";
                         const userProfile =
                           (typeof userEntries[0]?.userId === 'object' && userEntries[0]?.userId?.profilePicture) ||
-                          users?.find(u => u._id === userId)?.profilePicture ||
-                          "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_InUxO_6BhylxYbs67DY7-xF0TmEYPW4dQQ&s";
+                          users?.find(u => u._id === userId)?.profilePicture;
 
                         const progressPercentage = Math.min((totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100, 100).toFixed(0);
 
@@ -666,7 +665,7 @@ export default function EntriesPage() {
                                   borderRadius: "50%",
                                 }}
                               >                                <Avatar className="w-full h-full">
-                                  <AvatarImage
+                                  <AvatarImage 
                                     src={userProfile}
                                     alt={`${userName} profile picture`}
                                     className="object-cover"
