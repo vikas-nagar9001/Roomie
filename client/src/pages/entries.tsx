@@ -181,6 +181,13 @@ export default function EntriesPage() {
   // Search filter state
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Effect to reset selected entries when search query is cleared
+  useEffect(() => {
+    if (!searchQuery) {
+      setSelectedEntries([]);
+    }
+  }, [searchQuery]);
+
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
     showLoader();
@@ -197,7 +204,7 @@ export default function EntriesPage() {
       hideLoader();
     }
   }, [dataLoading]);
-  const { data: entries } = useQuery({
+  const { data: entries } = useQuery<Entry[]>({
     queryKey: ["/api/entries"],
     queryFn: getQueryFn({ on401: "throw" }),
     onSettled: () => {
@@ -271,8 +278,10 @@ export default function EntriesPage() {
 
   // Function to handle selecting/deselecting all entries
   const handleSelectAll = (checked: boolean) => {
-    if (checked && entries) {
-      setSelectedEntries(entries.map(entry => entry._id));
+    if (checked && filteredEntries) {
+      // Only select IDs from filtered entries
+      const filteredIds = filteredEntries.map((entry: Entry) => entry._id);
+      setSelectedEntries(filteredIds);
     } else {
       setSelectedEntries([]);
     }
@@ -281,9 +290,12 @@ export default function EntriesPage() {
   // Function to handle selecting/deselecting a single entry
   const handleSelectEntry = (entryId: string, checked: boolean) => {
     if (checked) {
-      setSelectedEntries(prev => [...prev, entryId]);
+      // Only allow selection if the entry is in the filtered entries
+      if (filteredEntries?.some((entry: Entry) => entry._id === entryId)) {
+        setSelectedEntries((prev) => [...prev, entryId]);
+      }
     } else {
-      setSelectedEntries(prev => prev.filter(id => id !== entryId));
+      setSelectedEntries((prev) => prev.filter((id) => id !== entryId));
     }
   };
 
@@ -311,18 +323,21 @@ export default function EntriesPage() {
 
         setSelectedEntries([]);
         setBulkDeleteDialogOpen(false);
+        setDataLoading(false); // Ensure loader is hidden
+        hideLoader(); // Hide loader after successful deletion
       })
       .catch(error => {
         console.error("Failed to delete entries:", error);
         showError("Failed to delete entries. Please try again.");
         setBulkDeleteDialogOpen(false);
-        setDataLoading(false);
+        setDataLoading(false); // Ensure loader is hidden
+        hideLoader(); // Hide loader on error
       });
   };
 
 
   // Filter and sort entries
-  const filteredEntries = entries?.filter(entry => {
+  const filteredEntries = entries?.filter((entry: Entry) => {
     if (!searchQuery) return true;
     
     const searchText = searchQuery.toLowerCase();
@@ -1057,7 +1072,7 @@ export default function EntriesPage() {
                     <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
                       <input
                         type="checkbox"
-                        checked={entries?.length > 0 && selectedEntries.length === entries?.length}
+                        checked={filteredEntries?.length > 0 && selectedEntries.length === filteredEntries?.length && selectedEntries.every(id => filteredEntries.some(entry => entry._id === id))}
                         onChange={(e) => handleSelectAll(e.target.checked)}
                         className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                       />

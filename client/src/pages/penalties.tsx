@@ -666,19 +666,26 @@ export default function PenaltiesPage() {
   }, [penaltiesLoading, totalsLoading, usersLoading]);
   // Users query is already defined above
 
-  // Function to handle selecting/deselecting all penalties
+  // Effect to reset selected penalties when search query is cleared or changed
+  useEffect(() => {
+    setSelectedPenalties([]);
+  }, [searchQuery]);
+
+  // Function to handle selecting/deselecting all penalties (filtered only)
   const handleSelectAll = (checked: boolean) => {
-    if (checked && penalties) {
-      setSelectedPenalties(penalties.map(penalty => penalty._id));
+    if (checked && filteredPenalties) {
+      setSelectedPenalties(filteredPenalties.map(penalty => penalty._id));
     } else {
       setSelectedPenalties([]);
     }
   };
 
-  // Function to handle selecting/deselecting a single penalty
+  // Function to handle selecting/deselecting a single penalty (filtered only)
   const handleSelectPenalty = (penaltyId: string, checked: boolean) => {
     if (checked) {
-      setSelectedPenalties(prev => [...prev, penaltyId]);
+      if (filteredPenalties?.some((penalty) => penalty._id === penaltyId)) {
+        setSelectedPenalties(prev => [...prev, penaltyId]);
+      }
     } else {
       setSelectedPenalties(prev => prev.filter(id => id !== penaltyId));
     }
@@ -1242,7 +1249,7 @@ export default function PenaltiesPage() {
                     <input
                       type="checkbox"
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      checked={penalties?.length > 0 && selectedPenalties.length === penalties.length}
+                      checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
                       className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                     />
                   </TableHead>}
