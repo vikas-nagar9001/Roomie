@@ -30,7 +30,7 @@ export function Header() {
 
         <div className="flex items-center gap-8">
           {/* Notification Bell with Badge - hidden on mobile, visible on sm+ */}
-          <Link href="/notifications">
+          <Link to="">
             <div className="relative hidden sm:flex items-center justify-center cursor-pointer">
               <FiBell className="w-6 h-6 text-white/80 hover:text-[#ab6cff] transition" />
               {unreadCount > 0 && (
