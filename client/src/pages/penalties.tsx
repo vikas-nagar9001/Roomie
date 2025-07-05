@@ -836,9 +836,10 @@ export default function PenaltiesPage() {
   };
 
   return (
-    <TooltipProvider>
-      <Header />
-      <div className="min-h-screen p-8 pb-28 pt-36 bg-[#0f0f1f]">
+    <>
+      <TooltipProvider>
+        <Header />
+        <div className="min-h-screen p-8 pb-28 pt-36 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
           <div className="relative group mb-8">
             {/* Blurred border layer */}
@@ -1073,7 +1074,24 @@ export default function PenaltiesPage() {
                       });
                     })()
                   ) : (
-                    <div className="text-white/60 text-sm">No penalties found</div>
+                    <div className="w-full flex items-center justify-center py-6 px-4 min-h-[120px]">
+                      <div className="flex flex-col items-center justify-center">
+                        {/* Icon container with theme colors */}
+                        <div className="w-12 h-12 bg-gradient-to-br from-[#582c84] to-[#8e4be4] rounded-full flex items-center justify-center mb-3 shadow-lg">
+                          <FaClipboardList className="w-6 h-6 text-white" />
+                        </div>
+                        
+                        {/* Main message */}
+                        <p className="text-white/80 text-sm font-medium text-center">
+                          No penalties found
+                        </p>
+                        
+                        {/* Subtitle */}
+                        <p className="text-white/50 text-xs text-center mt-1">
+                          All members are following the rules
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1222,183 +1240,171 @@ export default function PenaltiesPage() {
             )}
           </div>
 
-          <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl" >
-            <TableHeader>
-              <TableRow className="border-none">
-
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
-                  <span className="block">User</span>
-                </TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-10 border-none whitespace-nowrap min-w-[180px]">
-                  <span className="block">Type</span>
-                </TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
-                  <span className="block">Amount</span>
-                </TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
-                  <span className="block whitespace-nowrap">Description</span>
-                </TableHead>
-                <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
-                  <span className="block whitespace-nowrap">Date & Time</span>
-                </TableHead>
-
-
-                {isAdmin && <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>}
-                {isAdmin &&
-                  <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
-                    <input
-                      type="checkbox"
-                      onChange={(e) => handleSelectAll(e.target.checked)}
-                      checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
-                      className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
-                    />
-                  </TableHead>}
-
-              </TableRow>
-            </TableHeader>
-
-
-            <TableBody>
-              {paginatedPenalties?.length > 0 ? (
-                paginatedPenalties.map((penalty) => (
-                  <TableRow key={penalty._id} className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
-                  >
-                    <TableCell className="min-w-[200px] py-4 px-3">
-                      <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
-                        <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
-                          <AvatarImage
-                            src={
-                              typeof penalty.userId === "object" && penalty.userId?.profilePicture
-                                ? penalty.userId.profilePicture
-                                : users?.find((u) =>
-                                  u._id ===
-                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                                )?.profilePicture
-                            }
-                            alt="User"
-                            className="object-cover"
+          {/* Table Container with proper scroll behavior */}
+          <div className="bg-[#151525] rounded-xl overflow-hidden shadow-lg">
+            {/* Only show empty state when no data, not wrapped in scrollable table */}
+            {paginatedPenalties?.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="bg-[#1c1b2d] p-6 rounded-full">
+                    <FaClipboardList className="w-12 h-12 text-[#582c84]" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold text-white mb-2">No Penalties Found</h3>
+                    <p className="text-gray-400 max-w-sm">
+                      There are currently no penalties recorded. New penalties will appear here when added.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Table with horizontal scroll only for data rows */
+              <div className="overflow-x-auto">
+                <Table className="w-full min-w-[800px]">
+                  <TableHeader>
+                    <TableRow className="border-none">
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
+                        <span className="block">User</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-10 border-none whitespace-nowrap min-w-[180px]">
+                        <span className="block">Type</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                        <span className="block">Amount</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                        <span className="block whitespace-nowrap">Description</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                        <span className="block whitespace-nowrap">Date & Time</span>
+                      </TableHead>
+                      {isAdmin && <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>}
+                      {isAdmin &&
+                        <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
+                          <input
+                            type="checkbox"
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                            checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
+                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                           />
-                          <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
-                            {getInitials(
-                              typeof penalty.userId === "object" && penalty.userId?.name
-                                ? penalty.userId.name
-                                : users?.find((u) =>
-                                  u._id ===
-                                  (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                                )?.name || "User"
-                            )}
-                          </AvatarFallback>
-                        </Avatar>
+                        </TableHead>}
+                    </TableRow>
+                  </TableHeader>
 
-                        <div className="truncate max-w-[140px] sm:max-w-[180px]">
-                          <span className="font-medium text-white">
-                            {typeof penalty.userId === "object" && penalty.userId?.name
-                              ? penalty.userId.name
-                              : users?.find((u) =>
-                                u._id ===
-                                (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
-                              )?.name || "User"}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-
-
-                    <TableCell className="font-medium text-white min-w-[180px] py-4 px-10">
-                      <span
-                        className="py-1 rounded-full text-xs font-medium text-[#9f5bf7]"
+                  <TableBody>
+                    {paginatedPenalties.map((penalty) => (
+                      <TableRow key={penalty._id} className="transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group"
                       >
-                        {formatPenaltyType(penalty.type)}
-                      </span>
-                    </TableCell>
+                        <TableCell className="min-w-[200px] py-4 px-3">
+                          <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm group-hover:border-[#582c84]/50 group-hover:bg-[#1e1d30] transition-all duration-300">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                              <AvatarImage
+                                src={
+                                  typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                                    ? penalty.userId.profilePicture
+                                    : users?.find((u) =>
+                                      u._id ===
+                                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                    )?.profilePicture
+                                }
+                                alt="User"
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                                {getInitials(
+                                  typeof penalty.userId === "object" && penalty.userId?.name
+                                    ? penalty.userId.name
+                                    : users?.find((u) =>
+                                      u._id ===
+                                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                    )?.name || "User"
+                                )}
+                              </AvatarFallback>
+                            </Avatar>
 
-
-                    <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
-
-
-                    <TableCell className="align-middle text-gray-300 py-4 px-3">
-                      <div className="flex justify-start items-center gap-2 group/tooltip relative w-auto max-w-[180px]">
-                        <Tooltip
-                          delayDuration={0}
-                          disableHoverableContent
-                          supportMobileTap={true}
-                        >
-                          <TooltipTrigger asChild>
-                            <button className="w-full cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] transition-colors relative bg-transparent border-0 p-0 text-left">
-                              <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap w-full text-left">
-                                {penalty.description.length > 18
-                                  ? penalty.description.slice(0, 18) + '...'
-                                  : penalty.description}
+                            <div className="truncate max-w-[140px] sm:max-w-[180px]">
+                              <span className="font-medium text-white">
+                                {typeof penalty.userId === "object" && penalty.userId?.name
+                                  ? penalty.userId.name
+                                  : users?.find((u) =>
+                                    u._id ===
+                                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                  )?.name || "User"}
                               </span>
-                            </button>
-                          </TooltipTrigger>
+                            </div>
+                          </div>
+                        </TableCell>
 
-                          <TooltipContent
-                            side="bottom"
-                            align="start"
-                            sideOffset={5}
-                            className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
+                        <TableCell className="font-medium text-white min-w-[180px] py-4 px-10">
+                          <span
+                            className="py-1 rounded-full text-xs font-medium text-[#9f5bf7]"
                           >
-                            <p className="text-sm text-white whitespace-normal">
-                              {penalty.description}
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </div>
-                    </TableCell>
+                            {formatPenaltyType(penalty.type)}
+                          </span>
+                        </TableCell>
 
+                        <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
 
+                        <TableCell className="align-middle text-gray-300 py-4 px-3">
+                          <div className="flex justify-start items-center gap-2 group/tooltip relative w-auto max-w-[180px]">
+                            <Tooltip
+                              delayDuration={0}
+                              disableHoverableContent
+                              supportMobileTap={true}
+                            >
+                              <TooltipTrigger asChild>
+                                <button className="w-full cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] group-hover:text-[#b366ff] transition-all duration-300 relative bg-transparent border-0 p-0 text-left">
+                                  <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap w-full text-left">
+                                    {penalty.description.length > 18
+                                      ? penalty.description.slice(0, 18) + '...'
+                                      : penalty.description}
+                                  </span>
+                                </button>
+                              </TooltipTrigger>
 
+                              <TooltipContent
+                                side="bottom"
+                                align="start"
+                                sideOffset={5}
+                                className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
+                              >
+                                <p className="text-sm text-white whitespace-normal">
+                                  {penalty.description}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
 
-                    <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
-                      {new Intl.DateTimeFormat("en-IN", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }).format(new Date(penalty.createdAt))}
-                    </TableCell>
+                        <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
+                          {new Intl.DateTimeFormat("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(penalty.createdAt))}
+                        </TableCell>
 
-
-
-                    {isAdmin && (
-                      <TableCell className="text-center py-4 px-3">
-
-                        <EditPenaltyDialog penalty={penalty} />
-
-                      </TableCell>
-                    )}
-                    {isAdmin && (
-                      <TableCell className="text-center py-4 px-3">
-                        <input
-                          type="checkbox"
-                          onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
-                          checked={selectedPenalties.includes(penalty._id)}
-                          className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
-                        />
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-12">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="bg-[#1c1b2d] p-6 rounded-full">
-                        <FaClipboardList className="w-12 h-12 text-[#582c84]" />
-                      </div>
-                      <div className="text-center">
-                        <h3 className="text-xl font-semibold text-white mb-2">No Penalties Found</h3>
-                        <p className="text-gray-400 max-w-sm">
-                          There are currently no penalties recorded. New penalties will appear here when added.
-                        </p>
-                      </div>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-
-
-          </Table>
+                        {isAdmin && (
+                          <TableCell className="text-center py-4 px-3">
+                            <EditPenaltyDialog penalty={penalty} />
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-center py-4 px-3">
+                            <input
+                              type="checkbox"
+                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+                              checked={selectedPenalties.includes(penalty._id)}
+                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
 
           { /* Pagination Component - Only shown when there are penalties */}
           {penalties?.length > 0 && totalPages > 1 && (
@@ -1433,42 +1439,6 @@ export default function PenaltiesPage() {
         <MobileNav />
       </div>
     </TooltipProvider>
-
+    </>
   );
 }
-
-/* Add this at the top of your file */
-const globalStyles = `
-  .custom-scrollbar::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background: rgba(102, 54, 163, 0.5);
-    border-radius: 4px;
-  }
-  
-  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgba(102, 54, 163, 0.7);
-  }
-
-  @keyframes blob {
-    0% {
-      transform: translate(0px, 0px) scale(1);
-    }
-    33% {
-      transform: translate(30px, -50px) scale(1.1);
-    }
-    66% {
-      transform: translate(-20px, 20px) scale(0.9);
-    }
-    100% {
-      transform: translate(0px, 0px) scale(1);
-    }
-  }
-`;
