@@ -1244,7 +1244,7 @@ export default function PenaltiesPage() {
           <div className="bg-[#151525] rounded-xl overflow-hidden shadow-lg">
             {/* Only show empty state when no data, not wrapped in scrollable table */}
             {paginatedPenalties?.length === 0 ? (
-              <div className="p-12 text-center">
+              <div className="p-5 text-center">
                 <div className="flex flex-col items-center gap-4">
                   <div className="bg-[#1c1b2d] p-6 rounded-full">
                     <FaClipboardList className="w-12 h-12 text-[#582c84]" />
