@@ -373,7 +373,7 @@ export default function Dashboard() {
 
       {/* Debug Panel (Development Only) */}
       <div className="fixed bottom-4 right-4 z-50">
-        <NotificationDebugPanel />
+        {/* <NotificationDebugPanel /> */}
       </div>
     </>
   );

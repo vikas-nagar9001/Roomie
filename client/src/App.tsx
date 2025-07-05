@@ -13,6 +13,7 @@ import ResetPasswordPage from "@/pages/reset-password";
 import ProfilePage from "@/pages/profile";
 import PaymentsPage from "@/pages/payments";
 import PenaltiesPage from "@/pages/penalties";
+import NotificationPage from "@/pages/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
 import Loader from "@/components/common/Loader";
 import { useLoader } from "@/services/loaderService";
@@ -31,6 +32,7 @@ function Router() {
       <ProtectedRoute path="/entries" component={EntriesPage} />
       <ProtectedRoute path="/payments" component={PaymentsPage} />
       <ProtectedRoute path="/penalties" component={PenaltiesPage} />
+      <ProtectedRoute path="/notifications" component={NotificationPage} />
       <Route component={NotFound} />
     </Switch>
   );

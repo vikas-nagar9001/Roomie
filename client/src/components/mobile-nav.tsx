@@ -1,4 +1,4 @@
-import { FiHome, FiList, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
+import { FiHome, FiList, FiUser, FiCreditCard, FiAlertTriangle, FiBell } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
 
 export function MobileNav() {
@@ -6,6 +6,9 @@ export function MobileNav() {
 
   // Utility to check active route
   const isActive = (path) => location === path;
+
+  // Replace this with your actual unread notification count
+  const unreadCount = 3;
 
   return (
     <>
@@ -15,7 +18,7 @@ export function MobileNav() {
           { href: "/entries", label: "Entries", icon: FiList },
           { href: "/payments", label: "Payments", icon: FiCreditCard },
           { href: "/penalties", label: "Penalties", icon: FiAlertTriangle },
-          { href: "/profile", label: "Account", icon: FiUser },
+          { href: "/notifications", label: "Message", icon: FiBell },
         ].map(({ href, label, icon: Icon }) => (
           <Link key={href} href={href}>
             <a
@@ -34,8 +37,14 @@ export function MobileNav() {
 
               {/* Icon + Text */}
               <div className="relative flex flex-col items-center justify-center px-3 py-2">
-                <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""}`}>
+                <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""} relative`}>
                   <Icon className={`w-5 h-5 transition-all duration-300 ${isActive(href) ? "scale-110" : ""}`} />
+                  {/* Notification badge for bell icon */}
+                  {href === "/notifications" && unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-[#0f0f1f] shadow-md">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </div>
                 <span className="mt-1 text-[10px] font-medium">{label}</span>
               </div>
