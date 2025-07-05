@@ -1,6 +1,5 @@
 import { storage } from "./storage";
 import mongoose from "mongoose";
-import { pushNotificationManager } from "./push-notifications";
 
 const penaltyIntervals = new Map<string, NodeJS.Timeout>(); // Store intervals per flat
 
@@ -159,10 +158,11 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
 
 
   if (userContributionPercentage < fairShareThreshold && isUserSelected) {
+    try {
       const deficit = finalFairShare - finalUserContribution;
       const penaltyAmount = Math.round(finalFlatTotalEntry * (settings.contributionPenaltyPercentage / 100));
 
-      const msg = extraParam ? extraParam :"Automatic" ;
+      const msg = extraParam ? extraParam : "Automatic";
       
       const SYSTEM_USER_ID = new mongoose.Types.ObjectId("000000000000000000000000"); 
       const createdPenalty = await storage.createPenalty({
@@ -170,47 +170,18 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
         flatId: flat._id,
         type: "MINIMUM_ENTRY",
         amount: penaltyAmount,
-        description:  `${msg} penalty for less entry ₹${finalUserContribution.toFixed(2)} < ₹${finalFairShare}`,
+        description: `${msg} penalty for less entry ₹${finalUserContribution.toFixed(2)} < ₹${finalFairShare}`,
         createdBy: SYSTEM_USER_ID.toString(),
         nextPenaltyDate: new Date(),
       });
 
       deficitUser++;
 
-      // � UNIVERSAL PENALTY NOTIFICATION - Send immediate notification for contribution-based penalty
-      try {
-        const penaltyDescription = `Low contribution penalty: Your contribution ₹${finalUserContribution.toFixed(2)} is below fair share ₹${finalFairShare.toFixed(2)}`;
-        
-        await pushNotificationManager.sendUniversalPenaltyNotification(
-          user._id, 
-          penaltyAmount, 
-          'CONTRIBUTION_BASED',
-          penaltyDescription,
-          undefined, // No admin message for automatic penalties
-          new Date()
-        );
-
-        // 🔁 Schedule repeat notifications with smart timing
-        await pushNotificationManager.scheduleRepeatPenaltyNotifications(
-          user._id, 
-          penaltyAmount, 
-          'CONTRIBUTION_BASED',
-          penaltyDescription,
-          undefined,
-          new Date()
-        );
-        
-        console.log(`📲 Universal penalty notification sent to user ${user._id} for contribution-based penalty`);
-      } catch (notificationError) {
-        console.error(`❌ Failed to send universal penalty notification to user ${user._id}:`, notificationError);
-        // Don't fail penalty creation if notification fails
-      }
-
- 
-
-    } else {
-
+      console.log(`✅ Penalty applied for user ${user.name}: ₹${penaltyAmount} for low contribution`);
+    } catch (error) {
+      console.error(`❌ Failed to apply penalty for user ${user._id}:`, error);
     }
+  }
   }
   return deficitUser;
 }

@@ -14,6 +14,7 @@ import {
   Entry,
   InsertPenalty,
   Penalty,
+  PenaltySettings,
   PenaltySettingsModel,
 } from "@shared/schema";
 import session from "express-session";
@@ -49,13 +50,6 @@ const userSchema = new mongoose.Schema({
   inviteExpiry: { type: Date },
   resetToken: { type: String },
   resetExpiry: { type: Date },
-  pushSubscription: {
-    endpoint: { type: String },
-    keys: {
-      p256dh: { type: String },
-      auth: { type: String }
-    }
-  },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -159,29 +153,6 @@ const BillModel = mongoose.model("Bill", billSchema);
 const PaymentModel = mongoose.model("Payment", paymentSchema);
 const PenaltyModel = mongoose.model("Penalty", penaltySchema);
 const PenaltySettingsModel = mongoose.model("PenaltySettings", penaltySettingsSchema);
-
-// Notification tracking schema
-const notificationTrackingSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  notificationType: {
-    type: String,
-    enum: ["PENALTY_REMINDER", "PENALTY_APPLIED", "LOW_CONTRIBUTION"],
-    required: true
-  },
-  sentCount: { type: Number, default: 0 },
-  firstSentAt: { type: Date, default: Date.now },
-  lastSentAt: { type: Date, default: Date.now },
-  acknowledged: { type: Boolean, default: false },
-  metadata: {
-    penaltyAmount: { type: Number },
-    contributionPercentage: { type: Number },
-    fairShareThreshold: { type: Number },
-    penaltyDate: { type: Date }
-  },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const NotificationTrackingModel = mongoose.model("NotificationTracking", notificationTrackingSchema);
 
 export interface IStorage {
   connect(): Promise<void>;
@@ -616,167 +587,6 @@ export class MongoStorage implements IStorage {
     ).exec();
 
     return updatedFlat ? this.convertId(updatedFlat.toObject()) : undefined;
-  }
-
-  // ===== Notification Tracking Methods =====
-
-  /**
-   * Create or update notification tracking
-   */
-  async createOrUpdateNotificationTracking(
-    userId: string, 
-    notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION',
-    metadata?: any
-  ): Promise<any> {
-    try {
-      const existing = await NotificationTrackingModel.findOne({
-        userId,
-        notificationType,
-        acknowledged: false
-      });
-
-      if (existing) {
-        // Update existing tracking
-        existing.sentCount += 1;
-        existing.lastSentAt = new Date();
-        if (metadata) {
-          existing.metadata = { ...existing.metadata, ...metadata };
-        }
-        await existing.save();
-        return this.convertId(existing.toObject());
-      } else {
-        // Create new tracking
-        const tracking = await NotificationTrackingModel.create({
-          userId,
-          notificationType,
-          sentCount: 1,
-          firstSentAt: new Date(),
-          lastSentAt: new Date(),
-          acknowledged: false,
-          metadata: metadata || {}
-        });
-        return this.convertId(tracking.toObject());
-      }
-    } catch (error) {
-      console.error("Failed to create/update notification tracking:", error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get notification tracking by user and type
-   */
-  async getNotificationTracking(
-    userId: string, 
-    notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION'
-  ): Promise<any | null> {
-    try {
-      const tracking = await NotificationTrackingModel.findOne({
-        userId,
-        notificationType,
-        acknowledged: false
-      });
-      return tracking ? this.convertId(tracking.toObject()) : null;
-    } catch (error) {
-      console.error("Failed to get notification tracking:", error);
-      return null;
-    }
-  }
-
-  /**
-   * Acknowledge notification (mark as resolved)
-   */
-  async acknowledgeNotification(
-    userId: string, 
-    notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION'
-  ): Promise<boolean> {
-    try {
-      await NotificationTrackingModel.updateMany(
-        { userId, notificationType },
-        { acknowledged: true }
-      );
-      return true;
-    } catch (error) {
-      console.error("Failed to acknowledge notification:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Get users who should receive reminder notifications
-   */
-  async getUsersForReminderNotifications(): Promise<any[]> {
-    try {
-      const oneDayFromNow = new Date();
-      oneDayFromNow.setDate(oneDayFromNow.getDate() + 1);
-      
-      // Find penalty settings where next penalty is due in ~1 day
-      const allSettings = await PenaltySettingsModel.find({});
-      const upcomingPenalties = [];
-      
-      for (const settings of allSettings) {
-        if (settings.lastPenaltyAppliedAt) {
-          const nextPenaltyDate = new Date(settings.lastPenaltyAppliedAt);
-          nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
-          
-          // Check if penalty is due tomorrow (within 24 hours)
-          const timeDiff = nextPenaltyDate.getTime() - Date.now();
-          const hoursUntilPenalty = timeDiff / (1000 * 60 * 60);
-          
-          if (hoursUntilPenalty >= 12 && hoursUntilPenalty <= 36) {
-            const users = await this.getUsersByFlatId(settings.flatId);
-            upcomingPenalties.push(...users.map(user => ({
-              ...user,
-              penaltyDate: nextPenaltyDate,
-              flatSettings: settings
-            })));
-          }
-        }
-      }
-      
-      return upcomingPenalties;
-    } catch (error) {
-      console.error("Failed to get users for reminder notifications:", error);
-      return [];
-    }
-  }
-
-  /**
-   * Check if notification should be sent (respects rate limiting)
-   */
-  async shouldSendNotification(
-    userId: string, 
-    notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION'
-  ): Promise<boolean> {
-    try {
-      const tracking = await this.getNotificationTracking(userId, notificationType);
-      
-      if (!tracking) {
-        return true; // First time notification
-      }
-      
-      if (tracking.sentCount >= 3) {
-        return false; // Max notifications reached
-      }
-      
-      const now = new Date();
-      const lastSent = new Date(tracking.lastSentAt);
-      const hoursSinceLastSent = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60);
-      
-      // Rate limiting rules
-      if (tracking.sentCount === 1 && hoursSinceLastSent >= 2) {
-        return true; // 2nd notification after 2 hours
-      }
-      
-      if (tracking.sentCount === 2 && hoursSinceLastSent >= 16) {
-        return true; // 3rd notification next morning (16+ hours)
-      }
-      
-      return false;
-    } catch (error) {
-      console.error("Failed to check if notification should be sent:", error);
-      return false;
-    }
   }
 }
 

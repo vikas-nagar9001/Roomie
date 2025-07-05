@@ -61,7 +61,7 @@ const useLoaderStore = create<LoaderStore>((set, get) => ({
     // This helps with edge cases where something might be retriggering the loader
     setTimeout(() => {
       set({ isLoading: false, activeLoaders: 0, timeoutId: null });
-    }, 400);
+    }, 600);
   }
 }));
 

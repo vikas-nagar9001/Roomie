@@ -7,9 +7,7 @@ import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { useQuery } from "@tanstack/react-query";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
-import { smartNotificationService } from "@/services/smartNotificationService";
 import { isFirstPWAOpen, logPWAStatus } from "@/lib/pwa-utils";
-import { NotificationDebugPanel } from "@/components/debug/notification-debug-panel";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -27,14 +25,14 @@ export default function Dashboard() {
     };
   }, []);
 
-  // 🔔 Smart notification permission handling - only run once per dashboard visit
+  // � Dashboard initialization - only run once per dashboard visit
   useEffect(() => {
     if (notificationInitRef.current || !user) return;
     notificationInitRef.current = true;
 
-    const handleSmartNotificationPermission = async () => {
+    const handleDashboardInit = async () => {
       try {
-        console.log('🎯 Dashboard loaded - checking notification permission...');
+        console.log('🎯 Dashboard loaded - initializing...');
         
         // Log PWA status for debugging
         logPWAStatus();
@@ -43,35 +41,13 @@ export default function Dashboard() {
         const isFirstPWA = isFirstPWAOpen();
         if (isFirstPWA) {
           console.log('🚀 First PWA open detected!');
-          smartNotificationService.markFirstPWAOpen();
-        }
-        
-        // Check if we should ask for permission
-        const shouldAsk = await smartNotificationService.shouldAskForPermission();
-        
-        if (shouldAsk) {
-          console.log('🔔 Requesting notification permission on dashboard...');
-          // Add a small delay to let the dashboard render first
-          setTimeout(async () => {
-            try {
-              await smartNotificationService.requestPermissionSmart();
-            } catch (error) {
-              console.error('❌ Failed to request permission:', error);
-            }
-          }, 1500);
-        } else {
-          // If permission is already granted, ensure notifications are initialized
-          if (Notification.permission === 'granted') {
-            console.log('✅ Permission already granted - initializing notifications...');
-            await smartNotificationService.initializeNotifications();
-          }
         }
       } catch (error) {
-        console.error('❌ Error handling notification permission:', error);
+        console.error('❌ Error initializing dashboard:', error);
       }
     };
 
-    handleSmartNotificationPermission();
+    handleDashboardInit();
   }, [user]);
   // Fetch entries data
   const { data: entries, isLoading: entriesLoading } = useQuery<any[]>({
@@ -371,10 +347,6 @@ export default function Dashboard() {
         <DesktopView />
       </div>
 
-      {/* Debug Panel (Development Only) */}
-      <div className="fixed bottom-4 right-4 z-50">
-        {/* <NotificationDebugPanel /> */}
-      </div>
     </>
   );
 }

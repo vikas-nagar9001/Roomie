@@ -3,7 +3,6 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
 import "./penalty-checker"; // Import penalty checker
-import { notificationScheduler } from "./notification-scheduler";
 
 const app = express();
 app.use(express.json());
@@ -55,13 +54,9 @@ const server = registerRoutes(app);
     const PORT = process.env.SERVER_PORT || 5000;
     server.listen(PORT, () => {
       log(`🚀 Server running on port ${PORT}`);
-      
-      // Start notification schedulers after server is ready
-      notificationScheduler.start();
     });
   } catch (error) {
     console.error("❌ Failed to start the server:", error);
-    notificationScheduler.stop(); // Clean up on error
     process.exit(1);
   }
 })();
@@ -69,12 +64,10 @@ const server = registerRoutes(app);
 // Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('📅 Received SIGTERM, shutting down gracefully...');
-  notificationScheduler.stop();
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
   console.log('📅 Received SIGINT, shutting down gracefully...');
-  notificationScheduler.stop();
   process.exit(0);
 });

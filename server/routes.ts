@@ -14,8 +14,6 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
 import { applyPenaltiesForFlat } from "./penalty-checker";
-import { pushNotificationManager } from "./push-notifications"; // Import push notification manager
-import { notificationScheduler } from "./notification-scheduler";
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
@@ -83,7 +81,7 @@ export function registerRoutes(app: Express): Server {
   // Get VAPID public key
   app.get("/api/vapid-public-key", (req, res) => {
     res.json({ 
-      publicKey: pushNotificationManager.getVapidPublicKey() 
+      publicKey: 'REMOVED' 
     });
   });
 
@@ -130,8 +128,8 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     
     try {
-      await pushNotificationManager.sendTestNotification(req.user._id);
-      res.json({ message: "Test notification sent successfully" });
+      console.log("Test notification disabled");
+      res.json({ message: "Test notification disabled" });
     } catch (error) {
       console.error("❌ Failed to send test notification:", error);
       res.status(500).json({ message: "Failed to send test notification" });
@@ -146,8 +144,8 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      await pushNotificationManager.processPersonalizedNotifications();
-      res.json({ message: "Personalized notifications processed successfully" });
+      console.log("Personalized notifications disabled");
+      res.json({ message: "Personalized notifications disabled" });
     } catch (error) {
       console.error("❌ Failed to process personalized notifications:", error);
       res.status(500).json({ message: "Failed to process personalized notifications" });
@@ -172,13 +170,9 @@ export function registerRoutes(app: Express): Server {
       const nextPenaltyDate = new Date();
       nextPenaltyDate.setDate(nextPenaltyDate.getDate() + 1); // Tomorrow
       
-      await pushNotificationManager.sendPenaltyReminderNotification(
-        userId, 
-        nextPenaltyDate, 
-        settings
-      );
+      console.log("Penalty reminder notification disabled");
       
-      res.json({ message: "Penalty reminder sent successfully" });
+      res.json({ message: "Penalty reminder disabled" });
     } catch (error) {
       console.error("❌ Failed to send penalty reminder:", error);
       res.status(500).json({ message: "Failed to send penalty reminder" });
@@ -202,13 +196,9 @@ export function registerRoutes(app: Express): Server {
         });
       }
       
-      await pushNotificationManager.sendLowContributionAlert(
-        userId, 
-        contributionPercentage, 
-        fairShareThreshold
-      );
+      console.log("Low contribution alert notification disabled");
       
-      res.json({ message: "Low contribution alert sent successfully" });
+      res.json({ message: "Low contribution alert disabled" });
     } catch (error) {
       console.error("❌ Failed to send low contribution alert:", error);
       res.status(500).json({ message: "Failed to send low contribution alert" });
@@ -570,25 +560,11 @@ export function registerRoutes(app: Express): Server {
         createdBy: req.user._id
       });
 
-      // 🚨 UNIVERSAL PENALTY NOTIFICATION - Send immediate notification for manual admin penalty
-      await pushNotificationManager.sendUniversalPenaltyNotification(
-        userId,
-        Number(amount),
-        'MANUAL_ADMIN',
-        description,
-        adminMessage,
-        new Date()
-      );
+      // Penalty notification disabled
+      console.log("Universal penalty notification disabled");
 
-      // 🔁 Schedule repeat notifications with smart timing
-      await pushNotificationManager.scheduleRepeatPenaltyNotifications(
-        userId,
-        Number(amount),
-        'MANUAL_ADMIN',
-        description,
-        adminMessage,
-        new Date()
-      );
+      // Repeat notifications disabled
+      console.log("Repeat penalty notifications disabled");
 
       await storage.logActivity({
         userId: req.user._id,
@@ -842,23 +818,20 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
-      // 🔔 Send push notification to all flatmates except the entry creator
+      // 🔔 Notifications disabled - entry created successfully
       try {
-        await pushNotificationManager.sendEntryAddedNotification(entry, req.user._id);
-        console.log(`📲 Push notifications sent for new entry: ${entry.name}`);
+        console.log(`� Entry created successfully: ${entry.name}`);
       } catch (notificationError) {
-        console.error("❌ Failed to send push notifications:", notificationError);
-        // Don't fail the entry creation if notifications fail
+        console.error("❌ Error logging entry creation:", notificationError);
+        // Don't fail the entry creation
       }
 
-      // 📉 Check for low contribution alerts after entry is added
+      // 📉 Low contribution alerts disabled
       try {
-        // Trigger low contribution check for all users in the flat
-        await pushNotificationManager.processLowContributionAlerts();
-        console.log(`📉 Low contribution alerts processed after entry creation`);
+        console.log(`ℹ️ Low contribution alerts disabled`);
       } catch (contributionError) {
-        console.error("❌ Failed to process contribution alerts:", contributionError);
-        // Don't fail the entry creation if contribution alerts fail
+        console.error("❌ Low contribution alerts disabled:", contributionError);
+        // Don't fail the entry creation
       }
 
       res.status(201).json(entry);
@@ -1190,18 +1163,16 @@ export function registerRoutes(app: Express): Server {
         status: action.toUpperCase(),
       });
 
-      // 🔔 Send push notification for entry approval/rejection
+      // 🔔 Notifications disabled for entry approval/rejection
       try {
         if (action.toLowerCase() === 'approved') {
-          await pushNotificationManager.sendEntryApprovedNotification(entry, req.user._id);
-          console.log(`📲 Push notification sent for entry approval: ${entry.name}`);
+          console.log(`✅ Entry approved successfully`);
         } else if (action.toLowerCase() === 'rejected') {
-          await pushNotificationManager.sendEntryRejectedNotification(entry, req.user._id);
-          console.log(`📲 Push notification sent for entry rejection: ${entry.name}`);
+          console.log(`❌ Entry rejected successfully`);
         }
-      } catch (notificationError) {
-        console.error("❌ Failed to send push notification for entry status update:", notificationError);
-        // Don't fail the status update if notifications fail
+      } catch (logError) {
+        console.error("❌ Failed to log entry status update:", logError);
+        // Don't fail the status update
       }
 
       res.json(entry);
@@ -1311,92 +1282,6 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to update flat settings:", error);
       res.status(500).json({ message: "Failed to update flat settings" });
-    }
-  });
-
-  // 🔔 Acknowledge penalty notification (stops repeat notifications)
-  app.post("/api/notifications/acknowledge/:type", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
-    try {
-      const { type } = req.params;
-      
-      if (!['PENALTY_REMINDER', 'PENALTY_APPLIED', 'LOW_CONTRIBUTION'].includes(type)) {
-        return res.status(400).json({ message: "Invalid notification type" });
-      }
-      
-      await storage.acknowledgeNotification(req.user._id, type as any);
-      
-      console.log(`✅ User ${req.user._id} acknowledged ${type} notification`);
-      res.json({ message: "Notification acknowledged successfully" });
-    } catch (error) {
-      console.error("❌ Failed to acknowledge notification:", error);
-      res.status(500).json({ message: "Failed to acknowledge notification" });
-    }
-  });
-
-  // 📊 Get comprehensive penalty notification status (Admin only)
-  app.get("/api/admin/penalty-notifications", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
-      return res.status(403).json({ message: "Only admins can view penalty notification status" });
-    }
-
-    try {
-      const users = await storage.getUsersByFlatId(req.user.flatId);
-      const notificationStatus = [];
-
-      for (const user of users) {
-        const penaltyTracking = await storage.getNotificationTracking(user._id, 'PENALTY_APPLIED');
-        const reminderTracking = await storage.getNotificationTracking(user._id, 'PENALTY_REMINDER');
-        const contributionTracking = await storage.getNotificationTracking(user._id, 'LOW_CONTRIBUTION');
-
-        notificationStatus.push({
-          userId: user._id,
-          userName: user.name,
-          email: user.email,
-          notifications: {
-            penaltyApplied: penaltyTracking ? {
-              sentCount: penaltyTracking.sentCount,
-              lastSent: penaltyTracking.lastSentAt,
-              acknowledged: penaltyTracking.acknowledged,
-              metadata: penaltyTracking.metadata
-            } : null,
-            penaltyReminder: reminderTracking ? {
-              sentCount: reminderTracking.sentCount,
-              lastSent: reminderTracking.lastSentAt,
-              acknowledged: reminderTracking.acknowledged,
-              metadata: reminderTracking.metadata
-            } : null,
-            lowContribution: contributionTracking ? {
-              sentCount: contributionTracking.sentCount,
-              lastSent: contributionTracking.lastSentAt,
-              acknowledged: contributionTracking.acknowledged,
-              metadata: contributionTracking.metadata
-            } : null
-          },
-          hasActivePenalties: false // We can add logic to check for active penalties
-        });
-      }
-
-      res.json({
-        flatId: req.user.flatId,
-        totalUsers: users.length,
-        notificationStatus,
-        summary: {
-          usersWithPenaltyNotifications: notificationStatus.filter(u => u.notifications.penaltyApplied).length,
-          usersWithReminders: notificationStatus.filter(u => u.notifications.penaltyReminder).length,
-          usersWithLowContributionAlerts: notificationStatus.filter(u => u.notifications.lowContribution).length,
-          totalAcknowledged: notificationStatus.filter(u => 
-            u.notifications.penaltyApplied?.acknowledged || 
-            u.notifications.penaltyReminder?.acknowledged || 
-            u.notifications.lowContribution?.acknowledged
-          ).length
-        }
-      });
-    } catch (error) {
-      console.error("❌ Failed to get penalty notification status:", error);
-      res.status(500).json({ message: "Failed to get penalty notification status" });
     }
   });
 

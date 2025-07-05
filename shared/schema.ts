@@ -150,17 +150,7 @@ export interface User {
   inviteExpiry: Date | null;
   resetToken: string | null;
   resetExpiry: Date | null;
-  pushSubscription?: PushSubscription | null; // Added for push notifications
   createdAt: Date;
-}
-
-// Push notification subscription interface
-export interface PushSubscription {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
 }
 
 export interface Activity {
@@ -169,24 +159,6 @@ export interface Activity {
   type: ActivityType;
   description: string;
   timestamp: Date;
-}
-
-// Notification tracking for personalized notifications
-export interface NotificationTracking {
-  _id?: string;
-  userId: string;
-  notificationType: 'PENALTY_REMINDER' | 'PENALTY_APPLIED' | 'LOW_CONTRIBUTION';
-  sentCount: number;
-  firstSentAt: Date;
-  lastSentAt: Date;
-  acknowledged: boolean;
-  metadata?: {
-    penaltyAmount?: number;
-    contributionPercentage?: number;
-    fairShareThreshold?: number;
-    penaltyDate?: Date;
-  };
-  createdAt: Date;
 }
 
 // Penalty settings interface for TypeScript type checking
