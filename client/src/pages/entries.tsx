@@ -16,7 +16,6 @@ import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Entry } from "@shared/schema";
 import CreatableSelect from "react-select/creatable";
 import { FaUserCircle, FaEdit, FaTrash, FaClipboardList, FaSearch } from "react-icons/fa";
-import { MdOutlineDateRange, MdAccessTime } from "react-icons/md";
 import { CustomPagination } from "@/components/custom-pagination";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
@@ -178,8 +177,8 @@ export default function EntriesPage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
   
-  // Search filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const [showContributionStatus, setShowContributionStatus] = useState(false);
 
   // Effect to reset selected entries when search query is cleared
   useEffect(() => {
@@ -414,16 +413,6 @@ export default function EntriesPage() {
     });
   };
 
-  const [currentTime, setCurrentTime] = useState(new Date());
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000); // Update every second
-
-    return () => clearInterval(interval); // Cleanup on unmount
-  }, []);
-
   const options = [
     { value: "Milk Morning", label: "Milk Morning" },
     { value: "Milk Evening", label: "Milk Evening" },
@@ -580,7 +569,7 @@ export default function EntriesPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+          <div className="grid gap-6 grid-cols-1 mb-8">
             <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
               {/* Fair Share Information */}
 
@@ -719,13 +708,361 @@ export default function EntriesPage() {
                       });
                     })()
                   ) : (
-                    <div className="text-white/60 text-sm">No entries found</div>
+                    <div className="w-full flex items-center justify-center py-8 sm:py-10 md:py-12 lg:py-16 px-2 sm:px-2 md:px-2 min-h-[240px] sm:min-h-[280px] md:min-h-[320px] lg:min-h-[360px]">
+                      <div className="flex flex-col items-center justify-center max-w-2xl mx-auto">
+                        {/* Icon container with responsive sizing and hover effects */}
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-[#582c84] to-[#8e4be4] rounded-full flex items-center justify-center mb-4 sm:mb-5 md:mb-6 lg:mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse">
+                          <FaClipboardList className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 text-white" />
+                        </div>
+                        
+                        {/* Heading with responsive text sizes and improved spacing */}
+                        <h3 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-3 sm:mb-4 md:mb-5 lg:mb-6 text-center tracking-tight">
+                          No Entries Yet
+                        </h3>
+                        
+                        {/* Description with responsive text, width, and improved readability */}
+                        <p className="text-white/70 text-sm sm:text-base md:text-lg lg:text-xl text-center max-w-[300px] sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl leading-relaxed px-2 sm:px-0 font-medium">
+                          Start adding your expenses to track contributions and manage flat finances effectively
+                        </p>
+                        
+                        {/* Tip with responsive spacing, text, and improved styling */}
+                        <div className="mt-4 sm:mt-5 md:mt-6 lg:mt-8 text-xs sm:text-sm md:text-base text-white/50 text-center max-w-[280px] sm:max-w-sm md:max-w-md lg:max-w-lg flex items-center gap-2 sm:gap-3 bg-white/5 rounded-full px-4 py-2 sm:px-5 sm:py-3 backdrop-blur-sm border border-white/10">
+                          <span className="text-lg sm:text-xl">💡</span>
+                          <span className="font-medium">Tip: Use the "Add Entry" button to get started</span>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
 
               <CardHeader>
-                <CardTitle className="text-lg font-semibold">Overall Statistics</CardTitle>
+                <div className="flex flex-col gap-4">
+                  <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg font-semibold">Overall Statistics</CardTitle>
+                    {/* Desktop Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowContributionStatus(!showContributionStatus)}
+                      className={`hidden sm:flex relative overflow-hidden transition-all duration-300 border-2 backdrop-blur-md ${
+                        totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                          // Only check current user's deficit, not all users  
+                          const currentUserId = user?._id?.toString();
+                          let hasCurrentUserWarning = false;
+                          
+                          if (currentUserId) {
+                            const totalApprovedGlobal = entries
+                              .filter((e) => e.status === "APPROVED")
+                              .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                            const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                            const fairSharePerUser = totalGlobalAfterPenalty / (users?.length || 1);
+                            
+                            const userEntries = entries.filter((e) => {
+                              const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                                ? (e.userId._id || e.userId.id || e.userId)
+                                : e.userId;
+                              return entryUserId?.toString() === currentUserId;
+                            });
+                            const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                            const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                            const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                            const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                            
+                            // Use the same logic as ContributionStatus component
+                            const fairSharePercentage = 100 / (users?.length || 1);
+                            const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                              ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                              : 0;
+                            const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                            
+                            hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && fairSharePerUser > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                          }
+                          
+                          return hasCurrentUserWarning;
+                        })()
+                          ? 'bg-gradient-to-r from-red-500/20 to-orange-500/20 hover:from-red-500/30 hover:to-orange-500/30 border-red-400/50 hover:border-red-400/70 shadow-red-500/20 animate-pulse'
+                          : 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 border-purple-400/50 hover:border-purple-400/70 text-black shadow-purple-500/20'
+                      } shadow-lg hover:shadow-xl hover:scale-105`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center gap-2">
+                        {/* Dynamic Icon based on warning state */}
+                        {totals && users && entries && Array.isArray(entries) && entries.length > 0 ? (() => {
+                          const currentUserId = user?._id?.toString();
+                          let hasCurrentUserWarning = false;
+                          
+                          if (currentUserId) {
+                            const totalApprovedGlobal = entries
+                              .filter((e) => e.status === "APPROVED")
+                              .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                            const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                            const fairSharePerUser = totalGlobalAfterPenalty / (users?.length || 1);
+                            
+                            const userEntries = entries.filter((e) => {
+                              const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                                ? (e.userId._id || e.userId.id || e.userId)
+                                : e.userId;
+                              return entryUserId?.toString() === currentUserId;
+                            });
+                            const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                            const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                            const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                            const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                            
+                            // Use the same logic as ContributionStatus component
+                            const fairSharePercentage = 100 / (users?.length || 1);
+                            const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                              ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                              : 0;
+                            const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                            
+                            hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && fairSharePerUser > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                          }
+                          
+                          // Show red warning icon if user has warning, green success icon otherwise
+                          if (hasCurrentUserWarning) {
+                            return (
+                              <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                className="h-4 w-4 text-red-400" 
+                                viewBox="0 0 20 20" 
+                                fill="currentColor"
+                              >
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            );
+                          } else {
+                            return (
+                              <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                className="h-4 w-4 text-[#9a4de7]" 
+                                viewBox="0 0 20 20" 
+                                fill="currentColor"
+                              >
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                            );
+                          }
+                        })() : (
+                          // Neutral icon when no entries
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            className="h-4 w-4 text-gray-400 mt-1" 
+                            viewBox="0 0 20 20" 
+                            fill="currentColor"
+                          >
+                            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        <span className={`font-semibold text-xs text-black ${
+                          totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                            // Only check current user's deficit, not all users  
+                            const currentUserId = user?._id?.toString();
+                            let hasCurrentUserWarning = false;
+                            if (currentUserId) {
+                              const totalApprovedGlobal = entries
+                                .filter((e) => e.status === "APPROVED")
+                                .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                              const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                              const fairSharePerUser = totalGlobalAfterPenalty / (users?.length || 1);
+                              const userEntries = entries.filter((e) => {
+                                const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                                  ? (e.userId._id || e.userId.id || e.userId)
+                                  : e.userId;
+                                return entryUserId?.toString() === currentUserId;
+                              });
+                              const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                              const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                              const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                              const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                              // Use the same logic as ContributionStatus component
+                              const fairSharePercentage = 100 / (users?.length || 1);
+                              const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                                ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                                : 0;
+                              const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                              hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && fairSharePerUser > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                            }
+                            return hasCurrentUserWarning ? 'animate-pulse' : '';
+                          })() ? 'animate-pulse' : ''
+                        }`}>
+                          {showContributionStatus ? "Hide" : "Show"} Status
+                        </span>
+                      </div>
+                    </Button>
+                  </div>
+                  
+                  {/* Mobile Button */}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowContributionStatus(!showContributionStatus)}
+                    className={`sm:hidden w-full relative overflow-hidden transition-all duration-300 border-2 backdrop-blur-md rounded-2xl py-4 px-6 ${
+                      totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                        const totalApprovedGlobal = entries
+                          .filter((e) => e.status === "APPROVED")
+                          .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                        const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                        const normalizedUserIds = entries.map(e => {
+                          const userId = typeof e.userId === 'object' && e.userId !== null
+                            ? (e.userId._id || e.userId.id || e.userId)
+                            : e.userId;
+                          return userId?.toString();
+                        });
+                        const hasWarnings = Array.from(new Set(normalizedUserIds.filter(id => id))).some((userId) => {
+                          const userEntries = entries.filter((e) => {
+                            const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                              ? (e.userId._id || e.userId.id || e.userId)
+                              : e.userId;
+                            return entryUserId?.toString() === userId?.toString();
+                          });
+                          const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                          const userPenaltyAmount = allUserPenalties[userId]?.totalAmount || 0;
+                          const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                          const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                          const progressPercentage = Math.min((totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100, 100);
+                          return progressPercentage < 51;
+                        });
+                      })()
+                        ? 'bg-gradient-to-r from-red-500/20 via-orange-500/15 to-red-500/20 hover:from-red-500/30 hover:via-orange-500/25 hover:to-red-500/30 border-red-400/50 hover:border-red-400/70 shadow-red-500/30 animate-pulse'
+                        : 'bg-gradient-to-r from-purple-500/20 via-blue-500/15 to-purple-500/20 hover:from-purple-500/30 hover:via-blue-500/25 hover:to-purple-500/30 border-purple-400/50 hover:border-purple-400/70 text-black shadow-purple-500/30'
+                    } shadow-xl hover:shadow-2xl hover:scale-[1.02] transform`}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/5 to-white/10 opacity-0 hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="relative flex items-center justify-center gap-3">
+                      {totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                        const totalApprovedGlobal = entries
+                          .filter((e) => e.status === "APPROVED")
+                          .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                        const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                        const normalizedUserIds = entries.map(e => {
+                          const userId = typeof e.userId === 'object' && e.userId !== null
+                            ? (e.userId._id || e.userId.id || e.userId)
+                            : e.userId;
+                          return userId?.toString();
+                        });
+                        // Only check current user's deficit, not all users
+                        const currentUserId = user?._id?.toString();
+                        let hasCurrentUserWarning = false;
+                        
+                        if (currentUserId) {
+                          const userEntries = entries.filter((e) => {
+                            const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                              ? (e.userId._id || e.userId.id || e.userId)
+                              : e.userId;
+                            return entryUserId?.toString() === currentUserId;
+                          });
+                          const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                          const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                          const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                          const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                          
+                          // Use the same logic as ContributionStatus component
+                          const fairSharePercentage = 100 / (users?.length || 1);
+                          const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                            ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                            : 0;
+                          const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                          
+                          hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                        }
+                        
+                        return hasCurrentUserWarning && (
+                          <div className="relative">
+                            <div className="w-3 h-3 bg-red-400 rounded-full animate-ping absolute"></div>
+                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                          </div>
+                        );
+                      })()}
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        className={`h-6 w-6 transition-transform duration-500 ${showContributionStatus ? 'rotate-180' : ''}`}
+                        viewBox="0 0 20 20" 
+                        fill="currentColor"
+                      >
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      <div className="flex flex-col items-center">
+                        <span className={`font-bold text-sm leading-tight text-black ${
+                          totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                            // Only check current user's deficit, not all users
+                            const currentUserId = user?._id?.toString();
+                            let hasCurrentUserWarning = false;
+                            
+                            if (currentUserId) {
+                              const totalApprovedGlobal = entries
+                                .filter((e) => e.status === "APPROVED")
+                                .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                              const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                              
+                              const userEntries = entries.filter((e) => {
+                                const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                                  ? (e.userId._id || e.userId.id || e.userId)
+                                  : e.userId;
+                                return entryUserId?.toString() === currentUserId;
+                              });
+                              const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                              const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                              const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                              const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                              
+                              // Use the same logic as ContributionStatus component
+                              const fairSharePercentage = 100 / (users?.length || 1);
+                              const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                                ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                                : 0;
+                              const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                              
+                              hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                            }
+                            
+                            return hasCurrentUserWarning;
+                          })() ? 'animate-pulse' : ''
+                        }`}>
+                          {showContributionStatus ? "Hide" : "Show"} Contribution Status
+                        </span>
+                        {totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
+                          // Only check current user's deficit, not all users
+                          const currentUserId = user?._id?.toString();
+                          let hasCurrentUserWarning = false;
+                          
+                          if (currentUserId) {
+                            const totalApprovedGlobal = entries
+                              .filter((e) => e.status === "APPROVED")
+                              .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+                            const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+                            
+                            const userEntries = entries.filter((e) => {
+                              const entryUserId = typeof e.userId === 'object' && e.userId !== null
+                                ? (e.userId._id || e.userId.id || e.userId)
+                                : e.userId;
+                              return entryUserId?.toString() === currentUserId;
+                            });
+                            const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+                            const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+                            const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+                            const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+                            
+                            // Use the same logic as ContributionStatus component
+                            const fairSharePercentage = 100 / (users?.length || 1);
+                            const userContributionPercentage = totalGlobalAfterPenalty > 0 
+                              ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
+                              : 0;
+                            const fairShareThreshold = (75 * fairSharePercentage) / 100;
+                            
+                            hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
+                          }
+                          
+                          return hasCurrentUserWarning && (
+                            <span className="text-xs opacity-80 font-medium">
+                              Your contribution needs attention
+                            </span>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </Button>
+                </div>
               </CardHeader>
 
               <CardContent className="space-y-4">
@@ -773,236 +1110,8 @@ export default function EntriesPage() {
               </CardContent>
             </Card>
 
-
-            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg p-4">
-              {/* Header with Profile & Date-Time */}
-              <div className="flex justify-between items-center border-b border-white/10 pb-3 flex-wrap gap-3 sm:gap-0">
-
-                {/* Left Side: User Profile */}
-                <div className="flex items-center space-x-3">                  <Avatar className="w-12 h-12 border border-white/20 shadow-lg transition-transform duration-300 hover:scale-105">
-                    <AvatarImage
-                      src={user?.profilePicture}
-                      alt="User Profile"
-                      className="object-cover"
-                    />
-                    <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
-                      {getInitials(user?.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <div className="text-sm font-semibold text-white">{user?.name || "Guest User"}</div>
-                    <div className="text-xs text-white/60 truncate w-40 sm:w-32">{user?.email || "No Email"}</div>
-                  </div>
-                </div>
-
-                {/* Right Side: Date & Time */}
-                <div className="text-right text-sm mt-2 sm:mt-0">
-                  {/* Date */}
-                  <div className="flex items-center space-x-1 text-white/80">
-                    <MdOutlineDateRange className="text-lg text-blue-400" />
-                    <span className="font-medium">{currentTime.toLocaleDateString()}</span>
-                  </div>
-
-                  {/* Time (Live) */}
-                  <div className="flex items-center space-x-1 text-white/70">
-                    <MdAccessTime className="text-lg text-green-400" />
-                    <span className="font-medium">{currentTime.toLocaleTimeString()}</span>
-                  </div>
-                </div>
-              </div>
-
-
-              {/* Card Content */}
-              <CardContent className="space-y-4 mt-3">
-                {/* Total Amount */}
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">Total Amount:</span>
-                  <div className="text-end sm:text-right">
-                    <div className="font-bold text-green-400 text-lg">
-                      ₹
-                      {(() => {
-                        // Extract userId safely
-                        const currentUserId = user?._id?.toString();
-
-                        if (!currentUserId) return "0.00";
-
-                        // Filter approved entries for the user
-                        const userEntries = entries?.filter((e) => {
-                          const entryUserId =
-                            typeof e.userId === "object" && e.userId !== null
-                              ? e.userId._id || e.userId.id || e.userId
-                              : e.userId;
-
-                          return entryUserId?.toString() === currentUserId && e.status === "APPROVED";
-                        }) || [];
-
-                        // Get the total penalty amount for the user
-                        const userPenaltyAmount = allUserPenalties?.[currentUserId]?.totalAmount ?? 0;
-
-                        // Sum up approved entries and subtract penalty
-                        const totalAmount = userEntries.reduce((sum, entry) => sum + entry.amount, 0) - userPenaltyAmount;
-
-                        return totalAmount.toFixed(2);
-                      })()}
-                    </div>
-
-
-                    <div className="text-sm text-white/60">
-                      {entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-                        return userIdStr === currentUserIdStr && e.status === "APPROVED";
-                      }).length || 0} Entries
-                    </div>
-                  </div>
-                </div>
-
-
-
-                {/* Penalty */}
-                {/* <div className="flex justify-between items-center">
-                  <span className="text-white/80">Penalty:</span>
-                  <div className="text-end sm:text-right">
-                    <div className="font-bold text-yellow-400 text-lg">
-                      ₹
-                      {(() => {
-                        const userId = user?._id?.toString(); // Ensure it's a string
-                        if (!userId) return "0.00"; // Handle case where userId is undefined
-
-                        const userPenalty = allUserPenalties?.[userId] || { totalAmount: 0, entries: 0 };
-                        return userPenalty.totalAmount.toFixed(2);
-                      })()}
-                    </div>
-
-                    <div className="text-sm text-white/60">
-                      {(() => {
-                        const userPenalty = allUserPenalties?.[user?._id] || { totalAmount: 0, entries: 0 };
-                        return userPenalty.entries;
-                      })()}{" "}
-                      Entries
-                    </div>
-                  </div>
-                </div> */}
-
-                {/* Pending */}
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">Pending:</span>
-                  <div className="text-end sm:text-right">
-                    <div className="font-bold text-yellow-400 text-lg">
-                      ₹{entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-
-                        return userIdStr === currentUserIdStr && e.status === "PENDING";
-                      })
-                        .reduce((sum, entry) => sum + entry.amount, 0).toFixed(2) || "0.00"}
-                    </div>
-                    <div className="text-sm text-white/60">
-                      {entries?.filter((e) => {
-                        // Handle different userId formats
-                        const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                          ? (e.userId._id || e.userId.id || e.userId)
-                          : e.userId;
-
-                        const userIdStr = entryUserId?.toString();
-                        const currentUserIdStr = user?._id?.toString();
-
-                        return userIdStr === currentUserIdStr && e.status === "PENDING";
-                      }).length || 0} Entries
-                    </div>
-                  </div>
-                </div>
-
-                {/* Top Expense Category with Top 5 Approved Entries List */}
-                {entries && entries.length > 0 && (() => {
-                  const approvedEntries = entries.filter(
-                    (e) => {
-                      // Handle different userId formats
-                      const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                        ? (e.userId._id || e.userId.id || e.userId)
-                        : e.userId;
-
-                      const userIdStr = entryUserId?.toString();
-                      const currentUserIdStr = user?._id?.toString();
-
-                      return userIdStr === currentUserIdStr && e.status === "APPROVED";
-                    }
-                  );
-
-                  if (approvedEntries.length === 0) {
-                    return <div className="text-white text-sm text-center py-2">No Approved Expenses Found</div>;
-                  }
-
-                  const sortedEntries = [...approvedEntries].sort((a, b) => b.amount - a.amount);
-                  const topEntries = sortedEntries.slice(0, 5);
-                  const topCategory =
-                    topEntries[0]?.category?.trim() ||
-                    topEntries[0]?.entryCategory?.trim() ||
-                    topEntries[0]?.name?.trim() ||
-                    "No Category";
-                  const totalAmount = topEntries.reduce((sum, entry) => sum + entry.amount, 0);
-
-                  return (
-                    <div className="border-t p-4 border-white/10 pt-2 bg-white/5 rounded-md shadow-md">
-
-                      {/* Main Flex Container - Desktop & Mobile Same */}
-                      <div className="flex items-start">
-
-                        {/* Left Side: Entries List (Heading Fixed, Entries Scrollable) */}
-                        <div className="w-1/3 pr-2 border-r border-white/10">
-                          {/* Fixed Heading */}
-                          <div className="text-cyan-300 text-sm font-medium mb-1 border-b border-white/10 pb-1">
-                            Top Entries:
-                          </div>
-
-                          {/* Scrollable Entries List */}
-                          <div className="max-h-24 overflow-y-auto space-y-1">
-                            {topEntries.length > 0 ? (
-                              topEntries.map((entry, index) => (
-                                <div key={index} className="text-yellow-200 text-xs truncate">
-                                  {index + 1}. {entry.entryName || entry.title || entry.name}
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-yellow-500 text-xs">No Entries Found</div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right Side: Top Expense Details */}
-                        <div className="w-2/3 pl-2 text-white text-sm space-y-1">
-                          <div className="font-semibold">Top Expense Category:</div>
-                          <div className="text-sm font-bold text-blue-400">{topCategory}</div>
-                          <div className="text-xs text-white/70">
-                            <span className="font-medium">Total Amount:</span> ₹{totalAmount.toFixed(2)}
-                          </div>
-                          <div className="text-xs text-white/70">
-                            <span className="font-medium">Total Entries:</span> {topEntries.length}
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-                  );
-                })()}
-
-              </CardContent>
-            </Card>
-
             {/* Contribution Status Card */}
-            {totals && users && (
+            {showContributionStatus && totals && users && (
               <ContributionStatus
                 userContribution={totals.userTotal}
                 fairShare={totals.fairShareAmount}
