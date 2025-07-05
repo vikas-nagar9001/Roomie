@@ -76,156 +76,7 @@ export function registerRoutes(app: Express): Server {
     res.json(activities);
   });
 
-  // 🔔 Push Notification Routes
-  
-  // Get VAPID public key
-  app.get("/api/vapid-public-key", (req, res) => {
-    res.json({ 
-      publicKey: 'REMOVED' 
-    });
-  });
 
-  // Subscribe to push notifications
-  app.post("/api/push-subscription", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
-    try {
-      const { subscription } = req.body;
-      
-      // Save subscription to user's record
-      await storage.updateUser(req.user._id, {
-        pushSubscription: subscription
-      });
-
-      console.log(`✅ Push subscription saved for user ${req.user._id}`);
-      res.json({ message: "Subscription saved successfully" });
-    } catch (error) {
-      console.error("❌ Failed to save push subscription:", error);
-      res.status(500).json({ message: "Failed to save subscription" });
-    }
-  });
-
-  // Unsubscribe from push notifications
-  app.delete("/api/push-subscription", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
-    try {
-      // Remove subscription from user's record
-      await storage.updateUser(req.user._id, {
-        pushSubscription: null
-      });
-
-      console.log(`✅ Push subscription removed for user ${req.user._id}`);
-      res.json({ message: "Subscription removed successfully" });
-    } catch (error) {
-      console.error("❌ Failed to remove push subscription:", error);
-      res.status(500).json({ message: "Failed to remove subscription" });
-    }
-  });
-
-  // Send test push notification
-  app.post("/api/test-push-notification", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    
-    try {
-      console.log("Test notification disabled");
-      res.json({ message: "Test notification disabled" });
-    } catch (error) {
-      console.error("❌ Failed to send test notification:", error);
-      res.status(500).json({ message: "Failed to send test notification" });
-    }
-  });
-
-  // 🔔 Manual trigger for personalized notifications (Admin only)
-  app.post("/api/trigger-personalized-notifications", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
-      return res.status(403).json({ message: "Only admins can trigger notifications" });
-    }
-
-    try {
-      console.log("Personalized notifications disabled");
-      res.json({ message: "Personalized notifications disabled" });
-    } catch (error) {
-      console.error("❌ Failed to process personalized notifications:", error);
-      res.status(500).json({ message: "Failed to process personalized notifications" });
-    }
-  });
-
-  // 📆 Send penalty reminder to specific user (Admin only)
-  app.post("/api/send-penalty-reminder/:userId", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
-      return res.status(403).json({ message: "Only admins can send penalty reminders" });
-    }
-
-    try {
-      const { userId } = req.params;
-      const settings = await storage.getPenaltySettings(req.user.flatId);
-      
-      if (!settings) {
-        return res.status(404).json({ message: "Penalty settings not found" });
-      }
-
-      const nextPenaltyDate = new Date();
-      nextPenaltyDate.setDate(nextPenaltyDate.getDate() + 1); // Tomorrow
-      
-      console.log("Penalty reminder notification disabled");
-      
-      res.json({ message: "Penalty reminder disabled" });
-    } catch (error) {
-      console.error("❌ Failed to send penalty reminder:", error);
-      res.status(500).json({ message: "Failed to send penalty reminder" });
-    }
-  });
-
-  // 📉 Send low contribution alert to specific user (Admin only)
-  app.post("/api/send-low-contribution-alert/:userId", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
-      return res.status(403).json({ message: "Only admins can send contribution alerts" });
-    }
-
-    try {
-      const { userId } = req.params;
-      const { contributionPercentage, fairShareThreshold } = req.body;
-      
-      if (!contributionPercentage || !fairShareThreshold) {
-        return res.status(400).json({ 
-          message: "contributionPercentage and fairShareThreshold are required" 
-        });
-      }
-      
-      console.log("Low contribution alert notification disabled");
-      
-      res.json({ message: "Low contribution alert disabled" });
-    } catch (error) {
-      console.error("❌ Failed to send low contribution alert:", error);
-      res.status(500).json({ message: "Failed to send low contribution alert" });
-    }
-  });
-
-  // 🗑️ Clear notification tracking for user (Admin only)
-  app.delete("/api/notification-tracking/:userId/:type", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
-      return res.status(403).json({ message: "Only admins can clear notification tracking" });
-    }
-
-    try {
-      const { userId, type } = req.params;
-      
-      if (!['PENALTY_REMINDER', 'PENALTY_APPLIED', 'LOW_CONTRIBUTION'].includes(type)) {
-        return res.status(400).json({ message: "Invalid notification type" });
-      }
-      
-      await storage.acknowledgeNotification(userId, type as any);
-      res.json({ message: "Notification tracking cleared successfully" });
-    } catch (error) {
-      console.error("❌ Failed to clear notification tracking:", error);
-      res.status(500).json({ message: "Failed to clear notification tracking" });
-    }
-  });
 
   // Bulk delete entries
   app.delete("/api/entries/bulk", async (req, res) => {
@@ -560,12 +411,6 @@ export function registerRoutes(app: Express): Server {
         createdBy: req.user._id
       });
 
-      // Penalty notification disabled
-      console.log("Universal penalty notification disabled");
-
-      // Repeat notifications disabled
-      console.log("Repeat penalty notifications disabled");
-
       await storage.logActivity({
         userId: req.user._id,
         type: "PENALTY_ADDED",
@@ -573,7 +418,6 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
-      console.log(`🚨 Manual admin penalty applied and notification sent to user ${userId}`);
       res.status(201).json(penalty);
     } catch (error) {
       console.error("Failed to create penalty:", error);
@@ -817,22 +661,6 @@ export function registerRoutes(app: Express): Server {
         description: `Added entry: ${name} (₹${amount})`,
         timestamp: new Date(),
       });
-
-      // 🔔 Notifications disabled - entry created successfully
-      try {
-        console.log(`� Entry created successfully: ${entry.name}`);
-      } catch (notificationError) {
-        console.error("❌ Error logging entry creation:", notificationError);
-        // Don't fail the entry creation
-      }
-
-      // 📉 Low contribution alerts disabled
-      try {
-        console.log(`ℹ️ Low contribution alerts disabled`);
-      } catch (contributionError) {
-        console.error("❌ Low contribution alerts disabled:", contributionError);
-        // Don't fail the entry creation
-      }
 
       res.status(201).json(entry);
     } catch (error) {
@@ -1162,18 +990,6 @@ export function registerRoutes(app: Express): Server {
       const entry = await storage.updateEntry(id, {
         status: action.toUpperCase(),
       });
-
-      // 🔔 Notifications disabled for entry approval/rejection
-      try {
-        if (action.toLowerCase() === 'approved') {
-          console.log(`✅ Entry approved successfully`);
-        } else if (action.toLowerCase() === 'rejected') {
-          console.log(`❌ Entry rejected successfully`);
-        }
-      } catch (logError) {
-        console.error("❌ Failed to log entry status update:", logError);
-        // Don't fail the status update
-      }
 
       res.json(entry);
     } catch (error) {

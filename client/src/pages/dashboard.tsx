@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FiUsers, FiList, FiUser, FiCreditCard, FiAlertTriangle } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { MobileNav } from "@/components/mobile-nav";
 import { Header } from "@/components/header";
 import { useQuery } from "@tanstack/react-query";
@@ -13,7 +13,6 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [greeting, setGreeting] = useState("");
   const [location] = useLocation();
-  const notificationInitRef = useRef(false);
 
   // Show loader when the page first loads
   useEffect(() => {
@@ -25,10 +24,9 @@ export default function Dashboard() {
     };
   }, []);
 
-  // � Dashboard initialization - only run once per dashboard visit
+  // Dashboard initialization
   useEffect(() => {
-    if (notificationInitRef.current || !user) return;
-    notificationInitRef.current = true;
+    if (!user) return;
 
     const handleDashboardInit = async () => {
       try {
