@@ -558,7 +558,7 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { userId, type, amount, description, image } = req.body;
+      const { userId, type, amount, description, image, adminMessage } = req.body;
 
       const penalty = await storage.createPenalty({
         userId,
@@ -570,6 +570,26 @@ export function registerRoutes(app: Express): Server {
         createdBy: req.user._id
       });
 
+      // 🚨 UNIVERSAL PENALTY NOTIFICATION - Send immediate notification for manual admin penalty
+      await pushNotificationManager.sendUniversalPenaltyNotification(
+        userId,
+        Number(amount),
+        'MANUAL_ADMIN',
+        description,
+        adminMessage,
+        new Date()
+      );
+
+      // 🔁 Schedule repeat notifications with smart timing
+      await pushNotificationManager.scheduleRepeatPenaltyNotifications(
+        userId,
+        Number(amount),
+        'MANUAL_ADMIN',
+        description,
+        adminMessage,
+        new Date()
+      );
+
       await storage.logActivity({
         userId: req.user._id,
         type: "PENALTY_ADDED",
@@ -577,6 +597,7 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
+      console.log(`🚨 Manual admin penalty applied and notification sent to user ${userId}`);
       res.status(201).json(penalty);
     } catch (error) {
       console.error("Failed to create penalty:", error);
@@ -1290,6 +1311,92 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to update flat settings:", error);
       res.status(500).json({ message: "Failed to update flat settings" });
+    }
+  });
+
+  // 🔔 Acknowledge penalty notification (stops repeat notifications)
+  app.post("/api/notifications/acknowledge/:type", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    
+    try {
+      const { type } = req.params;
+      
+      if (!['PENALTY_REMINDER', 'PENALTY_APPLIED', 'LOW_CONTRIBUTION'].includes(type)) {
+        return res.status(400).json({ message: "Invalid notification type" });
+      }
+      
+      await storage.acknowledgeNotification(req.user._id, type as any);
+      
+      console.log(`✅ User ${req.user._id} acknowledged ${type} notification`);
+      res.json({ message: "Notification acknowledged successfully" });
+    } catch (error) {
+      console.error("❌ Failed to acknowledge notification:", error);
+      res.status(500).json({ message: "Failed to acknowledge notification" });
+    }
+  });
+
+  // 📊 Get comprehensive penalty notification status (Admin only)
+  app.get("/api/admin/penalty-notifications", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can view penalty notification status" });
+    }
+
+    try {
+      const users = await storage.getUsersByFlatId(req.user.flatId);
+      const notificationStatus = [];
+
+      for (const user of users) {
+        const penaltyTracking = await storage.getNotificationTracking(user._id, 'PENALTY_APPLIED');
+        const reminderTracking = await storage.getNotificationTracking(user._id, 'PENALTY_REMINDER');
+        const contributionTracking = await storage.getNotificationTracking(user._id, 'LOW_CONTRIBUTION');
+
+        notificationStatus.push({
+          userId: user._id,
+          userName: user.name,
+          email: user.email,
+          notifications: {
+            penaltyApplied: penaltyTracking ? {
+              sentCount: penaltyTracking.sentCount,
+              lastSent: penaltyTracking.lastSentAt,
+              acknowledged: penaltyTracking.acknowledged,
+              metadata: penaltyTracking.metadata
+            } : null,
+            penaltyReminder: reminderTracking ? {
+              sentCount: reminderTracking.sentCount,
+              lastSent: reminderTracking.lastSentAt,
+              acknowledged: reminderTracking.acknowledged,
+              metadata: reminderTracking.metadata
+            } : null,
+            lowContribution: contributionTracking ? {
+              sentCount: contributionTracking.sentCount,
+              lastSent: contributionTracking.lastSentAt,
+              acknowledged: contributionTracking.acknowledged,
+              metadata: contributionTracking.metadata
+            } : null
+          },
+          hasActivePenalties: false // We can add logic to check for active penalties
+        });
+      }
+
+      res.json({
+        flatId: req.user.flatId,
+        totalUsers: users.length,
+        notificationStatus,
+        summary: {
+          usersWithPenaltyNotifications: notificationStatus.filter(u => u.notifications.penaltyApplied).length,
+          usersWithReminders: notificationStatus.filter(u => u.notifications.penaltyReminder).length,
+          usersWithLowContributionAlerts: notificationStatus.filter(u => u.notifications.lowContribution).length,
+          totalAcknowledged: notificationStatus.filter(u => 
+            u.notifications.penaltyApplied?.acknowledged || 
+            u.notifications.penaltyReminder?.acknowledged || 
+            u.notifications.lowContribution?.acknowledged
+          ).length
+        }
+      });
+    } catch (error) {
+      console.error("❌ Failed to get penalty notification status:", error);
+      res.status(500).json({ message: "Failed to get penalty notification status" });
     }
   });
 

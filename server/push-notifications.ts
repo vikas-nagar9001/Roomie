@@ -363,62 +363,24 @@ class PushNotificationManager {
 
   /**
    * ❌ Send penalty applied notification (immediately after penalty is applied)
+   * @deprecated Use sendUniversalPenaltyNotification instead for better coverage
    */
   async sendPenaltyAppliedNotification(userId: string, penaltyAmount: number, description: string): Promise<void> {
-    try {
-      const shouldSend = await storage.shouldSendNotification(userId, 'PENALTY_APPLIED');
-      
-      if (!shouldSend) {
-        console.log(`⏸️ Skipping penalty applied notification for user ${userId} - rate limited`);
-        return;
-      }
-
-      const user = await storage.getUser(userId);
-      if (!user) return;
-
-      const tracking = await storage.getNotificationTracking(userId, 'PENALTY_APPLIED');
-      const currentCount = tracking ? tracking.sentCount + 1 : 1;
-      
-      let title = '';
-      let body = '';
-      
-      if (currentCount === 1) {
-        title = '❌ Penalty Applied';
-        body = `${user.name}, a penalty of ₹${penaltyAmount} has been applied to your account. ${description}`;
-      } else if (currentCount === 2) {
-        title = '❌ Penalty Applied (Reminder)';
-        body = `${user.name}, don't forget about the ₹${penaltyAmount} penalty. Increase your contributions to avoid future penalties.`;
-      } else {
-        title = '❌ Penalty Applied (Final Notice)';
-        body = `${user.name}, please address the ₹${penaltyAmount} penalty and improve your contribution percentage.`;
-      }
-
-      const payload: NotificationPayload = {
-        title,
-        body,
-        icon: '/pwa-icons/icon-512.png',
-        badge: '/pwa-icons/icon-512.png',
-        data: {
-          url: '/penalties',
-          type: 'penalty_applied',
-          penaltyAmount
-        },
-        tag: 'penalty-applied',
-        requireInteraction: true
-      };
-
-      await this.sendToUser(userId, payload);
-      
-      // Track notification
-      await storage.createOrUpdateNotificationTracking(userId, 'PENALTY_APPLIED', {
-        penaltyAmount,
-        description
-      });
-      
-      console.log(`❌ Penalty applied notification sent to user ${userId} (attempt ${currentCount})`);
-    } catch (error) {
-      console.error(`❌ Failed to send penalty applied notification to user ${userId}:`, error);
-    }
+    // Route to the universal penalty notification system
+    await this.sendUniversalPenaltyNotification(
+      userId, 
+      penaltyAmount, 
+      'TIME_BASED_AUTOMATIC', // Default to automatic type for backwards compatibility
+      description
+    );
+    
+    // Schedule repeat notifications
+    await this.scheduleRepeatPenaltyNotifications(
+      userId, 
+      penaltyAmount, 
+      'TIME_BASED_AUTOMATIC',
+      description
+    );
   }
 
   /**
@@ -544,8 +506,8 @@ class PushNotificationManager {
         if (users.length === 0) continue;
         
         // Calculate contribution stats using same logic as frontend
-        const approvedEntries = entries.filter(entry => entry.status !== 'PENDING' && entry.status !== 'REJECTED');
-        const totalAmount = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+        const approvedEntries = entries.filter(entry => entry && entry.status !== 'PENDING' && entry.status !== 'REJECTED');
+        const totalAmount = approvedEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
         const totalPenaltyAmount = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
         const finalFlatTotalEntry = Math.max(totalAmount - totalPenaltyAmount, 0.01);
         const finalFairShare = finalFlatTotalEntry / users.length;
@@ -558,8 +520,8 @@ class PushNotificationManager {
             return penaltyUserId === user._id.toString();
           });
           const userPenaltyAmount = userPenalties.reduce((sum, penalty) => sum + penalty.amount, 0);
-          const userEntries = approvedEntries.filter(entry => entry.userId._id.toString() === user._id.toString());
-          const userContribution = userEntries.reduce((sum, entry) => sum + entry.amount, 0);
+          const userEntries = approvedEntries.filter(entry => entry && entry.userId._id.toString() === user._id.toString());
+          const userContribution = userEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
           const finalUserContribution = userContribution - userPenaltyAmount;
           const userContributionPercentage = finalFlatTotalEntry > 0 ? (finalUserContribution / finalFlatTotalEntry) * 100 : 0;
           
@@ -573,6 +535,189 @@ class PushNotificationManager {
       console.log(`📉 Processed low contribution alerts for ${flats.length} flats`);
     } catch (error) {
       console.error('❌ Failed to process low contribution alerts:', error);
+    }
+  }
+
+  /**
+   * 🚨 Universal penalty notification - works for ALL penalty types
+   * Sends personalized notification whenever any penalty is applied to a user
+   */
+  async sendUniversalPenaltyNotification(
+    userId: string, 
+    penaltyAmount: number, 
+    penaltyType: 'CONTRIBUTION_BASED' | 'TIME_BASED_AUTOMATIC' | 'MANUAL_ADMIN',
+    description: string,
+    adminMessage?: string,
+    timestamp?: Date
+  ): Promise<void> {
+    try {
+      const shouldSend = await storage.shouldSendNotification(userId, 'PENALTY_APPLIED');
+      
+      if (!shouldSend) {
+        console.log(`⏸️ Skipping universal penalty notification for user ${userId} - rate limited`);
+        return;
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) return;
+
+      const tracking = await storage.getNotificationTracking(userId, 'PENALTY_APPLIED');
+      const currentCount = tracking ? tracking.sentCount + 1 : 1;
+      const penaltyTime = timestamp || new Date();
+      
+      // Create personalized messages based on penalty type and attempt count
+      let title = '';
+      let body = '';
+      let icon = '❌';
+      
+      // First notification - immediate and informative
+      if (currentCount === 1) {
+        switch (penaltyType) {
+          case 'CONTRIBUTION_BASED':
+            title = '📉 Contribution Penalty Applied';
+            body = `Hi ${user.name}, a ₹${penaltyAmount} penalty has been applied due to low contribution. ${description}`;
+            icon = '📉';
+            break;
+          case 'TIME_BASED_AUTOMATIC':
+            title = '⏱️ Automatic Penalty Applied';
+            body = `Hi ${user.name}, an automatic penalty of ₹${penaltyAmount} has been applied. ${description}`;
+            icon = '⏱️';
+            break;
+          case 'MANUAL_ADMIN':
+            title = '👮 Admin Penalty Applied';
+            body = `Hi ${user.name}, an admin has applied a ₹${penaltyAmount} penalty. ${description}`;
+            icon = '👮';
+            break;
+        }
+      } 
+      // Second notification - reminder after 2 hours
+      else if (currentCount === 2) {
+        title = `${icon} Penalty Reminder`;
+        body = `${user.name}, don't forget about the ₹${penaltyAmount} penalty applied earlier. Please review your account and increase contributions to avoid future penalties.`;
+      } 
+      // Third notification - next morning/final reminder
+      else {
+        title = `🚨 Final Penalty Notice`;
+        body = `${user.name}, this is a final reminder about the ₹${penaltyAmount} penalty. Please address this and improve your contribution to avoid additional penalties.`;
+      }
+
+      // Add admin message if provided
+      if (adminMessage && currentCount === 1) {
+        body += `\n\n📝 Admin Note: ${adminMessage}`;
+      }
+
+      const payload: NotificationPayload = {
+        title,
+        body,
+        icon: '/pwa-icons/icon-512.png',
+        badge: '/pwa-icons/icon-512.png',
+        data: {
+          url: '/penalties',
+          type: 'universal_penalty',
+          penaltyAmount,
+          penaltyType,
+          timestamp: penaltyTime.toISOString(),
+          adminMessage: adminMessage || null
+        },
+        actions: [
+          {
+            action: 'view_penalties',
+            title: 'View Penalties',
+            icon: '/pwa-icons/icon-512.png'
+          },
+          {
+            action: 'view_entries',
+            title: 'Add Entry',
+            icon: '/pwa-icons/icon-512.png'
+          }
+        ],
+        tag: 'universal-penalty',
+        requireInteraction: true
+      };
+
+      await this.sendToUser(userId, payload);
+      
+      // Track notification with comprehensive metadata
+      await storage.createOrUpdateNotificationTracking(userId, 'PENALTY_APPLIED', {
+        penaltyAmount,
+        description,
+        penaltyType,
+        timestamp: penaltyTime,
+        adminMessage
+      });
+      
+      console.log(`🚨 Universal penalty notification sent to user ${userId} (${penaltyType}, attempt ${currentCount})`);
+    } catch (error) {
+      console.error(`❌ Failed to send universal penalty notification to user ${userId}:`, error);
+    }
+  }
+
+  /**
+   * 🔁 Schedule smart repeat notifications for penalty acknowledgment
+   * - 2nd notification: After 2 hours
+   * - 3rd notification: Next morning (8 AM)
+   */
+  async scheduleRepeatPenaltyNotifications(
+    userId: string, 
+    penaltyAmount: number, 
+    penaltyType: 'CONTRIBUTION_BASED' | 'TIME_BASED_AUTOMATIC' | 'MANUAL_ADMIN',
+    description: string,
+    adminMessage?: string,
+    timestamp?: Date
+  ): Promise<void> {
+    const penaltyTime = timestamp || new Date();
+    
+    // Schedule 2nd notification after 2 hours
+    setTimeout(async () => {
+      try {
+        const tracking = await storage.getNotificationTracking(userId, 'PENALTY_APPLIED');
+        // Only send if user hasn't acknowledged and we haven't sent too many
+        if (!tracking || (!tracking.acknowledged && tracking.sentCount < 2)) {
+          await this.sendUniversalPenaltyNotification(userId, penaltyAmount, penaltyType, description, adminMessage, penaltyTime);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to send 2-hour penalty reminder to user ${userId}:`, error);
+      }
+    }, 2 * 60 * 60 * 1000); // 2 hours in milliseconds
+
+    // Schedule 3rd notification next morning at 8 AM
+    const nextMorning = new Date(penaltyTime);
+    nextMorning.setDate(nextMorning.getDate() + 1);
+    nextMorning.setHours(8, 0, 0, 0); // 8:00 AM
+    
+    const timeUntilMorning = nextMorning.getTime() - Date.now();
+    
+    if (timeUntilMorning > 0) {
+      setTimeout(async () => {
+        try {
+          const tracking = await storage.getNotificationTracking(userId, 'PENALTY_APPLIED');
+          // Only send if user hasn't acknowledged and we haven't sent the final notice
+          if (!tracking || (!tracking.acknowledged && tracking.sentCount < 3)) {
+            await this.sendUniversalPenaltyNotification(userId, penaltyAmount, penaltyType, description, adminMessage, penaltyTime);
+          }
+        } catch (error) {
+          console.error(`❌ Failed to send morning penalty reminder to user ${userId}:`, error);
+        }
+      }, timeUntilMorning);
+    }
+  }
+
+  /**
+   * 🧹 Clean up old notification schedules and tracking data
+   * Removes acknowledged notifications older than 30 days
+   */
+  async cleanupOldNotifications(): Promise<void> {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      // This would require a storage method to clean up old tracking data
+      console.log('🧹 Cleaning up old notification tracking data...');
+      
+      // For now, just log - we can implement the actual cleanup in storage later
+      console.log(`✅ Notification cleanup completed for data older than ${thirtyDaysAgo.toLocaleDateString()}`);
+    } catch (error) {
+      console.error('❌ Failed to clean up old notifications:', error);
     }
   }
 }

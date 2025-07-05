@@ -177,16 +177,32 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
 
       deficitUser++;
 
-      // 🔔 Send penalty applied notification to the user
+      // � UNIVERSAL PENALTY NOTIFICATION - Send immediate notification for contribution-based penalty
       try {
-        await pushNotificationManager.sendPenaltyAppliedNotification(
+        const penaltyDescription = `Low contribution penalty: Your contribution ₹${finalUserContribution.toFixed(2)} is below fair share ₹${finalFairShare.toFixed(2)}`;
+        
+        await pushNotificationManager.sendUniversalPenaltyNotification(
           user._id, 
           penaltyAmount, 
-          `${msg} penalty for less entry ₹${finalUserContribution.toFixed(2)} < ₹${finalFairShare}`
+          'CONTRIBUTION_BASED',
+          penaltyDescription,
+          undefined, // No admin message for automatic penalties
+          new Date()
         );
-        console.log(`📲 Penalty applied notification sent to user ${user._id}`);
+
+        // 🔁 Schedule repeat notifications with smart timing
+        await pushNotificationManager.scheduleRepeatPenaltyNotifications(
+          user._id, 
+          penaltyAmount, 
+          'CONTRIBUTION_BASED',
+          penaltyDescription,
+          undefined,
+          new Date()
+        );
+        
+        console.log(`📲 Universal penalty notification sent to user ${user._id} for contribution-based penalty`);
       } catch (notificationError) {
-        console.error(`❌ Failed to send penalty notification to user ${user._id}:`, notificationError);
+        console.error(`❌ Failed to send universal penalty notification to user ${user._id}:`, notificationError);
         // Don't fail penalty creation if notification fails
       }
 
