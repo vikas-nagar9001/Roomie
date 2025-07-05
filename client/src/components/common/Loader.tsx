@@ -33,7 +33,7 @@ export default function Loader() {
         }
 
         // Load and convert logo to base64 for permanent caching
-        const response = await fetch('/logo-200*200.png');
+        const response = await fetch('/logo-200x200.png');
         const blob = await response.blob();
         
         const reader = new FileReader();
@@ -51,7 +51,7 @@ export default function Loader() {
       } catch (error) {
         console.warn('Logo caching failed, using fallback:', error);
         // Fallback to direct image source
-        setLogoSrc('/logo-200*200.png');
+        setLogoSrc('/logo-200x200.png');
       }
     };
 
