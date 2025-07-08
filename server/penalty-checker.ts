@@ -213,6 +213,27 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
     }
   }
   }
+
+  // ⚠️ Check and notify users with low contribution warnings after penalties are applied
+  if (deficitUser > 0) {
+    try {
+      const { PushNotificationService } = await import('./push-notification-service.js');
+      const notificationService = new PushNotificationService(flat._id);
+      
+      setTimeout(async () => {
+        try {
+          await notificationService.checkAndNotifyLowContributionWarnings();
+          console.log(`✅ Warning check completed after ${extraParam || 'Automatic'} penalty application: ${deficitUser} users penalized`);
+        } catch (warningError) {
+          console.error("Failed to check low contribution warnings after penalty application:", warningError);
+        }
+      }, 2000); // Longer delay to ensure all penalties are fully processed
+      
+    } catch (error) {
+      console.error('Failed to initialize warning check after penalty application:', error);
+    }
+  }
+
   return deficitUser;
 }
 

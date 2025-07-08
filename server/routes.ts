@@ -426,6 +426,17 @@ export function registerRoutes(app: Express): Server {
           { id: userId }, 
           { desc: description, amount: Number(amount) }
         );
+
+        // ⚠️ Check and notify users with low contribution warnings after penalty applied
+        setTimeout(async () => {
+          try {
+            await notificationService.checkAndNotifyLowContributionWarnings();
+            console.log(`✅ Warning check completed after penalty applied by ${req.user?.name || 'Unknown user'}`);
+          } catch (warningError) {
+            console.error("Failed to check low contribution warnings after penalty applied:", warningError);
+          }
+        }, 1000); // Small delay to ensure penalty is fully processed
+
       } catch (notificationError) {
         console.error("Failed to send penalty notification:", notificationError);
         // Don't fail the request if notification fails
@@ -485,6 +496,17 @@ export function registerRoutes(app: Express): Server {
             oldAmount: originalPenalty.amount
           }
         );
+
+        // ⚠️ Check and notify users with low contribution warnings after penalty updated
+        setTimeout(async () => {
+          try {
+            await notificationService.checkAndNotifyLowContributionWarnings();
+            console.log(`✅ Warning check completed after penalty updated by ${req.user?.name || 'Unknown user'}`);
+          } catch (warningError) {
+            console.error("Failed to check low contribution warnings after penalty updated:", warningError);
+          }
+        }, 1000); // Small delay to ensure penalty is fully processed
+
       } catch (notifError) {
         console.error('Failed to send penalty edited notification:', notifError);
       }
@@ -536,6 +558,17 @@ export function registerRoutes(app: Express): Server {
             amount: penalty.amount
           }
         );
+
+        // ⚠️ Check and notify users with low contribution warnings after penalty deleted
+        setTimeout(async () => {
+          try {
+            await notificationService.checkAndNotifyLowContributionWarnings();
+            console.log(`✅ Warning check completed after penalty deleted by ${req.user?.name || 'Unknown user'}`);
+          } catch (warningError) {
+            console.error("Failed to check low contribution warnings after penalty deleted:", warningError);
+          }
+        }, 1000); // Small delay to ensure penalty is fully processed
+
       } catch (notifError) {
         console.error('Failed to send penalty deleted notification:', notifError);
       }
@@ -739,6 +772,17 @@ export function registerRoutes(app: Express): Server {
           { id: req.user._id, name: req.user.name }, 
           { name, amount }
         );
+
+        // ⚠️ Check and notify users with low contribution warnings after entry addition
+        setTimeout(async () => {
+          try {
+            await notificationService.checkAndNotifyLowContributionWarnings();
+            console.log(`✅ Warning check completed after entry addition by ${req.user.name}`);
+          } catch (warningError) {
+            console.error("Failed to check low contribution warnings after entry addition:", warningError);
+          }
+        }, 1000); // Small delay to ensure entry is fully processed
+
       } catch (notificationError) {
         console.error("Failed to send entry added notification:", notificationError);
         // Don't fail the request if notification fails
@@ -1046,11 +1090,12 @@ export function registerRoutes(app: Express): Server {
             ? originalEntry.userId 
             : originalEntry.userId._id?.toString() || originalEntry.userId.toString();
           
+          const notificationService = new PushNotificationService(req.user.flatId);
+          
           // Only send notification if the updater is different from the entry owner
           if (entryOwnerId !== req.user._id) {
             const entryOwner = await storage.getUser(entryOwnerId);
             if (entryOwner) {
-              const notificationService = new PushNotificationService(req.user.flatId);
               await notificationService.notifyEntryUpdated(
                 { id: entryOwner._id, name: entryOwner.name },
                 { name: req.body.name, amount: req.body.amount },
@@ -1058,6 +1103,17 @@ export function registerRoutes(app: Express): Server {
               );
             }
           }
+
+          // ⚠️ Check and notify users with low contribution warnings after entry update
+          setTimeout(async () => {
+            try {
+              await notificationService.checkAndNotifyLowContributionWarnings();
+              console.log(`✅ Warning check completed after entry update by ${req.user.name}`);
+            } catch (warningError) {
+              console.error("Failed to check low contribution warnings after entry update:", warningError);
+            }
+          }, 1000); // Small delay to ensure entry is fully processed
+
         } catch (notificationError) {
           console.error("Failed to send entry updated notification:", notificationError);
           // Don't fail the request if notification fails
@@ -1101,11 +1157,12 @@ export function registerRoutes(app: Express): Server {
             ? entryToDelete.userId 
             : entryToDelete.userId._id?.toString() || entryToDelete.userId.toString();
           
+          const notificationService = new PushNotificationService(req.user.flatId);
+          
           // Only send notification if the deleter is different from the entry owner
           if (entryOwnerId !== req.user._id) {
             const entryOwner = await storage.getUser(entryOwnerId);
             if (entryOwner) {
-              const notificationService = new PushNotificationService(req.user.flatId);
               await notificationService.notifyEntryDeleted(
                 { id: entryOwner._id, name: entryOwner.name },
                 { name: entryToDelete.name, amount: entryToDelete.amount },
@@ -1113,6 +1170,17 @@ export function registerRoutes(app: Express): Server {
               );
             }
           }
+
+          // ⚠️ Check and notify users with low contribution warnings after entry deletion
+          setTimeout(async () => {
+            try {
+              await notificationService.checkAndNotifyLowContributionWarnings();
+              console.log(`✅ Warning check completed after entry deletion by ${req.user?.name || 'Unknown user'}`);
+            } catch (warningError) {
+              console.error("Failed to check low contribution warnings after entry deletion:", warningError);
+            }
+          }, 1000); // Small delay to ensure entry is fully processed
+
         } catch (notificationError) {
           console.error("Failed to send entry deleted notification:", notificationError);
           // Don't fail the request if notification fails

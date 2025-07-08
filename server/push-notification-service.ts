@@ -276,6 +276,101 @@ export class PushNotificationService {
     };
   }
 
+  /**
+   * ⚠️ Check and notify users with low contribution warnings
+   */
+  async checkAndNotifyLowContributionWarnings() {
+    try {
+      const storage = await this.getStorage();
+      
+      // Get flat data
+      const flat = await storage.getFlatById(this.flatId);
+      if (!flat) return { success: false, message: 'Flat not found' };
+
+      // Get users and penalty settings
+      const users = await storage.getUsersByFlatId(this.flatId);
+      const settings = await storage.getPenaltySettings(this.flatId);
+      if (!users.length || !settings) return { success: false, message: 'No users or settings found' };
+
+      // Get entries and penalties data
+      const entries = await storage.getEntriesByFlatId(this.flatId);
+      const approvedEntries = entries.filter(entry => entry && entry.status !== 'PENDING' && entry.status !== 'REJECTED');
+      const penaltyEntries = await storage.getPenaltiesByFlatId(this.flatId);
+      
+      // Calculate totals
+      const totalAmount = approvedEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
+      const totalPenaltyAmount = penaltyEntries.reduce((sum, entry) => sum + entry.amount, 0);
+      const finalFlatTotalEntry = totalAmount - totalPenaltyAmount;
+      const finalFairShare = finalFlatTotalEntry / users.length;
+      
+      // Calculate warning threshold (75% of fair share)
+      const totalUsers = users.length;
+      const fairSharePercentage = (1 / totalUsers) * 100;
+      const fairShareThreshold = (75 * fairSharePercentage) / 100;
+
+      const warningNotifications = [];
+
+      for (const user of users) {
+        // Calculate user's contribution
+        const userPenaltyEntries = penaltyEntries.filter(entry => {
+          const entryUserId = typeof entry.userId === 'string' ? entry.userId : (entry.userId as any)?._id?.toString() || entry.userId;
+          return entryUserId === user._id.toString();
+        });
+        const userPenaltyAmount = userPenaltyEntries.reduce((sum, entry) => sum + entry.amount, 0);
+
+        const userEntries = approvedEntries.filter(entry => entry && entry.userId._id.toString() === user._id.toString());
+        const userContribution = userEntries.reduce((sum, entry) => sum + (entry?.amount || 0), 0);
+        const finalUserContribution = userContribution - userPenaltyAmount;
+        const userContributionPercentage = (finalUserContribution / finalFlatTotalEntry) * 100;
+
+        // Check if user has low contribution warning
+        if (userContributionPercentage < fairShareThreshold && finalUserContribution < finalFairShare) {
+          const deficit = finalFairShare - finalUserContribution;
+          
+          const title = "⚠️ Low Contribution Warning";
+          const body = `Your contribution (₹${finalUserContribution.toFixed(2)}) is below the recommended amount (₹${finalFairShare.toFixed(2)}). Consider adding ₹${deficit.toFixed(2)} more to avoid penalties.`;
+          
+          try {
+            const result = await this.pushToUser(title, body, user._id.toString());
+            warningNotifications.push({
+              userId: user._id.toString(),
+              userName: user.name,
+              deficit: deficit.toFixed(2),
+              contribution: finalUserContribution.toFixed(2),
+              required: finalFairShare.toFixed(2),
+              ...result
+            });
+            console.log(`⚠️ Warning notification sent to ${user.name}: deficit ₹${deficit.toFixed(2)}`);
+          } catch (notificationError: any) {
+            console.error(`❌ Failed to send warning notification to user ${user._id}:`, notificationError);
+            warningNotifications.push({
+              userId: user._id.toString(),
+              userName: user.name,
+              success: false,
+              error: notificationError?.message || 'Unknown error'
+            });
+          }
+        }
+      }
+
+      return {
+        success: true,
+        message: `Checked ${users.length} users, sent ${warningNotifications.length} warning notifications`,
+        warningCount: warningNotifications.length,
+        totalUsers: users.length,
+        notifications: warningNotifications
+      };
+
+    } catch (error: any) {
+      console.error(`Error in checkAndNotifyLowContributionWarnings for flat ${this.flatId}:`, error);
+      return {
+        success: false,
+        message: 'Failed to check low contribution warnings',
+        error: error.message
+      };
+    }
+  }
+
   // =============================================
   // 🛠️ HELPER METHODS
   // =============================================
