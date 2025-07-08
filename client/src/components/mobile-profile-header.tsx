@@ -1,19 +1,25 @@
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
-import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon, FiBell } from "react-icons/fi";
+import { FiEdit2, FiSettings, FiLogOut, FiCamera, FiArrowLeft, FiMoon } from "react-icons/fi";
+import { HiSpeakerphone } from "react-icons/hi";
 import { MdOutlineCached } from "react-icons/md";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { showSuccess, showError } from "@/services/toastService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { Textarea } from "./ui/textarea";
+import { Label } from "./ui/label";
 
 
 export function MobileProfileHeader() {
   const { user, logoutMutation } = useAuth();
   const [, navigate] = useLocation();
   const [showMenu, setShowMenu] = useState(false);
+  const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
@@ -105,6 +111,45 @@ export function MobileProfileHeader() {
       console.error('Cache clear error details:', error.message);
     },
   });
+
+  // Send announcement mutation
+  const sendAnnouncementMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/send-flat-announcement", {
+        message: message.trim()
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to send announcement: ${res.status}`);
+      }
+      
+      return await res.json();
+    },
+    onSuccess: () => {
+      showSuccess("Announcement sent to all flat members!");
+      setAnnouncementMessage("");
+      setShowAnnouncementDialog(false);
+      setShowMenu(false);
+    },
+    onError: (error: Error) => {
+      showError("Failed to send announcement");
+      console.error('Announcement error:', error.message);
+    },
+  });
+
+  const handleSendAnnouncement = () => {
+    if (!announcementMessage.trim()) {
+      showError("Please enter an announcement message");
+      return;
+    }
+    
+    if (announcementMessage.trim().length < 5) {
+      showError("Announcement must be at least 5 characters long");
+      return;
+    }
+    
+    sendAnnouncementMutation.mutate(announcementMessage);
+  };
   const handleSignOut = async () => {
     try {
       await logoutMutation.mutateAsync();
@@ -191,17 +236,20 @@ export function MobileProfileHeader() {
               <FiMoon className="mr-2 h-4 w-4" />
               Dark Mode
             </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
-              onClick={() => {
-                setShowMenu(false);
-                // Add notifications action here
-              }}
-            >
-              <FiBell className="mr-2 h-4 w-4" />
-              Notifications
-            </Button>
+            {/* Show Announcement option only for admins */}
+            {user?.role === "ADMIN" && (
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
+                onClick={() => {
+                  setShowMenu(false);
+                  setShowAnnouncementDialog(true);
+                }}
+              >
+                <HiSpeakerphone className="mr-2 h-4 w-4" />
+                Announcement
+              </Button>
+            )}
             <Button 
               variant="ghost" 
               className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
@@ -266,6 +314,68 @@ export function MobileProfileHeader() {
           </div>
         </div>
       </div>
+
+      {/* Announcement Dialog */}
+      <Dialog open={showAnnouncementDialog} onOpenChange={setShowAnnouncementDialog}>
+        <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-white">Send Flat Announcement</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSendAnnouncement();
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="announcement" className="text-white/90">
+                Announcement Message
+              </Label>
+              <Textarea
+                id="announcement"
+                placeholder="Enter your announcement message for all flat members..."
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                className="w-full px-4 py-2 border border-white/10 bg-[#151525] text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition min-h-[120px] resize-none"
+                maxLength={500}
+              />
+              <div className="text-right text-xs text-white/60">
+                {announcementMessage.length}/500 characters
+              </div>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAnnouncementDialog(false);
+                  setAnnouncementMessage("");
+                }}
+                className="w-full sm:w-auto border-white/10 text-white hover:bg-white/10 bg-transparent"
+                disabled={sendAnnouncementMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg"
+                disabled={sendAnnouncementMutation.isPending || !announcementMessage.trim()}
+              >
+                {sendAnnouncementMutation.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <HiSpeakerphone className="h-4 w-4 mr-2" />
+                    Send Announcement
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

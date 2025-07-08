@@ -1398,7 +1398,60 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Send flat announcement (Admin only)
+  app.post("/api/send-flat-announcement", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can send announcements" });
+    }
 
+    try {
+      const { message } = req.body;
+
+      if (!message || typeof message !== 'string' || message.trim().length === 0) {
+        return res.status(400).json({ message: "Announcement message is required" });
+      }
+
+      if (message.trim().length < 5) {
+        return res.status(400).json({ message: "Announcement must be at least 5 characters long" });
+      }
+
+      if (message.trim().length > 500) {
+        return res.status(400).json({ message: "Announcement cannot exceed 500 characters" });
+      }
+
+      // Send flat announcement using the notification service
+      try {
+        const { PushNotificationService } = await import('./push-notification-service.js');
+        const notificationService = new PushNotificationService(req.user.flatId);
+        const result = await notificationService.sendFlatAnnouncement(message.trim());
+        
+        // Log the announcement activity
+        await storage.logActivity({
+          userId: req.user._id,
+          type: "FLAT_MANAGEMENT",
+          description: `Sent flat announcement: "${message.trim().substring(0, 50)}${message.trim().length > 50 ? '...' : ''}"`,
+          timestamp: new Date(),
+        });
+
+        res.json({
+          success: true,
+          message: "Announcement sent successfully to all flat members",
+          announcementText: message.trim(),
+          result
+        });
+      } catch (notificationError: any) {
+        console.error("Failed to send flat announcement notification:", notificationError);
+        res.status(500).json({ 
+          message: "Failed to send announcement notification",
+          error: notificationError?.message || 'Unknown error'
+        });
+      }
+    } catch (error) {
+      console.error("Failed to send flat announcement:", error);
+      res.status(500).json({ message: "Failed to send announcement" });
+    }
+  });
 
   const httpServer = createServer(app);
   return httpServer;

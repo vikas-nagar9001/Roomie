@@ -823,6 +823,7 @@ export default function ProfilePage() {
           </div>
         </DialogContent>
       </Dialog>
+
       {/* Install App FAB */}
       <InstallAppFab className="top-20 bottom-6 md:top-auto" />
 
