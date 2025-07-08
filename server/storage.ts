@@ -16,6 +16,7 @@ import {
   Penalty,
   PenaltySettings,
   PenaltySettingsModel,
+  PushSubscription,
 } from "@shared/schema";
 import session from "express-session";
 import MongoStore from "connect-mongo";
@@ -50,6 +51,13 @@ const userSchema = new mongoose.Schema({
   inviteExpiry: { type: Date },
   resetToken: { type: String },
   resetExpiry: { type: Date },
+  pushSubscriptions: [{
+    endpoint: { type: String, required: true },
+    keys: {
+      p256dh: { type: String, required: true },
+      auth: { type: String, required: true }
+    }
+  }],
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -181,6 +189,7 @@ export interface IStorage {
   createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty>;
   getPenaltiesByFlatId(flatId: string): Promise<Penalty[]>;
   getPenaltiesByUserId(userId: string): Promise<Penalty[]>;
+  getPenalty(id: string): Promise<Penalty | undefined>;
   updatePenalty(id: string, data: Partial<Penalty>): Promise<Penalty | undefined>;
   deletePenalty(id: string): Promise<boolean>;
   getPenaltyTotalsByFlatId(flatId: string, userId?: string): Promise<{ userTotal: number; flatTotal: number }>;
@@ -188,6 +197,15 @@ export interface IStorage {
   getPenaltySettings(flatId: string): Promise<PenaltySettings | undefined>;
   createPenaltySettings(data: InsertPenaltySettings & { updatedBy: string }): Promise<PenaltySettings>;
   updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined>;
+  // Push notification methods
+  addPushSubscription(userId: string, subscription: PushSubscription): Promise<boolean>;
+  removePushSubscription(userId: string, endpoint: string): Promise<boolean>;
+  getAllPushSubscriptions(): Promise<PushSubscription[]>;
+  getPushSubscriptionsByFlatId(flatId: string): Promise<PushSubscription[]>;
+  getPushSubscriptionsByUserId(userId: string): Promise<PushSubscription[]>;
+  getPushSubscriptionsByUserIds(userIds: string[]): Promise<PushSubscription[]>;
+  getPushSubscriptionsExceptUser(flatId: string, excludedUserId: string): Promise<PushSubscription[]>;
+  cleanupPushSubscriptionByEndpoint(endpoint: string): Promise<boolean>;
   sessionStore: session.Store;
 }
 import type { MongoClient } from 'mongodb';
@@ -270,6 +288,14 @@ export class MongoStorage implements IStorage {
       .sort({ createdAt: -1 })
       .lean();
     return penalties.map(this.convertId);
+  }
+
+  async getPenalty(id: string): Promise<Penalty | undefined> {
+    const penalty = await PenaltyModel.findById(id)
+      .populate('userId', 'name email profilePicture')
+      .populate('createdBy', 'name')
+      .lean();
+    return penalty ? this.convertId(penalty) : undefined;
   }
 
   async updatePenalty(id: string, data: Partial<Penalty>): Promise<Penalty | undefined> {
@@ -587,6 +613,217 @@ export class MongoStorage implements IStorage {
     ).exec();
 
     return updatedFlat ? this.convertId(updatedFlat.toObject()) : undefined;
+  }
+
+  // Push notification database methods
+  async addPushSubscription(userId: string, subscription: PushSubscription): Promise<boolean> {
+    try {
+      const user = await UserModel.findById(userId);
+      if (!user) return false;
+
+      // Check if subscription already exists
+      const existingIndex = user.pushSubscriptions.findIndex(
+        (sub: any) => sub.endpoint === subscription.endpoint
+      );
+
+      if (existingIndex === -1) {
+        // Add new subscription
+        user.pushSubscriptions.push(subscription);
+        await user.save();
+        console.log('✅ Push subscription saved to database for user:', userId);
+      } else {
+        console.log('📱 Push subscription already exists for user:', userId);
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to add push subscription to database:", error);
+      return false;
+    }
+  }
+
+  async removePushSubscription(userId: string, endpoint: string): Promise<boolean> {
+    try {
+      const result = await UserModel.updateOne(
+        { _id: userId },
+        { $pull: { pushSubscriptions: { endpoint } } }
+      );
+      
+      console.log('🗑️ Push subscription removed from database for user:', userId);
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Failed to remove push subscription from database:", error);
+      return false;
+    }
+  }
+
+  async getAllPushSubscriptions(): Promise<PushSubscription[]> {
+    try {
+      const users = await UserModel.find({ 
+        status: 'ACTIVE', 
+        pushSubscriptions: { $exists: true, $ne: [] } 
+      });
+      
+      const subscriptions: PushSubscription[] = [];
+      
+      users.forEach(user => {
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+          user.pushSubscriptions.forEach((sub: any) => {
+            subscriptions.push({
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            });
+          });
+        }
+      });
+      
+      console.log(`📱 Retrieved ${subscriptions.length} push subscriptions from database`);
+      return subscriptions;
+    } catch (error) {
+      console.error("Failed to get push subscriptions from database:", error);
+      return [];
+    }
+  }
+
+  async getPushSubscriptionsByFlatId(flatId: string): Promise<PushSubscription[]> {
+    try {
+      const users = await UserModel.find({ 
+        flatId, 
+        status: 'ACTIVE',
+        pushSubscriptions: { $exists: true, $ne: [] }
+      });
+      
+      const subscriptions: PushSubscription[] = [];
+      
+      users.forEach(user => {
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+          user.pushSubscriptions.forEach((sub: any) => {
+            subscriptions.push({
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            });
+          });
+        }
+      });
+      
+      console.log(`📱 Retrieved ${subscriptions.length} push subscriptions for flat ${flatId} from database`);
+      return subscriptions;
+    } catch (error) {
+      console.error("Failed to get push subscriptions by flat ID from database:", error);
+      return [];
+    }
+  }
+
+  async getPushSubscriptionsByUserId(userId: string): Promise<PushSubscription[]> {
+    try {
+      const user = await UserModel.findById(userId);
+      if (!user || !user.pushSubscriptions || user.pushSubscriptions.length === 0) {
+        return [];
+      }
+
+      const subscriptions: PushSubscription[] = [];
+      user.pushSubscriptions.forEach((sub: any) => {
+        subscriptions.push({
+          endpoint: sub.endpoint,
+          keys: {
+            p256dh: sub.keys.p256dh,
+            auth: sub.keys.auth
+          }
+        });
+      });
+
+      console.log(`📱 Retrieved ${subscriptions.length} push subscriptions for user ${userId}`);
+      return subscriptions;
+    } catch (error) {
+      console.error("Failed to get push subscriptions for user:", error);
+      return [];
+    }
+  }
+
+  async getPushSubscriptionsByUserIds(userIds: string[]): Promise<PushSubscription[]> {
+    try {
+      const users = await UserModel.find({ 
+        _id: { $in: userIds }, 
+        status: 'ACTIVE',
+        pushSubscriptions: { $exists: true, $ne: [] }
+      });
+      
+      const subscriptions: PushSubscription[] = [];
+      
+      users.forEach(user => {
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+          user.pushSubscriptions.forEach((sub: any) => {
+            subscriptions.push({
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            });
+          });
+        }
+      });
+      
+      console.log(`📱 Retrieved ${subscriptions.length} push subscriptions for ${userIds.length} users`);
+      return subscriptions;
+    } catch (error) {
+      console.error("Failed to get push subscriptions for multiple users:", error);
+      return [];
+    }
+  }
+
+  async getPushSubscriptionsExceptUser(flatId: string, excludedUserId: string): Promise<PushSubscription[]> {
+    try {
+      const users = await UserModel.find({ 
+        flatId,
+        _id: { $ne: excludedUserId },
+        status: 'ACTIVE',
+        pushSubscriptions: { $exists: true, $ne: [] }
+      });
+      
+      const subscriptions: PushSubscription[] = [];
+      
+      users.forEach(user => {
+        if (user.pushSubscriptions && user.pushSubscriptions.length > 0) {
+          user.pushSubscriptions.forEach((sub: any) => {
+            subscriptions.push({
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            });
+          });
+        }
+      });
+      
+      console.log(`📱 Retrieved ${subscriptions.length} push subscriptions for flat ${flatId} (excluding user ${excludedUserId})`);
+      return subscriptions;
+    } catch (error) {
+      console.error("Failed to get push subscriptions except user:", error);
+      return [];
+    }
+  }
+
+  async cleanupPushSubscriptionByEndpoint(endpoint: string): Promise<boolean> {
+    try {
+      const result = await UserModel.updateMany(
+        { 'pushSubscriptions.endpoint': endpoint },
+        { $pull: { pushSubscriptions: { endpoint } } }
+      );
+      
+      console.log(`🧹 Cleaned up invalid subscription from ${result.modifiedCount} users`);
+      return result.modifiedCount > 0;
+    } catch (error) {
+      console.error("Failed to cleanup push subscription by endpoint:", error);
+      return false;
+    }
   }
 }
 

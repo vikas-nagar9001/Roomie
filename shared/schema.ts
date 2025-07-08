@@ -5,6 +5,14 @@ export type Role = "ADMIN" | "CO_ADMIN" | "USER";
 export type UserStatus = "PENDING" | "ACTIVE" | "DEACTIVATED";
 export type ActivityType = "LOGIN" | "UPDATE_PROFILE" | "CHANGE_PASSWORD" | "FLAT_MANAGEMENT" | "ENTRY_ADDED" | "ENTRY_UPDATED" | "ENTRY_DELETED" | "ENTRY_RESTORED" | "PAYMENT_ADDED" | "PAYMENT_STATUS_UPDATED" | "PENALTY_ADDED" | "PENALTY_UPDATED" | "PENALTY_DELETED" | "USER_DELETED";
 
+export interface PushSubscription {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
 export interface Payment {
   _id: string;
   billId: string;
@@ -150,6 +158,7 @@ export interface User {
   inviteExpiry: Date | null;
   resetToken: string | null;
   resetExpiry: Date | null;
+  pushSubscriptions?: PushSubscription[];
   createdAt: Date;
 }
 

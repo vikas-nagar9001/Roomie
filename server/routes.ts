@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
 import { applyPenaltiesForFlat } from "./penalty-checker";
+import { PushNotificationService } from "./push-notification-service";
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
@@ -418,6 +419,18 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
+      // 📢 Send notification to the penalized user
+      try {
+        const notificationService = new PushNotificationService(req.user.flatId);
+        await notificationService.notifyPenaltyApplied(
+          { id: userId }, 
+          { desc: description, amount: Number(amount) }
+        );
+      } catch (notificationError) {
+        console.error("Failed to send penalty notification:", notificationError);
+        // Don't fail the request if notification fails
+      }
+
       res.status(201).json(penalty);
     } catch (error) {
       console.error("Failed to create penalty:", error);
@@ -435,6 +448,12 @@ export function registerRoutes(app: Express): Server {
     try {
       const { penaltyId } = req.params;
       const { type, amount, description, image } = req.body;
+
+      // Get the original penalty to know the old amount and user
+      const originalPenalty = await storage.getPenalty(penaltyId);
+      if (!originalPenalty) {
+        return res.status(404).json({ message: "Penalty not found" });
+      }
 
       const updatedPenalty = await storage.updatePenalty(penaltyId, {
         type,
@@ -454,6 +473,22 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
+      // Send penalty edited notification
+      try {
+        const { PushNotificationService } = await import('./push-notification-service.js');
+        const notificationService = new PushNotificationService(updatedPenalty.flatId);
+        await notificationService.notifyPenaltyEdited(
+          { id: updatedPenalty.userId },
+          { 
+            desc: updatedPenalty.description || 'Penalty',
+            amount: updatedPenalty.amount,
+            oldAmount: originalPenalty.amount
+          }
+        );
+      } catch (notifError) {
+        console.error('Failed to send penalty edited notification:', notifError);
+      }
+
       res.json(updatedPenalty);
     } catch (error) {
       console.error("Failed to update penalty:", error);
@@ -470,6 +505,13 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { penaltyId } = req.params;
+      
+      // Get the penalty details before deleting to send notification
+      const penalty = await storage.getPenalty(penaltyId);
+      if (!penalty) {
+        return res.status(404).json({ message: "Penalty not found" });
+      }
+
       const success = await storage.deletePenalty(penaltyId);
 
       if (!success) {
@@ -482,6 +524,21 @@ export function registerRoutes(app: Express): Server {
         description: `Deleted penalty ${penaltyId}`,
         timestamp: new Date(),
       });
+
+      // Send penalty deleted notification
+      try {
+        const { PushNotificationService } = await import('./push-notification-service.js');
+        const notificationService = new PushNotificationService(penalty.flatId);
+        await notificationService.notifyPenaltyDeleted(
+          { id: penalty.userId },
+          { 
+            desc: penalty.description || 'Penalty',
+            amount: penalty.amount
+          }
+        );
+      } catch (notifError) {
+        console.error('Failed to send penalty deleted notification:', notifError);
+      }
 
       res.json({ message: "Penalty deleted successfully" });
     } catch (error) {
@@ -540,8 +597,8 @@ export function registerRoutes(app: Express): Server {
       const activeUsers = users.filter(user => user.status === "ACTIVE");
 
       // Calculate total approved entries for the flat
-      const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
-      const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
+      const approvedEntries = entries.filter(entry => entry && entry.status === "APPROVED");
+      const flatTotal = approvedEntries.reduce((sum, entry) => entry ? sum + entry.amount : sum, 0);
 
       // Calculate user's total approved entries
       const userTotal = approvedEntries
@@ -586,6 +643,19 @@ export function registerRoutes(app: Express): Server {
 
       const deficitUsers = await applyPenaltiesForFlat(flat, settings, 'Manual');
 
+      // 📢 Send notification to admin about penalty completion
+      if (deficitUsers > 0) {
+        try {
+          const notificationService = new PushNotificationService(req.user.flatId);
+          await notificationService.sendFlatAnnouncement(
+            `⚖️ Manual penalty check completed. ${deficitUsers} user(s) have been penalized for insufficient contribution. Check penalties section for details.`
+          );
+        } catch (notificationError) {
+          console.error("Failed to send penalty completion notification:", notificationError);
+          // Don't fail the request if notification fails
+        }
+      }
+
       res.json({
         message: `Contribution check completed. ${deficitUsers} users penalized.`,
         deficitUsers
@@ -607,7 +677,7 @@ export function registerRoutes(app: Express): Server {
       const activeUsers = users.filter(user => user.status === "ACTIVE");
 
       // Calculate total approved entries for the flat
-      const approvedEntries = entries.filter(entry => entry.status === "APPROVED");
+      const approvedEntries = entries.filter(entry => entry && entry.status === "APPROVED");
       const flatTotal = approvedEntries.reduce((sum, entry) => sum + entry.amount, 0);
 
       // Calculate user's total approved entries
@@ -661,6 +731,18 @@ export function registerRoutes(app: Express): Server {
         description: `Added entry: ${name} (₹${amount})`,
         timestamp: new Date(),
       });
+
+      // 📢 Send notification to other users about new entry
+      try {
+        const notificationService = new PushNotificationService(req.user.flatId);
+        await notificationService.notifyEntryAdded(
+          { id: req.user._id, name: req.user.name }, 
+          { name, amount }
+        );
+      } catch (notificationError) {
+        console.error("Failed to send entry added notification:", notificationError);
+        // Don't fail the request if notification fails
+      }
 
       res.status(201).json(entry);
     } catch (error) {
@@ -946,7 +1028,42 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     try {
       const { id } = req.params;
+      
+      // Get the original entry to know the owner
+      const originalEntry = await storage.getEntriesByFlatId(req.user.flatId)
+        .then(entries => entries.find(e => e && e._id.toString() === id));
+      
+      if (!originalEntry) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      
       const entry = await storage.updateEntry(id, req.body);
+      
+      // 📢 Send notification to entry owner if someone else updated their entry
+      if (entry && req.body.name && req.body.amount) {
+        try {
+          const entryOwnerId = typeof originalEntry.userId === 'string' 
+            ? originalEntry.userId 
+            : originalEntry.userId._id?.toString() || originalEntry.userId.toString();
+          
+          // Only send notification if the updater is different from the entry owner
+          if (entryOwnerId !== req.user._id) {
+            const entryOwner = await storage.getUser(entryOwnerId);
+            if (entryOwner) {
+              const notificationService = new PushNotificationService(req.user.flatId);
+              await notificationService.notifyEntryUpdated(
+                { id: entryOwner._id, name: entryOwner.name },
+                { name: req.body.name, amount: req.body.amount },
+                { name: req.user.name }
+              );
+            }
+          }
+        } catch (notificationError) {
+          console.error("Failed to send entry updated notification:", notificationError);
+          // Don't fail the request if notification fails
+        }
+      }
+      
       res.json(entry);
     } catch (error) {
       console.error("Failed to update entry:", error);
@@ -958,20 +1075,51 @@ export function registerRoutes(app: Express): Server {
   app.delete("/api/entries/:id", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     try {
-      const { id } = req.params;      const entry = await storage.deleteEntry(id);
+      const { id } = req.params;
+      
+      // Get entry details before deletion for notification
+      const entryToDelete = await storage.getEntriesByFlatId(req.user.flatId)
+        .then(entries => entries.find(e => e._id.toString() === id));
+      
+      const success = await storage.deleteEntry(id);
 
-      if (!entry) {
+      if (!success) {
         return res.status(404).json({ message: "Entry not found" });
       }
 
       await storage.logActivity({
         userId: req.user._id,
         type: "ENTRY_DELETED",
-        description: `Deleted entry: ${entry.name}`,
+        description: `Deleted entry: ${entryToDelete?.name || 'Unknown'}`,
         timestamp: new Date(),
       });
 
-      res.json(entry);
+      // 📢 Send notification to entry owner if someone else deleted their entry
+      if (entryToDelete) {
+        try {
+          const entryOwnerId = typeof entryToDelete.userId === 'string' 
+            ? entryToDelete.userId 
+            : entryToDelete.userId._id?.toString() || entryToDelete.userId.toString();
+          
+          // Only send notification if the deleter is different from the entry owner
+          if (entryOwnerId !== req.user._id) {
+            const entryOwner = await storage.getUser(entryOwnerId);
+            if (entryOwner) {
+              const notificationService = new PushNotificationService(req.user.flatId);
+              await notificationService.notifyEntryDeleted(
+                { id: entryOwner._id, name: entryOwner.name },
+                { name: entryToDelete.name, amount: entryToDelete.amount },
+                { name: req.user.name }
+              );
+            }
+          }
+        } catch (notificationError) {
+          console.error("Failed to send entry deleted notification:", notificationError);
+          // Don't fail the request if notification fails
+        }
+      }
+
+      res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete entry:", error);
       res.status(500).json({ message: "Failed to delete entry" });
@@ -1100,6 +1248,89 @@ export function registerRoutes(app: Express): Server {
       res.status(500).json({ message: "Failed to update flat settings" });
     }
   });
+
+  // 🔔 Push Notification Routes (for testing)
+  
+  // Get VAPID public key for client subscription
+  app.get("/api/push/vapid-key", (req, res) => {
+    res.json({ publicKey: PushNotificationService.getVapidPublicKey() });
+  });
+
+  // Subscribe to push notifications
+  app.post("/api/push/subscribe", async (req, res) => {
+    const { subscription, userId } = req.body;
+    
+    if (!subscription) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Subscription object is required' 
+      });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'User ID is required for subscription' 
+      });
+    }
+
+    try {
+      const success = await PushNotificationService.addSubscription(subscription, userId);
+      if (success) {
+        res.json({ success: true, message: 'Subscription added successfully' });
+      } else {
+        res.status(500).json({ success: false, message: 'Failed to add subscription' });
+      }
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Error adding subscription', 
+        error: error.message 
+      });
+    }
+  });
+
+  // Send notification to all users (testing endpoint)
+  app.post("/api/push/send", async (req, res) => {
+    const { title, body } = req.body;
+    
+    if (!title || !body) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Title and body are required' 
+      });
+    }
+
+    try {
+      const result = await PushNotificationService.sendToAll(title, body);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ 
+        success: false, 
+        message: 'Failed to send notifications', 
+        error: error.message 
+      });
+    }
+  });
+
+  // Get subscription count (for debugging)
+  app.get("/api/push/status", async (req, res) => {
+    try {
+      const subscriptionCount = await PushNotificationService.getSubscriptionCount();
+      res.json({ 
+        subscriptions: subscriptionCount,
+        vapidConfigured: true
+      });
+    } catch (error: any) {
+      res.status(500).json({ 
+        subscriptions: 0,
+        vapidConfigured: true,
+        error: error.message
+      });
+    }
+  });
+
+
 
   const httpServer = createServer(app);
   return httpServer;

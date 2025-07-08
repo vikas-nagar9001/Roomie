@@ -143,7 +143,7 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
-    passport.authenticate("local", (err, user, info) => {
+    passport.authenticate("local", (err: any, user: Express.User, info: { message: any; }) => {
       if (err) {
         console.error('Login error:', err);
         return next(err);
@@ -201,6 +201,25 @@ export function setupAuth(app: Express) {
 
       req.login(updatedUser, (err) => {
         if (err) return next(err);
+        
+        // 🎉 Send welcome notification to the new user
+        (async () => {
+          try {
+            // Import here to avoid circular dependency
+            const { PushNotificationService } = await import("./push-notification-service");
+            const flat = await storage.getFlat(updatedUser.flatId);
+            const notificationService = new PushNotificationService(updatedUser.flatId);
+            await notificationService.sendWelcomeNotification({
+              id: updatedUser._id,
+              name: updatedUser.name,
+              flatName: flat?.name || 'Your Flat'
+            });
+          } catch (notificationError) {
+            console.error("Failed to send welcome notification:", notificationError);
+            // Don't fail the request if notification fails
+          }
+        })();
+        
         res.status(200).json(updatedUser);
       });
     } catch (err) {

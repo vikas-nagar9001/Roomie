@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
@@ -39,9 +39,32 @@ function Router() {
 }
 
 function App() {
+  const [location, setLocation] = useLocation();
+  
   useEffect(() => {
     checkForNewVersion(); // ✅ Run check on app load
-  }, []);
+    
+    // 🔔 Listen for service worker messages (notification clicks)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        console.log('📧 Received message from service worker:', event.data);
+        
+        if (event.data.type === 'NOTIFICATION_CLICK') {
+          console.log('🔔 Handling notification click:', event.data.url);
+          
+          // Navigate to the specified URL if it's different from current
+          if (event.data.url && event.data.url !== location) {
+            setLocation(event.data.url);
+          }
+          
+          // Focus the window if it's in the background
+          if (document.hidden) {
+            window.focus();
+          }
+        }
+      });
+    }
+  }, [location, setLocation]);
 
   const isLoading = useLoader();
 
