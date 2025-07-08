@@ -43,8 +43,24 @@ export async function checkAndApplyPenalties(flatId: string) {
 
     if (!lastPenalty || (nextPenaltyDate && now >= nextPenaltyDate)) {
     
-      await applyPenaltiesForFlat(flat, settings);
+      const deficitUsers = await applyPenaltiesForFlat(flat, settings) || 0; // Get count of penalized users, default to 0
       await storage.updateLastPenaltyDate(flatId, now);
+
+      // 📢 Send flat announcement about automatic penalty completion
+      if (deficitUsers > 0) {
+        try {
+          const { PushNotificationService } = await import('./push-notification-service.js');
+          const notificationService = new PushNotificationService(flatId);
+          await notificationService.sendFlatAnnouncement(
+            `⏰ Automatic penalty check completed. ${deficitUsers} user(s) have been penalized for insufficient contribution. Check penalties section for details.`
+          );
+          console.log(`📢 Sent automatic penalty announcement to flat ${flatId}: ${deficitUsers} users penalized`);
+        } catch (notificationError) {
+          console.error(`❌ Failed to send automatic penalty announcement for flat ${flatId}:`, notificationError);
+        }
+      } else {
+        console.log(`✅ Automatic penalty check completed for flat ${flatId}: No users penalized`);
+      }
    
     } else {
     
