@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { FaUserCircle, FaEdit, FaTrash, FaClipboardList, FaSearch } from "react-icons/fa";
+import { FaUserCircle, FaEdit, FaTrash, FaClipboardList, FaSearch, FaUsers } from "react-icons/fa";
 import { BsThreeDots } from "react-icons/bs";
 import { Settings, Plus } from "lucide-react";
 import { MdOutlineDateRange, MdAccessTime, MdAttachMoney, MdTimer, MdTimerOff, MdCalendarToday, MdGroup, MdPersonAdd, MdCheck } from "react-icons/md";
@@ -839,24 +839,23 @@ export default function PenaltiesPage() {
     <>
       <TooltipProvider>
         <Header />
-        <div className="min-h-screen p-8 pb-28 pt-36 bg-[#0f0f1f]">
+        <div className="min-h-screen p-4 sm:p-8 pb-28 pt-24 sm:pt-36 bg-[#0f0f1f]">
         <div className="max-w-7xl mx-auto">
           <div className="relative group mb-8">
             {/* Blurred border layer */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
-            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4 mb-8">
-              <h1 className="text-2xl sm:text-3xl text-white font-bold">Penalties</h1>
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/10 flex flex-wrap justify-between items-center gap-4 mb-6 sm:mb-8">
+              <h1 className="text-xl sm:text-2xl md:text-3xl text-white font-bold">Penalties</h1>
 
-
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full sm:w-auto">
                 {/* Settings Button */}
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" className="flex items-center gap-2 bg-white/80 hover:bg-white/90 text-gray-700">
-                        <Settings className="h-5 w-5" />
-                        Settings
+                      <Button variant="outline" className="flex items-center gap-2 bg-white/80 hover:bg-white/90 text-gray-700 flex-1 sm:flex-none justify-center">
+                        <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span className="text-sm sm:text-base">Settings</span>
                       </Button>
                     </DialogTrigger>
                     <DialogContent
@@ -878,9 +877,9 @@ export default function PenaltiesPage() {
 
                 <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
                   <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87]">
-                      <Plus className="h-5 w-5" />
-                      <span>Add Penalty</span>
+                    <Button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87] flex-1 sm:flex-none justify-center">
+                      <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span className="text-sm sm:text-base">Add Penalty</span>
                     </Button>
                   </DialogTrigger>
 
@@ -975,10 +974,11 @@ export default function PenaltiesPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 mb-8">
+          {/* Desktop Cards */}
+          <div className="hidden md:grid gap-6 grid-cols-1 lg:grid-cols-2 mb-8">
             <Card className="bg-[#582c84] text-white shadow-xl border border-white/10 rounded-lg">
               <div
-                className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg"
+                className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg [&::-webkit-scrollbar]:hidden"
                 style={{
                   scrollbarWidth: "none", // Hide scrollbar for Firefox
                   msOverflowStyle: "none", // Hide scrollbar for IE/Edge
@@ -1182,19 +1182,6 @@ export default function PenaltiesPage() {
                   </div>
                 </div>
 
-                {/* Flat Total */}
-                {/* <div className="flex justify-between items-center">
-                  <span className="text-white/80">Flat Total Penalties:</span>
-                  <div className="text-end sm:text-right">
-                    <div className="font-bold text-yellow-400 text-lg">
-                      ₹{totals?.flatTotal?.toFixed(2) || "0.00"}
-                    </div>
-                    <div className="text-sm text-white/60">
-                      {penalties?.length || 0} Penalties
-                    </div>
-                  </div>
-                </div> */}
-
                 {/* User Role & Status */}
                 <div className="mt-4 flex flex-col space-y-2">
                   <div className="flex justify-between">
@@ -1213,13 +1200,195 @@ export default function PenaltiesPage() {
             </Card>
           </div>
 
+          {/* Mobile View - Completely Different Design */}
+          <div className="md:hidden mb-8 space-y-4">
+            {/* Mobile Overall Penalties Card with Timer */}
+            <div className="relative overflow-hidden">
+              {/* Theme matching gradient background */}
+              <div className="absolute inset-0 bg-gradient-to-br from-[#0f0f1f] via-[#1a1a2e] to-[#151525] opacity-95"></div>
+              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDUpIiBzdHJva2Utd2lkdGg9IjEiLz48L3BhdHRlcm4+PC9kZWZzPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiLz48L3N2Zz4=')] opacity-30"></div>
+              
+              <div className="relative p-5 rounded-2xl border border-[#582c84]/30 backdrop-blur-sm bg-black/20">
+                {/* Header with icon and title */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-3 bg-[#582c84]/20 rounded-full backdrop-blur-sm border border-[#582c84]/30">
+                      <FaClipboardList className="w-5 h-5 text-[#ab6cff]" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-bold text-white">Flat Penalties</h2>
+                      <p className="text-white/70 text-xs">Overall Statistics</p>
+                    </div>
+                  </div>
+                  
+                  {/* Floating total amount badge */}
+                  <div className="bg-[#582c84]/20 backdrop-blur-sm rounded-full px-3 py-2 border border-[#582c84]/40">
+                    <div className="text-center">
+                      <div className="text-lg font-bold text-[#ab6cff]">
+                        ₹{penalties && Array.isArray(penalties) && penalties.length > 0
+                          ? penalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0).toFixed(2)
+                          : "0.00"}
+                      </div>
+                      <div className="text-[10px] text-white/70">Total</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Penalty Timer */}
+                <div className="bg-[#582c84]/10 backdrop-blur-sm rounded-xl p-4 border border-[#582c84]/20 mb-6">
+                  <PenaltyTimer />
+                </div>
+
+                {/* User breakdown with progress */}
+                {penalties && Array.isArray(penalties) && penalties.length > 0 ? (
+                  <div>
+                    <h3 className="text-white font-semibold mb-4 flex items-center text-sm">
+                      <FaUsers className="mr-2 text-[#ab6cff]" />
+                      Member Penalties
+                    </h3>
+                    {/* Horizontal scrollable container - Shows 2-3 cards at a time */}
+                    <div 
+                      className="overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden" 
+                      style={{ 
+                        scrollbarWidth: "none", 
+                        msOverflowStyle: "none" 
+                      }}
+                    >
+                      <div className="flex space-x-3 min-w-max px-1">
+                        {(() => {
+                          const totalPenaltiesGlobal = penalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0) || 1;
+                          
+                          return Array.from(new Set(penalties.map((p) =>
+                            typeof p.userId === 'object' ? p.userId._id : p.userId
+                          ))).map((userId) => {
+                            const userPenalties = penalties.filter((p) =>
+                              (typeof p.userId === 'object' ? p.userId._id : p.userId) === userId
+                            );
+                            const totalUserAmount = userPenalties.reduce((sum, penalty) => sum + (penalty.amount || 0), 0);
+                            const userName = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.name) ||
+                              (users?.find(u => u._id === userId)?.name) || "User";
+                            const userProfile = (typeof userPenalties[0]?.userId === 'object' && userPenalties[0]?.userId?.profilePicture) ||
+                              users?.find(u => u._id === userId)?.profilePicture;
+                            const progressPercentage = Math.min((totalUserAmount / totalPenaltiesGlobal) * 100, 100);
+
+                            return (
+                              <div key={userId} className="flex-shrink-0 bg-[#151525]/50 backdrop-blur-sm rounded-xl p-4 border border-[#582c84]/20 min-w-[200px] w-[200px] sm:min-w-[300px] sm:w-[300px]">
+                                {/* User Header with Avatar */}
+                                <div className="flex items-center space-x-3 mb-4">
+                                  <div className="relative flex-shrink-0">
+                                    <Avatar className="w-12 h-12 sm:w-14 sm:h-14 border-2 border-[#582c84]/30">
+                                      <AvatarImage src={userProfile} alt={userName} className="object-cover" />
+                                      <AvatarFallback className="bg-[#1a1a2e] text-white text-sm">
+                                        {getInitials(userName)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    {/* Progress ring overlay */}
+                                    <div 
+                                      className="absolute inset-0 rounded-full" 
+                                      style={{
+                                        background: `conic-gradient(#ab6cff ${progressPercentage}%, rgba(255, 255, 255, 0.1) ${progressPercentage}%)`,
+                                        padding: "2px",
+                                        mask: "radial-gradient(circle at center, transparent 70%, black 72%)"
+                                      }}
+                                    ></div>
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="text-white font-semibold text-sm sm:text-base" title={userName}>
+                                      {userName}
+                                    </div>
+                                    <div className="text-white/60 text-xs sm:text-sm">
+                                      {userPenalties.length} penalty{userPenalties.length !== 1 ? 'ies' : 'y'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Stats Row */}
+                                <div className="flex justify-between items-center">
+                                  <div className="text-left">
+                                    <div className="text-white/70 text-xs">Total Amount</div>
+                                    <div className="text-red-400 font-bold text-lg sm:text-xl">₹{totalUserAmount.toFixed(2)}</div>
+                                  </div>
+                                  <div className="flex flex-col items-center">
+                                    {/* Circular Progress */}
+                                    <div className="relative w-12 h-12">
+                                      {(() => {
+                                        // Dynamic color based on percentage
+                                        const getProgressColor = (percentage: number) => {
+                                          if (percentage >= 70) return "#FF4500"; // Red for high penalties (>70%)
+                                          if (percentage >= 40) return "#FFD700"; // Yellow for medium penalties (40-70%)
+                                          return "#8b5cf6"; // Lighter theme color for low penalties (<40%)
+                                        };
+                                        const progressColor = getProgressColor(progressPercentage);
+                                        
+                                        return (
+                                          <svg className="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                            {/* Background circle */}
+                                            <path
+                                              className="text-white/10"
+                                              stroke="currentColor"
+                                              strokeWidth="3"
+                                              fill="transparent"
+                                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                            {/* Progress circle with dynamic color */}
+                                            <path
+                                              stroke={progressColor}
+                                              strokeWidth="3"
+                                              strokeLinecap="round"
+                                              fill="transparent"
+                                              strokeDasharray={`${progressPercentage}, 100`}
+                                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                          </svg>
+                                        );
+                                      })()}
+                                      {/* Percentage text in center with dynamic color */}
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                        <span 
+                                          className="text-xs font-bold"
+                                          style={{ 
+                                            color: (() => {
+                                              if (progressPercentage >= 70) return "#FF4500";
+                                              if (progressPercentage >= 40) return "#FFD700";
+                                              return "#8b5cf6";
+                                            })()
+                                          }}
+                                        >
+                                          {progressPercentage.toFixed(0)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="bg-[#582c84]/10 rounded-full p-6 w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                      <FaClipboardList className="w-8 h-8 text-[#ab6cff]" />
+                    </div>
+                    <h3 className="text-white font-semibold mb-2">No Penalties</h3>
+                    <p className="text-white/60 text-sm">All members are following the rules perfectly!</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
 
-          <div className="mb-4 flex justify-between items-center gap-4">
+
+          {/* Search and Actions */}
+          <div className="mb-4 space-y-4 md:space-y-0 md:flex md:justify-between md:items-center gap-4">
+            {/* Mobile Search - Full width */}
             <div className="relative flex-1 max-w-xl">
               <Input
                 type="text"
-                placeholder="Search penalties by user, type, amount, description..."
+                placeholder="Search penalties by user, type, amount..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-[#151525] border-[#582c84]/30 text-white placeholder:text-white/50 pl-10 py-6 rounded-xl shadow-md focus:ring-2 focus:ring-[#582c84] transition-all duration-200"
@@ -1227,12 +1396,13 @@ export default function PenaltiesPage() {
               <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 text-lg" />
             </div>
 
+            {/* Bulk Delete Button */}
             {selectedPenalties.length > 0 && (
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={handleBulkDelete}
-                className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
               >
                 <FaTrash className="text-sm" />
                 Delete Selected ({selectedPenalties.length})
@@ -1244,23 +1414,39 @@ export default function PenaltiesPage() {
           <div className="bg-[#151525] rounded-xl overflow-hidden shadow-lg">
             {/* Only show empty state when no data, not wrapped in scrollable table */}
             {paginatedPenalties?.length === 0 ? (
-              <div className="p-5 text-center">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="bg-[#1c1b2d] p-6 rounded-full">
-                    <FaClipboardList className="w-12 h-12 text-[#582c84]" />
+              <div className="p-8 text-center">
+                <div className="flex flex-col items-center gap-6">
+                  {/* Enhanced empty state design */}
+                  <div className="relative">
+                    <div className="bg-gradient-to-br from-[#582c84] to-[#ab6cff] p-8 rounded-full shadow-2xl">
+                      <FaClipboardList className="w-16 h-16 text-white" />
+                    </div>
+                   
                   </div>
                   <div className="text-center">
-                    <h3 className="text-xl font-semibold text-white mb-2">No Penalties Found</h3>
-                    <p className="text-gray-400 max-w-sm">
-                      There are currently no penalties recorded. New penalties will appear here when added.
+                    <h3 className="text-2xl font-bold text-white mb-3">No Penalties Found</h3>
+                    <p className="text-white/70 max-w-sm mx-auto leading-relaxed">
+                      {searchQuery 
+                        ? "No penalties match your search criteria. Try adjusting your search terms."
+                        : "Great news! There are currently no penalties recorded. Keep up the good work!"
+                      }
                     </p>
+                    {searchQuery && (
+                      <Button
+                        onClick={() => setSearchQuery("")}
+                        className="mt-4 bg-[#582c84] hover:bg-[#542d87] text-white px-6 py-2 rounded-lg"
+                      >
+                        Clear Search
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
-              /* Table with horizontal scroll only for data rows */
-              <div className="overflow-x-auto">
-                <Table className="w-full min-w-[800px]">
+              <>
+                {/* Mobile Table View - Same as Desktop */}
+                <div className="md:hidden overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                  <Table className="w-full min-w-[800px]">
                   <TableHeader>
                     <TableRow className="border-none">
                       <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
@@ -1403,17 +1589,166 @@ export default function PenaltiesPage() {
                   </TableBody>
                 </Table>
               </div>
+
+                {/* Desktop Table View - Same table structure for both desktop and mobile */}
+                <div className="hidden md:block overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                  <Table className="w-full min-w-[800px]">
+                  <TableHeader>
+                    <TableRow className="border-none">
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap min-w-[200px]">
+                        <span className="block">User</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-10 border-none whitespace-nowrap min-w-[180px]">
+                        <span className="block">Type</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none whitespace-nowrap">
+                        <span className="block">Amount</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                        <span className="block whitespace-nowrap">Description</span>
+                      </TableHead>
+                      <TableHead className="text-left text-indigo-200/80 font-semibold py-3 px-3 border-none min-w-[160px]">
+                        <span className="block whitespace-nowrap">Date & Time</span>
+                      </TableHead>
+                      {isAdmin && <TableHead className="text-center text-indigo-200/80 font-semibold py-3 border-none">Actions</TableHead>}
+                      {isAdmin &&
+                        <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
+                          <input
+                            type="checkbox"
+                            onChange={(e) => handleSelectAll(e.target.checked)}
+                            checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
+                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                          />
+                        </TableHead>}
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {paginatedPenalties.map((penalty) => (
+                      <TableRow key={penalty._id} className="transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group"
+                      >
+                        <TableCell className="min-w-[200px] py-4 px-3">
+                          <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm group-hover:border-[#582c84]/50 group-hover:bg-[#1e1d30] transition-all duration-300">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                              <AvatarImage
+                                src={
+                                  typeof penalty.userId === "object" && penalty.userId?.profilePicture
+                                    ? penalty.userId.profilePicture
+                                    : users?.find((u) =>
+                                      u._id ===
+                                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                    )?.profilePicture
+                                }
+                                alt="User"
+                                className="object-cover"
+                              />
+                              <AvatarFallback className="bg-[#1a1a2e] text-white text-lg">
+                                {getInitials(
+                                  typeof penalty.userId === "object" && penalty.userId?.name
+                                    ? penalty.userId.name
+                                    : users?.find((u) =>
+                                      u._id ===
+                                      (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                    )?.name || "User"
+                                )}
+                              </AvatarFallback>
+                            </Avatar>
+
+                            <div className="truncate max-w-[140px] sm:max-w-[180px]">
+                              <span className="font-medium text-white">
+                                {typeof penalty.userId === "object" && penalty.userId?.name
+                                  ? penalty.userId.name
+                                  : users?.find((u) =>
+                                    u._id ===
+                                    (typeof penalty.userId === "string" ? penalty.userId : penalty.userId?._id)
+                                  )?.name || "User"}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="font-medium text-white min-w-[180px] py-4 px-10">
+                          <span
+                            className="py-1 rounded-full text-xs font-medium text-[#9f5bf7]"
+                          >
+                            {formatPenaltyType(penalty.type)}
+                          </span>
+                        </TableCell>
+
+                        <TableCell className="font-semibold text-red-600 py-4 px-3">₹{penalty.amount.toFixed(2)}</TableCell>
+
+                        <TableCell className="align-middle text-gray-300 py-4 px-3">
+                          <div className="flex justify-start items-center gap-2 group/tooltip relative w-auto max-w-[180px]">
+                            <Tooltip
+                              delayDuration={0}
+                              disableHoverableContent
+                              supportMobileTap={true}
+                            >
+                              <TooltipTrigger asChild>
+                                <button className="w-full cursor-pointer flex items-center gap-1 hover:text-[#9f5bf7] group-hover:text-[#b366ff] transition-all duration-300 relative bg-transparent border-0 p-0 text-left">
+                                  <span className="inline-block overflow-hidden text-ellipsis whitespace-nowrap w-full text-left">
+                                    {penalty.description.length > 18
+                                      ? penalty.description.slice(0, 18) + '...'
+                                      : penalty.description}
+                                  </span>
+                                </button>
+                              </TooltipTrigger>
+
+                              <TooltipContent
+                                side="bottom"
+                                align="start"
+                                sideOffset={5}
+                                className="bg-[#1f1f2e] border border-[#582c84] px-3 py-2 max-w-[200px] sm:max-w-[300px] break-words shadow-lg animate-in fade-in-0 zoom-in-95 z-50 pointer-events-auto"
+                              >
+                                <p className="text-sm text-white whitespace-normal">
+                                  {penalty.description}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="min-w-[160px] text-gray-400 py-4 px-3">
+                          {new Intl.DateTimeFormat("en-IN", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(penalty.createdAt))}
+                        </TableCell>
+
+                        {isAdmin && (
+                          <TableCell className="text-center py-4 px-3">
+                            <EditPenaltyDialog penalty={penalty} />
+                          </TableCell>
+                        )}
+                        {isAdmin && (
+                          <TableCell className="text-center py-4 px-3">
+                            <input
+                              type="checkbox"
+                              onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
+                              checked={selectedPenalties.includes(penalty._id)}
+                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                            />
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              </>
             )}
           </div>
 
           { /* Pagination Component - Only shown when there are penalties */}
           {penalties?.length > 0 && totalPages > 1 && (
-            <div className="flex justify-center mt-4">
-              <CustomPagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+            <div className="flex justify-center mt-6">
+              <div className="bg-[#151525] rounded-xl border border-[#582c84]/30 p-2">
+                <CustomPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             </div>
           )}
 
