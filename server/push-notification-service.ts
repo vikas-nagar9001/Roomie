@@ -389,18 +389,6 @@ export class PushNotificationService {
       badge: '/favicon-32x32.png',
       tag: uniqueTag, // Unique tag prevents notification replacement
       requireInteraction: true, // Keep notification visible until user interacts
-      actions: [
-        {
-          action: 'view',
-          title: 'View',
-          icon: '/pwa-icons/icon-512.png'
-        },
-        {
-          action: 'dismiss',
-          title: 'Dismiss',
-          icon: '/favicon-32x32.png'
-        }
-      ],
       data: {
         url: '/',
         timestamp: Date.now(),

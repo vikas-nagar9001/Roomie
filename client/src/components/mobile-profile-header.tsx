@@ -223,19 +223,8 @@ export function MobileProfileHeader() {
         {showMenu && (
           <div 
             ref={menuRef}
-            className="absolute top-14 right-4 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl p-2 z-50 w-40 animate-in fade-in slide-in-from-top-5 duration-300"
+            className="absolute top-14 right-8 bg-[#1a1a2e] border border-white/10 rounded-xl shadow-xl  z-50 w-40 animate-in fade-in slide-in-from-top-5 duration-300"
           >
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-white/80 hover:text-white hover:bg-white/10 rounded-lg py-2 mb-1"
-              onClick={() => {
-                setShowMenu(false);
-                // Add dark mode toggle action here
-              }}
-            >
-              <FiMoon className="mr-2 h-4 w-4" />
-              Dark Mode
-            </Button>
             {/* Show Announcement option only for admins */}
             {user?.role === "ADMIN" && (
               <Button 
@@ -246,7 +235,7 @@ export function MobileProfileHeader() {
                   setShowAnnouncementDialog(true);
                 }}
               >
-                <HiSpeakerphone className="mr-2 h-4 w-4" />
+                <HiSpeakerphone className="mr-1 h-4 w-4" />
                 Announcement
               </Button>
             )}
@@ -259,7 +248,7 @@ export function MobileProfileHeader() {
               }}
               disabled={clearCacheMutation.isPending}
             >
-              <MdOutlineCached className="mr-2 h-4 w-4" />
+              <MdOutlineCached className="mr-1 h-4 w-4" />
               {clearCacheMutation.isPending ? "Clearing..." : "Clear Cache"}
             </Button>
             <Button 
@@ -271,7 +260,7 @@ export function MobileProfileHeader() {
               }}
               disabled={logoutMutation.isPending}
             >
-              <FiLogOut className="mr-2 h-4 w-4" />
+              <FiLogOut className="mr-1 h-4 w-4" />
               {logoutMutation.isPending ? "Signing out..." : "Sign out"}
             </Button>
           </div>
@@ -298,7 +287,12 @@ export function MobileProfileHeader() {
 
         {/* User Info */}
         <h2 className="text-xl font-bold text-white mb-1">{user?.name || "User"}</h2>
-        <p className="text-white/70 text-sm mb-4">{user?.email || "No email"}</p>        {/* Stats - Dynamic User Data */}
+        <p className="text-white/70 text-sm mb-2">{user?.email || "No email"}</p>
+        <div className="mb-4">
+          <span className="inline-block px-3 py-1 bg-gradient-to-r from-[#ab6cff]/20 to-[#582c84]/20 border border-[#ab6cff]/30 rounded-full text-xs text-white/90 font-medium uppercase tracking-wider">
+            {user?.role || "USER"}
+          </span>
+        </div>        {/* Stats - Dynamic User Data */}
         <div className="flex w-full justify-around bg-[#1a1a2e]/50 backdrop-blur-md rounded-xl p-3 border border-white/5 shadow-inner">
           <div className="flex flex-col items-center">
             <span className="text-lg font-bold text-white">{userEntries.filter(entry => entry.status === "APPROVED").length}</span>

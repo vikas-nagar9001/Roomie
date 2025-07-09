@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -14,6 +15,7 @@ import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
 import { FaCamera, FaEdit } from "react-icons/fa";
+import { HiSpeakerphone } from "react-icons/hi";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
 import { FiLogOut, FiUser, FiHome, FiCreditCard, FiMail } from "react-icons/fi";
@@ -64,6 +66,8 @@ export default function ProfilePage() {
   const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("profile");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
+  const [announcementMessage, setAnnouncementMessage] = useState("");
   
   // Show loader when the page first loads
   useEffect(() => {
@@ -314,6 +318,44 @@ export default function ProfilePage() {
     },
   });
 
+  // Send announcement mutation
+  const sendAnnouncementMutation = useMutation({
+    mutationFn: async (message: string) => {
+      const res = await apiRequest("POST", "/api/send-flat-announcement", {
+        message: message.trim()
+      });
+      
+      if (!res.ok) {
+        throw new Error(`Failed to send announcement: ${res.status}`);
+      }
+      
+      return await res.json();
+    },
+    onSuccess: () => {
+      showSuccess("Announcement sent to all flat members!");
+      setAnnouncementMessage("");
+      setShowAnnouncementDialog(false);
+    },
+    onError: (error: Error) => {
+      showError("Failed to send announcement");
+      console.error('Announcement error:', error.message);
+    },
+  });
+
+  const handleSendAnnouncement = () => {
+    if (!announcementMessage.trim()) {
+      showError("Please enter an announcement message");
+      return;
+    }
+    
+    if (announcementMessage.trim().length < 5) {
+      showError("Announcement must be at least 5 characters long");
+      return;
+    }
+    
+    sendAnnouncementMutation.mutate(announcementMessage);
+  };
+
   // Queries for statistics
   const { data: entries = [] } = useQuery<any[]>({
     queryKey: ["/api/entries"],
@@ -338,7 +380,7 @@ export default function ProfilePage() {
   const pendingEntries = userEntries.filter(e => e.status === "PENDING");
 
   // Get penalties for the user
-  const { data: penaltiesData } = useQuery<Penalty[]>({
+  const { data: penaltiesData } = useQuery<any[]>({
     queryKey: ["/api/penalties"],
   });
 
@@ -390,7 +432,20 @@ export default function ProfilePage() {
         <div className="grid gap-6 lg:grid-cols-[300px,1fr] xl:gap-8">
           {/* Sidebar - Hidden on mobile */}
           <Card className="h-fit bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl rounded-xl border border-white/10 hidden md:block shadow-xl transform transition-all duration-300 hover:shadow-purple-500/20 hover:border-white/20">
-            <CardContent className="p-6">
+            <CardContent className="p-6 relative">
+              {/* Announcement Icon - Top Left - Only for admins */}
+              {user?.role === "ADMIN" && (
+                <div 
+                  className="absolute top-4 left-4 p-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-full cursor-pointer 
+                           hover:from-indigo-700 hover:to-purple-800 transform hover:scale-110 transition-all duration-300 shadow-lg hover:shadow-xl z-10 group"
+                  onClick={() => setShowAnnouncementDialog(true)}
+                  title="Send Announcement to All Flat Members"
+                >
+                  <HiSpeakerphone className="h-4 w-4 group-hover:animate-pulse" />
+                  <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-700 rounded-full opacity-30 blur-sm group-hover:opacity-50 transition-all duration-300"></div>
+                </div>
+              )}
+              
               <div className="flex flex-col items-center space-y-6">
                 {/* Avatar with Camera Icon - Enhanced */}
                 <div className="relative group mt-4">
@@ -831,6 +886,83 @@ export default function ProfilePage() {
       <div className="block md:hidden">
         <MobileNav />
       </div>
+
+      {/* Announcement Dialog */}
+      <Dialog open={showAnnouncementDialog} onOpenChange={setShowAnnouncementDialog}>
+        <DialogContent className="max-w-md sm:max-w-lg w-full mx-4 p-0 rounded-2xl shadow-2xl bg-gradient-to-b from-[#1a1a2e] to-[#151525] border border-[#582c84]/40 backdrop-blur-xl">
+          <div className="p-6 pb-0">
+            <DialogHeader className="space-y-3 mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 rounded-full">
+                  <HiSpeakerphone className="h-5 w-5 text-white" />
+                </div>
+                <DialogTitle className="text-xl font-bold text-white bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                  Send Flat Announcement
+                </DialogTitle>
+              </div>
+              <p className="text-sm text-white/60 leading-relaxed">
+                Send a message to all members of your flat. They will receive this as a push notification.
+              </p>
+            </DialogHeader>
+          </div>
+          
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            handleSendAnnouncement();
+          }} className="px-6 pb-6 space-y-5">
+            <div className="space-y-3">
+              <Label htmlFor="announcement" className="text-white/90 font-medium text-sm">
+                Announcement Message
+              </Label>
+              <div className="relative">
+                <Textarea
+                  id="announcement"
+                  placeholder="Enter your announcement message for all flat members..."
+                  value={announcementMessage}
+                  onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  className="w-full px-4 py-3 border border-white/20 bg-black/30 text-white rounded-xl focus:ring-2 focus:ring-[#582c84] focus:border-[#582c84] outline-none transition-all min-h-[140px] resize-none placeholder:text-white/40 backdrop-blur-sm"
+                  maxLength={500}
+                />
+                <div className="absolute bottom-3 right-3 text-xs text-white/50 bg-black/50 px-2 py-1 rounded-lg backdrop-blur-sm">
+                  {announcementMessage.length}/500
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowAnnouncementDialog(false);
+                  setAnnouncementMessage("");
+                }}
+                className="w-full sm:w-auto border-white/20 text-white hover:bg-white/10 bg-transparent rounded-xl py-3 px-6 font-medium transition-all hover:border-white/30"
+                disabled={sendAnnouncementMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="w-full sm:w-auto bg-gradient-to-r from-[#582c84] to-[#5433a7] hover:from-[#5433a7] hover:to-[#4a2d96] text-white rounded-xl py-3 px-6 font-medium shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+                disabled={sendAnnouncementMutation.isPending || !announcementMessage.trim()}
+              >
+                {sendAnnouncementMutation.isPending ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <HiSpeakerphone className="h-4 w-4 mr-2" />
+                    Send Announcement
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     
     </div>
     
