@@ -182,6 +182,7 @@ export interface IStorage {
   getAllUsersByFlatId(flatId: string): Promise<UserSchema[]>; // New method
   createUser(user: Partial<UserSchema>): Promise<UserSchema>;
   createFlat(flat: InsertFlat): Promise<Flat>;
+  deleteFlat(flatId: string, adminUserId: string): Promise<boolean>;
   updateUser(
     id: string,
     data: Partial<UserSchema>,
@@ -483,6 +484,119 @@ export class MongoStorage implements IStorage {
     const flat = new FlatModel(flatData);
     await flat.save();
     return this.convertId(flat.toObject());
+  }
+
+  async deleteFlat(flatId: string, adminUserId: string): Promise<boolean> {
+    try {
+      // Get flat info for logging
+      const flat = await FlatModel.findById(flatId);
+      if (!flat) {
+        throw new Error("Flat not found");
+      }
+
+      // Get all users in the flat
+      const users = await UserModel.find({ flatId });
+      console.log(`🗑️ Starting deletion of flat ${flat.name} with ${users.length} users`);
+
+      // Delete all users using the existing deleteUser method
+      // This ensures all user cleanup is handled properly with transactions
+      let totalUsersDeleted = 0;
+      for (const user of users) {
+        console.log(`🗑️ Deleting user: ${user.name} (${user.email})`);
+        const userDeleted = await this.deleteUser(user._id.toString(), adminUserId);
+        if (userDeleted) {
+          totalUsersDeleted++;
+          console.log(`✅ Successfully deleted user: ${user.name}`);
+        } else {
+          console.error(`❌ Failed to delete user: ${user.name}`);
+          throw new Error(`Failed to delete user: ${user.name}`);
+        }
+      }
+      console.log(`👥 Deleted ${totalUsersDeleted} users using deleteUser method`);
+
+      // Now delete flat-specific data that's not user-related
+      const session = await mongoose.startSession();
+      session.startTransaction();
+
+      try {
+        // Delete all bills for this flat
+        const { deletedCount: billsDeleted } = await BillModel.deleteMany({ flatId }).session(session);
+        console.log(`🧾 Deleted ${billsDeleted} bills`);
+
+        // Delete penalty settings for this flat
+        const { deletedCount: penaltySettingsDeleted } = await PenaltySettingsModel.deleteMany({ flatId }).session(session);
+        console.log(`⚙️ Deleted ${penaltySettingsDeleted} penalty settings`);
+
+        // Finally, delete the flat itself
+        const result = await FlatModel.findByIdAndDelete(flatId).session(session);
+        console.log(`🏠 Deleted flat: ${flat.name}`);
+
+        // Validate complete deletion
+        const validation = await this.validateFlatDeletion(flatId, session);
+        if (!validation.success) {
+          throw new Error(`Flat deletion validation failed: ${validation.errors.join(', ')}`);
+        }
+
+        await session.commitTransaction();
+        console.log(`✅ Successfully deleted flat ${flat.name} and all related data`);
+        return !!result;
+
+      } catch (error) {
+        await session.abortTransaction();
+        throw error;
+      } finally {
+        session.endSession();
+      }
+
+    } catch (error) {
+      console.error("Failed to delete flat:", error);
+      return false;
+    }
+  }
+
+  private async validateFlatDeletion(flatId: string, session: mongoose.ClientSession) {
+    const errors: string[] = [];
+
+    // Check for any remaining users
+    const remainingUsers = await UserModel.countDocuments({ flatId }).session(session);
+    if (remainingUsers > 0) {
+      errors.push(`Found ${remainingUsers} remaining users`);
+    }
+
+    // Check for any remaining entries
+    const remainingEntries = await EntryModel.countDocuments({ flatId }).session(session);
+    if (remainingEntries > 0) {
+      errors.push(`Found ${remainingEntries} remaining entries`);
+    }
+
+    // Check for any remaining penalties
+    const remainingPenalties = await PenaltyModel.countDocuments({ flatId }).session(session);
+    if (remainingPenalties > 0) {
+      errors.push(`Found ${remainingPenalties} remaining penalties`);
+    }
+
+    // Check for any remaining payments
+    const remainingPayments = await PaymentModel.countDocuments({ flatId }).session(session);
+    if (remainingPayments > 0) {
+      errors.push(`Found ${remainingPayments} remaining payments`);
+    }
+
+    // Check for any remaining bills
+    const remainingBills = await BillModel.countDocuments({ flatId }).session(session);
+    if (remainingBills > 0) {
+      errors.push(`Found ${remainingBills} remaining bills`);
+    }
+
+    // Check for any remaining penalty settings
+    const remainingPenaltySettings = await PenaltySettingsModel.countDocuments({ flatId }).session(session);
+    if (remainingPenaltySettings > 0) {
+      errors.push(`Found ${remainingPenaltySettings} remaining penalty settings`);
+    }
+
+    return {
+      success: errors.length === 0,
+      errors
+    };
   }
 
   async updateUser(

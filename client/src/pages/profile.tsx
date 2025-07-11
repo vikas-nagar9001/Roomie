@@ -14,7 +14,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { showSuccess, showError, showWarning } from "@/services/toastService";
 import { User } from "@shared/schema";
 import { LuUser, LuHistory, LuSettings } from "react-icons/lu";
-import { FaCamera, FaEdit } from "react-icons/fa";
+import { FaCamera, FaEdit, FaTrash } from "react-icons/fa";
 import { HiSpeakerphone } from "react-icons/hi";
 import { MdOutlineCached } from "react-icons/md";
 import axios from "axios";
@@ -29,6 +29,7 @@ import { Header } from "@/components/header";
 import { MobileProfileHeader } from "@/components/mobile-profile-header";
 import { MobileProfileTabs } from "@/components/mobile-profile-tabs";
 import { InstallAppFab } from "@/components/install-app-fab";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 interface Activity {
   _id: string;
@@ -64,6 +65,7 @@ export default function ProfilePage() {
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<CropArea | null>(null);
   const [isEditingFlatSettings, setIsEditingFlatSettings] = useState(false);
+  const [showDeleteFlatDialog, setShowDeleteFlatDialog] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("profile");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showAnnouncementDialog, setShowAnnouncementDialog] = useState(false);
@@ -311,6 +313,29 @@ export default function ProfilePage() {
       showSuccess("Flat settings have been updated successfully");
       setIsEditingFlatSettings(false);
       hideLoader();
+    },
+    onError: (error: Error) => {
+      showError(error.message);
+      hideLoader();
+    },
+  });
+
+  const deleteFlatMutation = useMutation({
+    mutationFn: async () => {
+      showLoader();
+      try {
+        const res = await apiRequest("DELETE", `/api/flats/${user?.flatId}`);
+        return res.json();
+      } catch (error) {
+        hideLoader();
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      showSuccess("Flat and all data have been deleted successfully");
+      hideLoader();
+      // Redirect to login or home page since flat is deleted
+      window.location.href = "/auth";
     },
     onError: (error: Error) => {
       showError(error.message);
@@ -721,14 +746,24 @@ export default function ProfilePage() {
                       <div className="flex justify-between items-center bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_0_30px_rgba(101,58,167,0.3)] rounded-xl p-4">
                         <h3 className="text-lg font-semibold text-white">Flat Settings</h3>
                         {!isEditingFlatSettings && user?.role === "ADMIN" && (
-                          <Button
-                            onClick={() => setIsEditingFlatSettings(true)}
-                            variant="outline"
-                            className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
-                          >
-                            <FaEdit className="h-4 w-4" />
-                            Edit
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => setIsEditingFlatSettings(true)}
+                              variant="outline"
+                              className="border-white/10 bg-black/40 hover:bg-black/60 text-white rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
+                            >
+                              <FaEdit className="h-4 w-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => setShowDeleteFlatDialog(true)}
+                              variant="outline"
+                              className="border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
+                            >
+                              <FaTrash className="h-4 w-4" />
+                              Delete Flat
+                            </Button>
+                          </div>
                         )}
                       </div>
 
@@ -963,6 +998,35 @@ export default function ProfilePage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Flat Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteFlatDialog}
+        onOpenChange={setShowDeleteFlatDialog}
+        title="Delete Flat"
+        description={
+          <div className="space-y-4">
+            <div className="text-white/90 space-y-3">
+              <p className="font-medium text-red-400">⚠️ This action cannot be undone!</p>
+              <p>Deleting the flat will permanently remove:</p>
+              <ul className="list-disc list-inside text-sm text-white/60 space-y-1 ml-4">
+                <li>All users in the flat</li>
+                <li>All expense entries</li>
+                <li>All penalties and payments</li>
+                <li>All bills and activities</li>
+                <li>Flat settings and configurations</li>
+              </ul>
+              <p className="text-red-400 font-bold mt-3">This will delete ALL data for this flat!</p>
+            </div>
+          </div>
+        }
+        onConfirm={() => {
+          deleteFlatMutation.mutate();
+          setShowDeleteFlatDialog(false);
+        }}
+        confirmText={deleteFlatMutation.isPending ? "Deleting..." : "Delete Flat"}
+        cancelText="Cancel"
+      />
     
     </div>
     

@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you import this
 import { applyPenaltiesForFlat } from "./penalty-checker";
+import { clearPenaltyInterval } from "./penalty-checker";
 import { PushNotificationService } from "./push-notification-service";
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
@@ -1341,6 +1342,51 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to update flat settings:", error);
       res.status(500).json({ message: "Failed to update flat settings" });
+    }
+  });
+
+  // Delete flat
+  app.delete("/api/flats/:flatId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ message: "Only admins can delete flat" });
+    }
+
+    try {
+      const { flatId } = req.params;
+      
+      // Verify the flat exists and user belongs to it
+      const flat = await storage.getFlatById(flatId);
+      if (!flat) {
+        return res.status(404).json({ message: "Flat not found" });
+      }
+
+     
+
+      // Clear penalty interval for this flat
+      try {
+        clearPenaltyInterval(flatId);
+        console.log(`✅ Cleared penalty interval for flat ${flatId}`);
+      } catch (error) {
+        console.error("Failed to clear penalty interval:", error);
+        // Don't fail the deletion if this fails
+      }
+
+      // Perform the deletion
+      const success = await storage.deleteFlat(flatId, req.user._id);
+      
+      if (success) {
+        // Log the activity before deletion (this won't be stored since flat is deleted)
+        console.log(`🗑️ Flat ${flat.name} deleted by admin ${req.user.name}`);
+        
+        // Don't send response on success to avoid session conflicts
+        // The frontend will handle the redirect when the session becomes invalid
+      } else {
+        res.status(500).json({ message: "Failed to delete flat" });
+      }
+    } catch (error) {
+      console.error("Failed to delete flat:", error);
+      res.status(500).json({ message: "Failed to delete flat" });
     }
   });
 
