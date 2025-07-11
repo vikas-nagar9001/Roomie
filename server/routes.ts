@@ -141,8 +141,21 @@ export function registerRoutes(app: Express): Server {
         }
       }
 
-      const success = await storage.deleteUser(userId);
+      const success = await storage.deleteUser(userId,req.user._id);
       if (success) {
+        // Send push notification to all remaining users in the flat
+        try {
+          const pushService = new PushNotificationService(req.user.flatId);
+          await pushService.pushToAllUsersExcept(
+            "👋 User Removed",
+            `${userToDelete.name} has been removed from the flat by admin.`,
+            userId // Exclude the deleted user since they won't receive it anyway
+          );
+        } catch (notificationError) {
+          console.error("Failed to send user deletion notification:", notificationError);
+          // Don't fail the deletion if notification fails
+        }
+
         await storage.logActivity({
           userId: req.user._id,
           type: "USER_DELETED",
@@ -1004,8 +1017,22 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const userId = req.params.id;
-      const user = await storage.getUser(userId);      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
+      const user = await storage.getUser(userId);      
+
+      if (!user || user.flatId.toString() !== req.user.flatId.toString()) {
         return res.sendStatus(404);
+      }
+
+      // Check if trying to change role from ADMIN and this is the last admin
+      if (req.body.role && user.role === "ADMIN" && req.body.role !== "ADMIN") {
+        const allUsers = await storage.getUsersByFlatId(req.user.flatId);
+        const adminCount = allUsers.filter(u => u.role === "ADMIN").length;
+        
+        if (adminCount <= 1) {
+          return res.status(400).json({ 
+            message: "Cannot change role of the last admin. Make another user admin first." 
+          });
+        }
       }
 
       // Special handling for self-deactivation

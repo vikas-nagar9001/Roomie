@@ -29,6 +29,7 @@ import { showLoader, hideLoader } from "@/services/loaderService";
 import { showSuccess, showError } from "@/services/toastService";
 import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
+import { response } from "express";
 
 interface UserTableProps {
   search: string;
@@ -154,42 +155,46 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
     (currentPage - 1) * usersPerPage,
     currentPage * usersPerPage
   );
-  const handleDeleteUser = async () => {
-    if (!userToDelete || !userToDeleteDetails) return;
+ const handleDeleteUser = async () => {
+  if (!userToDelete || !userToDeleteDetails) return;
 
-    showLoader();
-    try {
-      const response = await fetch(`/api/users/${userToDelete}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete user");
-      }
+  showLoader();
+  let data = null; // ✅ Initialize data here
+  try {
+    const response = await fetch(`/api/users/${userToDelete}`, {
+      method: "DELETE",
+    });
 
-      // Invalidate and refetch the query to refresh the data
-      await queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
-      await queryClient.refetchQueries({ queryKey: ["/api/allUsers"] });
+    data = await response.json(); // ✅ Assign parsed response
 
-      showSuccess(`${userToDeleteDetails.name} has been successfully deleted.`);
-      
-      // Reset pagination to first page if current page would be empty
-      const remainingUsers = filteredUsers.filter(u => u._id !== userToDelete);
-      const remainingPages = Math.ceil((remainingUsers.length) / usersPerPage);
-      if (currentPage > remainingPages && remainingPages > 0) {
-        setCurrentPage(remainingPages);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      showError("Failed to delete user. Please try again.");
-    } finally {
-      // Ensure the loader is hidden
-      setTimeout(() => {
-        hideLoader();
-      }, 300);
-      setDeleteDialogOpen(false);
-      setUserToDelete(null);
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to delete user");
     }
-  };
+
+    // Invalidate and refetch the query to refresh the data
+    await queryClient.invalidateQueries({ queryKey: ["/api/allUsers"] });
+    await queryClient.refetchQueries({ queryKey: ["/api/allUsers"] });
+
+    showSuccess(`${userToDeleteDetails.name} has been successfully deleted.`);
+
+    // Reset pagination if current page becomes empty
+    const remainingUsers = filteredUsers.filter(u => u._id !== userToDelete);
+    const remainingPages = Math.ceil((remainingUsers.length) / usersPerPage);
+    if (currentPage > remainingPages && remainingPages > 0) {
+      setCurrentPage(remainingPages);
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    showError(data?.message || error.message || "Failed to delete user");
+  } finally {
+    setTimeout(() => {
+      hideLoader();
+    }, 300);
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+  }
+};
+
 
   return (
     <div className="w-full overflow-x-auto">

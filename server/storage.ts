@@ -20,7 +20,13 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import MongoStore from "connect-mongo";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // MongoDB Schemas
 const flatSchema = new mongoose.Schema({
@@ -96,7 +102,7 @@ const penaltySchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   description: { type: String, required: true },
   image: { type: String },
-  createdAt: { type: Date, default: Date.now },  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  createdAt: { type: Date, default: Date.now }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   nextPenaltyDate: { type: Date }
 });
 
@@ -119,7 +125,7 @@ const entrySchema = new mongoose.Schema({
     enum: ["PENDING", "APPROVED", "REJECTED"],
     default: "PENDING",
   },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true }
 });
 
 // MongoDB Models
@@ -239,7 +245,7 @@ export class MongoStorage implements IStorage {
 
       const db = this.client.db();
       const collection = db.collection('sessions');
-      
+
       const result = await collection.deleteMany({
         session: new RegExp(`.*"passport":{"user":"${userId}"}.*`)
       });
@@ -584,26 +590,126 @@ export class MongoStorage implements IStorage {
     }
   }
 
-  async deleteUser(id: string): Promise<boolean> {
-    try {
-      // Delete user's entries
-      await EntryModel.deleteMany({ userId: id });
 
-      // Delete user's activities
-      await ActivityModel.deleteMany({ userId: id });
+  async deleteUser(id: string, reqUserId: string): Promise<boolean> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const user = await UserModel.findById(id).session(session);
+      if (!user) return false;
+
+      const cleanupStats = {
+        entries: 0,
+        penalties: 0,
+        payments: 0,
+        activities: 0
+      };
+
+      // Delete profile picture
+      if (user.profilePicture) {
+        try {
+          const filePath = path.join(__dirname, '..', user.profilePicture);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch (error) {
+          console.error('Error deleting profile picture:', error);
+        }
+      }
+
+      // Delete entries (no need to transfer)
+      const { deletedCount: entriesDeleted } = await EntryModel.deleteMany({ userId: id }).session(session);
+      cleanupStats.entries = entriesDeleted;
+
+      // Delete user's own penalties (penalties assigned TO this user)
+      // Do NOT delete penalties created BY this user for others
+      const { deletedCount: penaltiesDeleted } = await PenaltyModel.deleteMany({ userId: id }).session(session);
+      cleanupStats.penalties = penaltiesDeleted;
 
       // Delete user's payments
-      await PaymentModel.deleteMany({ userId: id });
+      const { deletedCount: paymentsDeleted } = await PaymentModel.deleteMany({ userId: id }).session(session);
+      cleanupStats.payments = paymentsDeleted;
 
-      // Finally, delete the user
-      const result = await UserModel.findByIdAndDelete(id);
+      // Delete user's activities
+      const { deletedCount: activitiesDeleted } = await ActivityModel.deleteMany({ userId: id }).session(session);
+      cleanupStats.activities = activitiesDeleted;
 
+    // destroy user sessions
+      await this.destroySessionsByUserId(id);
+
+      // Remove from penalty settings
+      await PenaltySettingsModel.updateMany(
+        { selectedUsers: id },
+        { $pull: { selectedUsers: id } }
+      ).session(session);
+
+     
+      // Delete user
+      const result = await UserModel.findByIdAndDelete(id).session(session);
+
+      // Validate cleanup
+      const validation = await this.validateUserDeletion(id, session);
+      if (!validation.success) {
+        throw new Error(`User deletion validation failed: ${validation.errors.join(', ')}`);
+      }
+
+      await session.commitTransaction();
       return !!result;
+
     } catch (error) {
       console.error("Failed to delete user:", error);
+      await session.abortTransaction();
       return false;
+    } finally {
+      session.endSession(); // ensures cleanup
     }
   }
+
+
+  private async validateUserDeletion(userId: string, session: mongoose.ClientSession) {
+    const errors: string[] = [];
+
+    // Check for any remaining entries
+    const remainingEntries = await EntryModel.countDocuments({ userId }).session(session);
+    if (remainingEntries > 0) {
+      errors.push(`Found ${remainingEntries} remaining entries`);
+    }
+
+    // Check for any remaining payments
+    const remainingPayments = await PaymentModel.countDocuments({ userId }).session(session);
+    if (remainingPayments > 0) {
+      errors.push(`Found ${remainingPayments} remaining payments`);
+    }
+
+    // Check for any remaining penalties
+    const remainingPenalties = await PenaltyModel.countDocuments({ userId }).session(session);
+    if (remainingPenalties > 0) {
+      errors.push(`Found ${remainingPenalties} remaining penalties`);
+    }
+    // Fetch and print all remaining activities for the user
+    const remainingActivities = await ActivityModel.find({ userId }).session(session);
+
+    if (remainingActivities.length > 0) {
+      errors.push(`Found ${remainingActivities.length} remaining activities`);
+    }
+
+
+    // Check if user still exists in any bills
+    const billsWithUser = await BillModel.countDocuments({
+      users: userId
+    }).session(session);
+    if (billsWithUser > 0) {
+      errors.push(`Found ${billsWithUser} bills still referencing user`);
+    }
+
+    return {
+      success: errors.length === 0,
+      errors
+    };
+  }
+
+ 
 
   async updateFlat(flatId: string, update: Partial<Flat>) {
     const updatedFlat = await FlatModel.findByIdAndUpdate(
