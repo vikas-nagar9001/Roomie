@@ -85,13 +85,11 @@ export async function startPenaltyCheckers() {
 // Function to set up the penalty scheduler
 export async function setupPenaltyChecker(flatId: string) {
   if (!flatId) {
-
     return;
   }
 
   const settings = await storage.getPenaltySettings(flatId);
   if (!settings) {
-
     return;
   }
 
@@ -100,13 +98,62 @@ export async function setupPenaltyChecker(flatId: string) {
   // Clear existing interval if it exists
   clearPenaltyInterval(flatId);
 
-  // Run penalty check immediately for this specific flat
-  const flatId2 = flatId;
-  await checkAndApplyPenalties(flatId2);
+  // Calculate remaining time until next penalty
+  const lastPenalty = settings.lastPenaltyAppliedAt;
+  const now = new Date();
+  let remainingTime = warningPeriodMs; // Default to full period
 
-  // Set new interval for this specific flat
-  const intervalId = setInterval(() => checkAndApplyPenalties(flatId), warningPeriodMs);
-  penaltyIntervals.set(flatId, intervalId);
+  if (lastPenalty) {
+    const nextPenaltyDate = new Date(lastPenalty);
+    nextPenaltyDate.setDate(nextPenaltyDate.getDate() + settings.warningPeriodDays);
+    remainingTime = nextPenaltyDate.getTime() - now.getTime();
+    
+    console.log(`📊 Penalty timing for flat ${flatId}:`);
+    console.log(`   Last penalty: ${lastPenalty}`);
+    console.log(`   Next penalty: ${nextPenaltyDate.toISOString()}`);
+    console.log(`   Remaining time: ${Math.round(remainingTime / (1000 * 60 * 60))} hours`);
+  } else {
+    // New flat - check if penalties are immediately due
+    console.log(`🆕 New flat ${flatId} - no previous penalties found`);
+    console.log(`   Will check for penalties immediately, then start ${settings.warningPeriodDays}-day cycle`);
+    
+    // For new flats, run an immediate check to see if penalties are due
+    // This handles cases where flat has expenses but no penalties applied yet
+    remainingTime = 1000; // Set to 1 second for immediate check
+  }
+
+  // Handle different time scenarios
+  if (remainingTime <= 0) {
+    // Overdue - apply penalty immediately and start fresh cycle
+    console.log(`⚠️ Penalty overdue for flat ${flatId}, applying immediately`);
+    await checkAndApplyPenalties(flatId);
+    remainingTime = warningPeriodMs; // Reset to full period after applying
+  } else if (remainingTime < 60000) {
+    // Less than 1 minute - apply immediately to avoid timing issues
+    console.log(`⏰ Penalty due very soon for flat ${flatId}, applying immediately`);
+    await checkAndApplyPenalties(flatId);
+    remainingTime = warningPeriodMs;
+  }
+
+  // Set timeout for the remaining time (first penalty)
+  const timeoutId = setTimeout(async () => {
+    console.log(`🔔 Executing penalty check for flat ${flatId} after remaining time`);
+    await checkAndApplyPenalties(flatId);
+    
+    // After first penalty, set up regular interval for future cycles
+    const recurringIntervalId = setInterval(() => {
+      console.log(`🔄 Executing recurring penalty check for flat ${flatId}`);
+      checkAndApplyPenalties(flatId);
+    }, warningPeriodMs);
+    
+    // Update the stored interval to the recurring one
+    penaltyIntervals.set(flatId, recurringIntervalId);
+  }, remainingTime);
+
+  // Store the timeout ID (will be replaced by interval after first execution)
+  penaltyIntervals.set(flatId, timeoutId);
+  
+  console.log(`✅ Penalty checker set up for flat ${flatId} - next check in ${Math.round(remainingTime / (1000 * 60))} minutes`);
 }
 
 

@@ -79,9 +79,11 @@ const formatPenaltyType = (type: PenaltyType): string => {
   }
 };
 
-// Penalty Timer Component
-function PenaltyTimer() {
+// Shared timer hook for consistency between desktop and mobile
+function usePenaltyTimer() {
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  const [timeComponents, setTimeComponents] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  
   const { data: timerData } = useQuery<PenaltyTimerData>({
     queryKey: ["/api/penalty-timers"],
   });
@@ -101,9 +103,12 @@ function PenaltyTimer() {
           const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
           const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
+          
           setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+          setTimeComponents({ days, hours, minutes, seconds });
         } else {
           setTimeRemaining("Penalty Due");
+          setTimeComponents({ days: 0, hours: 0, minutes: 0, seconds: 0 });
         }
       };
 
@@ -112,6 +117,13 @@ function PenaltyTimer() {
       return () => clearInterval(interval);
     }
   }, [timerData]);
+
+  return { timeRemaining, timeComponents, timerData };
+}
+
+// Penalty Timer Component (Desktop)
+function PenaltyTimer() {
+  const { timeRemaining, timerData } = usePenaltyTimer();
 
   if (!timerData) return null;
 
@@ -631,34 +643,8 @@ export default function PenaltiesPage() {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const isAdmin = user?.role === "ADMIN";
 
-  // Live timer state
-  const [currentTime, setCurrentTime] = useState(new Date());
-  
-  // Update timer every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    
-    return () => clearInterval(timer);
-  }, []);
-  
-  // Calculate next penalty check time (example: next day at 9 AM)
-  const getNextPenaltyCheck = () => {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(9, 0, 0, 0); // 9 AM tomorrow
-    
-    const diff = tomorrow.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    
-    return { hours, minutes, seconds };
-  };
-  
-  const timeLeft = getNextPenaltyCheck();
+  // Use shared timer hook instead of hardcoded logic
+  const { timeComponents } = usePenaltyTimer();
 
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
@@ -1393,19 +1379,24 @@ export default function PenaltiesPage() {
                 </div>
 
                 {/* Penalty Timer - Compact Premium Design */}
-                <div className="flex items-center justify-center gap-3 bg-gradient-to-r from-[#582c84]/20 to-[#ab6cff]/20 backdrop-blur-sm rounded-lg p-3 border border-[#582c84]/30 mb-6">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#582c84] to-[#ab6cff] rounded-full flex items-center justify-center shadow-lg">
-                      <MdTimer className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="text-center">
-                      <div className="text-white font-semibold text-sm">Next Penalty</div>
-                      <div className="text-[#ab6cff] text-xs font-medium">
-                        Auto-check in {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
+                {timeComponents && (
+                  <div className="flex items-center justify-center gap-3 bg-gradient-to-r from-[#582c84]/20 to-[#ab6cff]/20 backdrop-blur-sm rounded-lg p-3 border border-[#582c84]/30 mb-6">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-gradient-to-br from-[#582c84] to-[#ab6cff] rounded-full flex items-center justify-center shadow-lg">
+                        <MdTimer className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-center">
+                        <div className="text-white font-semibold text-sm">Next Penalty</div>
+                        <div className="text-[#ab6cff] text-xs font-medium">
+                          {timeComponents.days > 0 ? 
+                            `Auto-check in ${timeComponents.days}d ${timeComponents.hours}h ${timeComponents.minutes}m ${timeComponents.seconds}s` :
+                            `Auto-check in ${timeComponents.hours}h ${timeComponents.minutes}m ${timeComponents.seconds}s`
+                          }
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* User breakdown with progress */}
                 {penalties && Array.isArray(penalties) && penalties.length > 0 ? (
