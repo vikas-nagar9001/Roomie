@@ -44,18 +44,18 @@ self.addEventListener('push', (event) => {
     tag: 'roomie-notification',
     requireInteraction: true,
     vibrate: [200, 100, 200],
-    actions: [
-      {
-        action: 'view',
-        title: 'View',
-        icon: '/pwa-icons/icon-512.png'
-      },
-      {
-        action: 'dismiss',
-        title: 'Dismiss',
-        icon: '/favicon-32x32.png'
-      }
-    ],
+    // actions: [
+    //   {
+    //     action: 'view',
+    //     title: 'View',
+    //     icon: '/pwa-icons/icon-512.png'
+    //   },
+    //   {
+    //     action: 'dismiss',
+    //     title: 'Dismiss',
+    //     icon: '/favicon-32x32.png'
+    //   }
+    // ],
     data: {}
   };
 
@@ -75,7 +75,7 @@ self.addEventListener('push', (event) => {
     tag: notificationData.tag,
     requireInteraction: notificationData.requireInteraction,
     vibrate: notificationData.vibrate,
-    actions: notificationData.actions,
+    // actions: notificationData.actions,
     data: notificationData.data || {},
     timestamp: notificationData.timestamp || Date.now(),
     silent: notificationData.silent || false

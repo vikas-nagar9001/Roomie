@@ -319,8 +319,8 @@ export function registerRoutes(app: Express): Server {
       if (!settings) {
         settings = await storage.createPenaltySettings({
           flatId: req.user.flatId,
-          contributionPenaltyPercentage: 3, // Default 3%
-          warningPeriodDays: 3, // Default 3 days
+          contributionPenaltyPercentage: 0, // Default 3%
+          warningPeriodDays: 0, // Default 3 days
           updatedBy: req.user._id,
           lastPenaltyAppliedAt: new Date(), // ✅ Always set current date
         });
@@ -337,29 +337,6 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-
-  // Get penalty settings
-  app.get("/api/penalty-settings", async (req, res) => {
-    if (!req.user) return res.sendStatus(401);
-    try {
-      let settings = await storage.getPenaltySettings(req.user.flatId);
-
-      // If no settings exist, create default settings
-      if (!settings) {
-        settings = await storage.createPenaltySettings({
-          flatId: req.user.flatId,
-          contributionPenaltyPercentage: 3, // Default 3%
-          warningPeriodDays: 3, // Default 3 days
-          updatedBy: req.user._id
-        });
-      }
-
-      res.json(settings);
-    } catch (error) {
-      console.error("Failed to get penalty settings:", error);
-      res.status(500).json({ message: "Failed to get penalty settings" });
-    }
-  });
 
   // Update penalty settings
   app.patch("/api/penalty-settings", async (req, res) => {
@@ -382,7 +359,7 @@ export function registerRoutes(app: Express): Server {
         selectedUsers: selectedUsers || [], // Add selected users array
         updatedBy: req.user._id,
       });
-
+ 
       // Restart scheduler only if `warningPeriodDays` is changed
       if (currentSettings.warningPeriodDays !== Number(warningPeriodDays)) {
         const now = new Date();
