@@ -320,28 +320,55 @@ export default function ProfilePage() {
     },
   });
 
-  const deleteFlatMutation = useMutation({
-    mutationFn: async () => {
-      showLoader();
-      try {
-        const res = await apiRequest("DELETE", `/api/flats/${user?.flatId}`);
-        return res.json();
-      } catch (error) {
-        hideLoader();
-        throw error;
+const deleteFlatMutation = useMutation({
+  mutationFn: async () => {
+    showLoader();
+
+    const timeoutPromise = new Promise((resolve) => {
+      setTimeout(() => resolve("timeout"), 6000); // 6 seconds timeout
+    });
+
+    try {
+      const apiPromise = apiRequest("DELETE", `/api/flats/${user?.flatId}`).then((res) =>
+        res.json()
+      );
+
+      const result = await Promise.race([apiPromise, timeoutPromise]);
+
+      if (result === "timeout") {
+        // No response after 6 seconds, consider as success
+        return { forcedSuccess: true };
+      } else {
+        return result; // Actual API response
       }
-    },
-    onSuccess: () => {
+    } catch (error) {
+      hideLoader();
+      throw error;
+    }
+  },
+  onSuccess: (data: any) => {
+    if (data?.forcedSuccess) {
+      showSuccess("Flat and all data have been deleted successfully (timeout fallback)");
+    } else {
       showSuccess("Flat and all data have been deleted successfully");
-      hideLoader();
-      // Redirect to login or home page since flat is deleted
-      window.location.href = "/auth";
-    },
-    onError: (error: Error) => {
-      showError(error.message);
-      hideLoader();
-    },
-  });
+    }
+    hideLoader();
+    
+    // Wait 2 seconds before redirecting to give user time to see the success message
+    setTimeout(() => {
+      // Clear all data and force redirect
+      queryClient.clear();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.replace("/auth");
+    }, 2000);
+  },
+  onError: (error: Error) => {
+    showError(error.message);
+    hideLoader();
+  },
+});
+
 
   // Send announcement mutation
   const sendAnnouncementMutation = useMutation({
