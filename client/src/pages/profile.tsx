@@ -788,7 +788,7 @@ const deleteFlatMutation = useMutation({
                               className="border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg transform hover:scale-105 transition-all duration-300 shadow-md flex items-center gap-2"
                             >
                               <FaTrash className="h-4 w-4" />
-                              Delete Flat
+                            
                             </Button>
                           </div>
                         )}
