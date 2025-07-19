@@ -1,28 +1,15 @@
 import nodemailer from "nodemailer";
-import ngrok from "ngrok";
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  service: process.env.EMAIL_SERVICE || "gmail",
   auth: {
-    user: 'trackerzpoint@gmail.com',
-    pass: 'gwtakwcwhppsnagz',
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
   },
 });
 
 async function getBaseUrl() {
-  let baseUrl = process.env.BASE_URL;
-
-  //for ngrok 
-
-  // try {
-  //   const tunnelUrl = await ngrok.connect(); // Secure connection
-  //   if (tunnelUrl) { 
-  //     baseUrl = tunnelUrl;
-  //   }
-  // } catch (error) {
-  //   console.warn("Could not get ngrok URL, using localhost");
-  // }
-  return baseUrl;
+  return process.env.BASE_URL;
 }
 
 async function sendEmail({ to, subject, text, html }: { to: string; subject: string; text: string; html: string }) {
@@ -37,7 +24,7 @@ async function sendEmail({ to, subject, text, html }: { to: string; subject: str
 
     console.log(`✅ Email sent to ${to}: ${info.response}`);
     return info;
-  } catch (error) {
+  } catch (error: any) {
     console.error(`❌ Error sending email to ${to}:`, error.message);
     throw error;
   }
@@ -58,7 +45,7 @@ export async function sendInviteEmail(email: string, name: string, inviteToken: 
            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       <tr>
         <td style="width: 60px;">
-          <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+          <img src="${baseUrl}${process.env.EMAIL_LOGO_PATH || '/Roomie.png'}" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
         </td>
         <td style="text-align: right;">
           <h1 style="color: white; margin: 0; font-size: 18px; font-weight: 500;">Welcome to Roomie</h1>
@@ -117,7 +104,7 @@ export async function sendPasswordResetEmail(email: string, name: string, resetT
            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
       <tr>
         <td style="width: 60px;">
-          <img src="${baseUrl}/Roomie.png" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
+          <img src="${baseUrl}${process.env.EMAIL_LOGO_PATH || '/Roomie.png'}" alt="Roomie Logo" style="width: 60px; height: 48px; object-fit: contain;">
         </td>
         <td style="text-align: right;">
           <h1 style="color: white; margin: 0; font-size: 18px; font-weight: 500;">Password Reset</h1>
