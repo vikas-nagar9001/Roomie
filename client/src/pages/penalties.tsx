@@ -89,10 +89,10 @@ function usePenaltyTimer() {
   });
 
   useEffect(() => {
-    if (timerData) {
+    if (timerData && timerData.lastPenaltyAppliedAt) {
       const updateTimer = () => {
         const lastPenalty = new Date(timerData.lastPenaltyAppliedAt);
-        const warningDays = timerData.warningPeriodDays;
+        const warningDays = timerData.warningPeriodDays || 3; // Default to 3 days if not set
         const nextPenaltyDate = new Date(lastPenalty);
         nextPenaltyDate.setDate(nextPenaltyDate.getDate() + warningDays);
         const now = new Date();
@@ -104,7 +104,7 @@ function usePenaltyTimer() {
           const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
           
-          setTimeRemaining(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+          setTimeRemaining(`${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`);
           setTimeComponents({ days, hours, minutes, seconds });
         } else {
           setTimeRemaining("Penalty Due");
@@ -115,6 +115,10 @@ function usePenaltyTimer() {
       updateTimer();
       const interval = setInterval(updateTimer, 1000);
       return () => clearInterval(interval);
+    } else if (timerData === null || !timerData?.lastPenaltyAppliedAt) {
+      // Handle case when timer data is not available or invalid
+      setTimeRemaining("Loading...");
+      setTimeComponents({ days: 0, hours: 0, minutes: 0, seconds: 0 });
     }
   }, [timerData]);
 
@@ -644,7 +648,7 @@ export default function PenaltiesPage() {
   const isAdmin = user?.role === "ADMIN";
 
   // Use shared timer hook instead of hardcoded logic
-  const { timeComponents } = usePenaltyTimer();
+  const { timeComponents, timeRemaining } = usePenaltyTimer();
 
   // Show loader when the component mounts and set up cleanup
   useEffect(() => {
@@ -1388,9 +1392,13 @@ export default function PenaltiesPage() {
                       <div className="text-center">
                         <div className="text-white font-semibold text-sm">Next Penalty</div>
                         <div className="text-[#ab6cff] text-xs font-medium">
-                          {timeComponents.days > 0 ? 
-                            `Auto-check in ${timeComponents.days}d ${timeComponents.hours}h ${timeComponents.minutes}m ${timeComponents.seconds}s` :
-                            `Auto-check in ${timeComponents.hours}h ${timeComponents.minutes}m ${timeComponents.seconds}s`
+                          {timeRemaining === "Penalty Due" ? 
+                            "Penalty Due" :
+                            timeRemaining === "Loading..." ? 
+                            "Loading timer..." :
+                            timeComponents.days > 0 ? 
+                              `Auto-check in ${timeComponents.days}d ${String(timeComponents.hours).padStart(2, '0')}h ${String(timeComponents.minutes).padStart(2, '0')}m ${String(timeComponents.seconds).padStart(2, '0')}s` :
+                              `Auto-check in ${String(timeComponents.hours).padStart(2, '0')}h ${String(timeComponents.minutes).padStart(2, '0')}m ${String(timeComponents.seconds).padStart(2, '0')}s`
                           }
                         </div>
                       </div>
