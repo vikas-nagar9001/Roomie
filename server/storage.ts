@@ -104,7 +104,8 @@ const penaltySchema = new mongoose.Schema({
   description: { type: String, required: true },
   image: { type: String },
   createdAt: { type: Date, default: Date.now }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  nextPenaltyDate: { type: Date }
+  nextPenaltyDate: { type: Date },
+  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null } // null = not yet applied to any bill
 });
 
 const penaltySettingsSchema = new mongoose.Schema({
@@ -126,7 +127,8 @@ const entrySchema = new mongoose.Schema({
     enum: ["PENDING", "APPROVED", "REJECTED"],
     default: "PENDING",
   },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true }
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
+  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null } // null = not yet counted in any bill
 });
 
 // MongoDB Models
@@ -204,6 +206,11 @@ export interface IStorage {
   getPaymentsByBillId(billId: string): Promise<any[]>;
   updatePayment(id: string, data: any): Promise<any>;
   getLastPaymentForUser(userId: string, flatId: string): Promise<any>;
+  adjustPaymentPenalty(userId: string, flatId: string, amountDelta: number, billId?: string): Promise<boolean>;
+  getUnappliedEntriesByFlatId(flatId: string): Promise<any[]>;
+  markEntriesAppliedToBill(entryIds: string[], billId: string): Promise<void>;
+  getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]>;
+  markPenaltiesAppliedToBill(penaltyIds: string[], billId: string): Promise<void>;
   deleteEntry(id: string): Promise<boolean>;
   // Penalty methods
   createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty>;
@@ -754,6 +761,74 @@ export class MongoStorage implements IStorage {
   async getLastPaymentForUser(userId: string, flatId: string): Promise<any> {
     const payment = await PaymentModel.findOne({ userId, flatId }).sort({ createdAt: -1 });
     return payment ? this.convertId(payment.toObject()) : null;
+  }
+
+  /**
+   * Adjusts the penalty field on the user's latest payment record and recalculates status.
+   * amountDelta > 0 = add penalty, < 0 = remove/reduce penalty
+   */
+  async adjustPaymentPenalty(userId: string, flatId: string, amountDelta: number, billId?: string): Promise<boolean> {
+    try {
+      // If billId provided, update that specific bill's payment; otherwise fall back to latest payment
+      const payment = billId
+        ? await PaymentModel.findOne({ billId, userId })
+        : await PaymentModel.findOne({ userId, flatId }).sort({ createdAt: -1 });
+      if (!payment) return false;
+
+      const newPenalty = Math.max(0, (Number(payment.penalty) || 0) + amountDelta);
+      const penaltyWaived = !!payment.penaltyWaived;
+      const baseDue = (payment.totalDue != null && Number(payment.totalDue) > 0)
+        ? Number(payment.totalDue)
+        : Number(payment.amount);
+      const effectiveTotal = parseFloat((baseDue + (penaltyWaived ? 0 : newPenalty)).toFixed(2));
+      const paidAmount = Number(payment.paidAmount) || 0;
+      const newStatus = paidAmount >= effectiveTotal ? "PAID" : "PENDING";
+
+      const updateData: any = { penalty: newPenalty, status: newStatus };
+      if (newStatus === "PAID" && !payment.paidAt) {
+        updateData.paidAt = new Date();
+      } else if (newStatus === "PENDING") {
+        updateData.paidAt = null;
+      }
+
+      await PaymentModel.findByIdAndUpdate(payment._id, updateData);
+      return true;
+    } catch (error) {
+      console.error("Failed to adjust payment penalty:", error);
+      return false;
+    }
+  }
+
+  /**
+   * Returns all APPROVED entries for a flat that have not yet been counted in any bill (billId = null).
+   */
+  async getUnappliedEntriesByFlatId(flatId: string): Promise<any[]> {
+    const entries = await EntryModel.find({ flatId, status: "APPROVED", billId: null });
+    return entries.map(e => this.convertId(e.toObject()));
+  }
+
+  /**
+   * Marks the given entry IDs as counted in the specified bill.
+   */
+  async markEntriesAppliedToBill(entryIds: string[], billId: string): Promise<void> {
+    if (entryIds.length === 0) return;
+    await EntryModel.updateMany({ _id: { $in: entryIds } }, { $set: { billId } });
+  }
+
+  /**
+   * Returns all penalties for a user/flat that have not yet been applied to any bill (billId = null).
+   */
+  async getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]> {
+    const penalties = await PenaltyModel.find({ userId, flatId, billId: null });
+    return penalties.map(p => this.convertId(p.toObject()));
+  }
+
+  /**
+   * Marks the given penalty IDs as applied to the specified bill.
+   */
+  async markPenaltiesAppliedToBill(penaltyIds: string[], billId: string): Promise<void> {
+    if (penaltyIds.length === 0) return;
+    await PenaltyModel.updateMany({ _id: { $in: penaltyIds } }, { $set: { billId } });
   }
 
   async getPaymentsByFlatId(flatId: string): Promise<any[]> {

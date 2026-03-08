@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Plus, Settings, Receipt, TrendingUp, TrendingDown,
   Bell, ChevronRight, ChevronDown, History,
-  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, AlertTriangle, Printer, Download,
+  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
@@ -132,13 +132,6 @@ export default function PaymentsPage() {
   const [isDeleteAllBillsOpen, setIsDeleteAllBillsOpen] = useState(false);
   const [filterYear, setFilterYear] = useState<string>("");
   const [filterMonth, setFilterMonth] = useState<string>("");
-  const [isPenaltyOpen, setIsPenaltyOpen] = useState(false);
-  const [penaltyUser, setPenaltyUser] = useState<{ _id: string; name: string } | null>(null);
-  const [penaltyAmount, setPenaltyAmount] = useState("");
-  const [penaltyDesc, setPenaltyDesc] = useState("");
-  const [isPenaltyAllOpen, setIsPenaltyAllOpen] = useState(false);
-  const [penaltyAllAmount, setPenaltyAllAmount] = useState("");
-  const [penaltyAllDesc, setPenaltyAllDesc] = useState("");
 
   // ─── Queries ────────────────────────────────────────────────────────────────
   const { data: bills = [], isLoading: billsLoading } = useQuery<BillSummary[]>({
@@ -332,10 +325,16 @@ export default function PaymentsPage() {
       if (!res.ok) throw new Error("Failed to delete bill");
     },
     onSuccess: (_, billId) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
+      // Immediately remove the deleted bill from cache — no refresh needed
+      queryClient.setQueryData<BillSummary[]>(["/api/bills"], (old) =>
+        old ? old.filter((b) => b._id !== billId) : []
+      );
+      // Remove the detail cache for the deleted bill
+      queryClient.removeQueries({ queryKey: ["/api/bills", billId] });
+
+      const remaining = (queryClient.getQueryData<BillSummary[]>(["/api/bills"]) ?? []);
       if (selectedBillId === billId) {
-        const rest = bills.filter(b => b._id !== billId);
-        setSelectedBillId(rest[0]?._id ?? null);
+        setSelectedBillId(remaining[0]?._id ?? null);
       }
       setIsDeleteBillOpen(false);
       setBillToDeleteId(null);
@@ -405,69 +404,33 @@ export default function PaymentsPage() {
       return res.json();
     },
     onSuccess: (data: BillDetail) => {
+      // Immediately update the bill detail cache so the members table refreshes instantly
+      queryClient.setQueryData(["/api/bills", data._id], data);
+      // Also update the bills list to reflect new totalAmount/month/dueDate
+      queryClient.setQueryData<BillSummary[]>(["/api/bills"], (old) =>
+        old
+          ? old.map((b) =>
+              b._id === data._id
+                ? {
+                    ...b,
+                    month: data.month,
+                    year: data.year,
+                    totalAmount: data.totalAmount,
+                    splitAmount: data.splitAmount,
+                    dueDate: data.dueDate,
+                    entryDeductionEnabled: data.entryDeductionEnabled,
+                    items: data.items,
+                  }
+                : b
+            )
+          : old
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/bills", data._id] });
       showSuccess("Bill updated!");
       hideLoader();
     },
     onError: (err: any) => {
       showError(err.message || "Failed to update bill");
-      hideLoader();
-    },
-  });
-
-  const addPenaltyMutation = useMutation({
-    mutationFn: async () => {
-      if (!penaltyUser || !penaltyAmount || !penaltyDesc.trim()) throw new Error("Fill all fields");
-      const amount = parseFloat(penaltyAmount);
-      if (isNaN(amount) || amount <= 0) throw new Error("Invalid amount");
-      showLoader();
-      const res = await apiRequest("POST", "/api/penalties", {
-        userId: penaltyUser._id,
-        type: "OTHER",
-        amount,
-        description: penaltyDesc.trim(),
-      });
-      if (!res.ok) throw new Error("Failed to add penalty");
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/bills", selectedBillId] });
-      setIsPenaltyOpen(false);
-      setPenaltyUser(null);
-      setPenaltyAmount("");
-      setPenaltyDesc("");
-      showSuccess("Penalty added");
-      hideLoader();
-    },
-    onError: (err: any) => {
-      showError(err.message || "Failed to add penalty");
-      hideLoader();
-    },
-  });
-
-  const applyPenaltyToAllPendingMutation = useMutation({
-    mutationFn: async ({ users, amount, description }: { users: { _id: string; name: string }[]; amount: number; description: string }) => {
-      showLoader();
-      const errors: string[] = [];
-      for (const u of users) {
-        const res = await apiRequest("POST", "/api/penalties", { userId: u._id, type: "OTHER", amount, description });
-        if (!res.ok) errors.push(u.name);
-      }
-      if (errors.length > 0) throw new Error(`Failed for: ${errors.join(", ")}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/bills", selectedBillId] });
-      setIsPenaltyAllOpen(false);
-      setPenaltyAllAmount("");
-      setPenaltyAllDesc("");
-      showSuccess("Penalty applied to all pending members");
-      hideLoader();
-    },
-    onError: (err: any) => {
-      showError(err.message || "Failed to apply penalties");
       hideLoader();
     },
   });
@@ -656,9 +619,7 @@ export default function PaymentsPage() {
                     onSendReminder={(id) => sendReminderMutation.mutate(id)}
                     onDeleteBill={() => { setBillToDeleteId(billDetail._id); setIsDeleteBillOpen(true); }}
                     onUpdateBill={(data) => updateBillMutation.mutate({ billId: billDetail._id, data })}
-                    onAddPenalty={(u) => { setPenaltyUser(u); setPenaltyAmount(""); setPenaltyDesc(""); setIsPenaltyOpen(true); }}
                     onEditError={showError}
-                    onOpenPenaltyAllPending={() => { setPenaltyAllAmount(""); setPenaltyAllDesc(""); setIsPenaltyAllOpen(true); }}
                   />
                 ) : null}
               </div>
@@ -935,128 +896,6 @@ export default function PaymentsPage() {
         onConfirm={() => deleteAllBillsMutation.mutate()}
       />
 
-      {/* ── Manual Penalty Dialog ── */}
-      <Dialog open={isPenaltyOpen} onOpenChange={setIsPenaltyOpen}>
-        <DialogContent aria-describedby={undefined} className="max-w-sm w-full bg-[#151525] border border-[#582c84]/30 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              Add Manual Penalty
-            </DialogTitle>
-          </DialogHeader>
-          {penaltyUser && (
-            <div className="space-y-4">
-              <p className="text-white/70 text-sm">User: <span className="font-medium text-white">{penaltyUser.name}</span></p>
-              <div className="space-y-1.5">
-                <Label className="text-white/50 text-xs">Amount (₹)</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={penaltyAmount}
-                  onChange={e => setPenaltyAmount(e.target.value)}
-                  className="bg-black/30 border-white/10 text-white"
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-white/50 text-xs">Description</Label>
-                <Input
-                  value={penaltyDesc}
-                  onChange={e => setPenaltyDesc(e.target.value)}
-                  className="bg-black/30 border-white/10 text-white"
-                  placeholder="e.g. Late payment"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsPenaltyOpen(false)} className="text-white/50 hover:text-white">Cancel</Button>
-            <Button
-              onClick={() => addPenaltyMutation.mutate()}
-              disabled={addPenaltyMutation.isPending || !penaltyAmount || !penaltyDesc.trim()}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              {addPenaltyMutation.isPending ? "Adding…" : "Add Penalty"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Penalty to all pending members ── */}
-      <Dialog open={isPenaltyAllOpen} onOpenChange={setIsPenaltyAllOpen}>
-        <DialogContent aria-describedby={undefined} className="max-w-sm w-full bg-[#151525] border border-[#582c84]/30 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              Penalty to all pending members
-            </DialogTitle>
-          </DialogHeader>
-          {billDetail && (() => {
-            const pending = billDetail.payments.filter(p => {
-              const due = getEffectiveTotalDue(p);
-              return (due - (p.paidAmount || 0)) > 0;
-            });
-            return (
-              <div className="space-y-4">
-                {pending.length === 0 ? (
-                  <p className="text-white/60 text-sm">No pending members in this bill.</p>
-                ) : (
-                  <>
-                    <p className="text-white/70 text-sm">Apply same penalty to {pending.length} member(s):</p>
-                    <ul className="text-white/50 text-xs space-y-1 max-h-24 overflow-y-auto rounded bg-black/20 p-2">
-                      {pending.map(p => (
-                        <li key={p._id}>• {p.userId.name}</li>
-                      ))}
-                    </ul>
-                    <div className="space-y-1.5">
-                      <Label className="text-white/50 text-xs">Amount (₹)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={penaltyAllAmount}
-                        onChange={e => setPenaltyAllAmount(e.target.value)}
-                        className="bg-black/30 border-white/10 text-white"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-white/50 text-xs">Description</Label>
-                      <Input
-                        value={penaltyAllDesc}
-                        onChange={e => setPenaltyAllDesc(e.target.value)}
-                        className="bg-black/30 border-white/10 text-white"
-                        placeholder="e.g. Late payment"
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })()}
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsPenaltyAllOpen(false)} className="text-white/50 hover:text-white">Cancel</Button>
-            <Button
-              onClick={() => {
-                if (!billDetail) return;
-                const pending = billDetail.payments
-                  .filter(p => (getEffectiveTotalDue(p) - (p.paidAmount || 0)) > 0)
-                  .map(p => ({ _id: p.userId._id, name: p.userId.name }));
-                const amount = parseFloat(penaltyAllAmount);
-                if (pending.length === 0 || isNaN(amount) || amount <= 0 || !penaltyAllDesc.trim()) {
-                  showError("Fill amount and description; ensure there are pending members.");
-                  return;
-                }
-                applyPenaltyToAllPendingMutation.mutate({ users: pending, amount, description: penaltyAllDesc.trim() });
-              }}
-              disabled={applyPenaltyToAllPendingMutation.isPending || !penaltyAllAmount || !penaltyAllDesc.trim() || !billDetail || billDetail.payments.filter(p => (getEffectiveTotalDue(p) - (p.paidAmount || 0)) > 0).length === 0}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
-            >
-              {applyPenaltyToAllPendingMutation.isPending ? "Applying…" : "Apply to all pending"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── Mobile Nav ── */}
       <div className="block md:hidden fixed bottom-0 left-0 right-0 z-50">
         <MobileNav />
@@ -1154,7 +993,7 @@ function BillListItem({
 }
 
 function BillDetailView({
-  bill, isAdmin, currentUserId, onRecordPayment, onSendReminder, onDeleteBill, onUpdateBill, onAddPenalty, onEditError, onOpenPenaltyAllPending,
+  bill, isAdmin, currentUserId, onRecordPayment, onSendReminder, onDeleteBill, onUpdateBill, onEditError,
 }: {
   bill: BillDetail;
   isAdmin: boolean;
@@ -1163,9 +1002,7 @@ function BillDetailView({
   onSendReminder: (id: string) => void;
   onDeleteBill?: () => void;
   onUpdateBill?: (data: { items: BillItem[]; totalAmount: number; month: string; year: number; dueDate: string; entryDeductionEnabled: boolean }) => void;
-  onAddPenalty?: (user: { _id: string; name: string }) => void;
   onEditError?: (msg: string) => void;
-  onOpenPenaltyAllPending?: () => void;
 }) {
   const [expenseOpen, setExpenseOpen] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -1459,7 +1296,7 @@ function BillDetailView({
             </div>
             <div className="flex flex-col items-end gap-2 shrink-0">
               <div className="flex items-center gap-1">
-                {isAdmin && (onDeleteBill || onUpdateBill || onOpenPenaltyAllPending) && (
+                {isAdmin && (onDeleteBill || onUpdateBill) && (
                   <>
                     {onUpdateBill && (
                       <Tooltip>
@@ -1497,24 +1334,7 @@ function BillDetailView({
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {onOpenPenaltyAllPending && pendingCount > 0 && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={onOpenPenaltyAllPending}
-                            className="h-9 w-9 text-amber-400 hover:bg-amber-500/20 hover:text-amber-400"
-                          >
-                            <AlertTriangle className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="bg-[#1c1b2d] border-white/10 text-white">
-                          Penalty to all pending ({pendingCount}) (Admin)
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+
                   </>
                 )}
                 <Tooltip>
@@ -1710,17 +1530,7 @@ function BillDetailView({
                               >
                                 <Bell className="w-3.5 h-3.5" />
                               </Button>
-                              {onAddPenalty && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => onAddPenalty({ _id: payment.userId._id, name: payment.userId.name })}
-                                  className="h-7 w-7 p-0 text-amber-400/80 hover:text-amber-400"
-                                  title="Add penalty"
-                                >
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                </Button>
-                              )}
+
                             </>
                           ) : (
                             <span className="text-xs font-medium text-green-400/90 bg-green-500/10 px-2 py-1 rounded-md border border-green-500/20">
@@ -1840,17 +1650,7 @@ function BillDetailView({
                       >
                         <Bell className="w-3.5 h-3.5" />
                       </Button>
-                      {onAddPenalty && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onAddPenalty({ _id: payment.userId._id, name: payment.userId.name })}
-                          className="h-8 px-3 bg-transparent border border-amber-500/40 text-amber-400/90 hover:bg-transparent hover:text-amber-400"
-                          title="Add penalty"
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Penalty
-                        </Button>
-                      )}
+
                     </>
                   ) : (
                     <span className="text-xs font-medium text-green-400/90 bg-green-500/10 px-3 py-1.5 rounded-md border border-green-500/20 w-full text-center">

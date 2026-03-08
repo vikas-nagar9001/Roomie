@@ -199,11 +199,34 @@ export class PushNotificationService {
   }
 
   /**
-   * ⚖️ Notify penalty applied
+   * ⚖️ Notify penalty applied — contextual message based on penalty type
    */
-  async notifyPenaltyApplied(penalizedUser: { id: string }, penalty: { desc: string, amount: number }) {
-    const title = "⚖️ Penalty Applied";
-    const body = `A penalty was applied: "${penalty.desc}" of ₹${penalty.amount}.`;
+  async notifyPenaltyApplied(penalizedUser: { id: string }, penalty: { desc: string, amount: number, type?: string }) {
+    let title: string;
+    let body: string;
+
+    switch (penalty.type) {
+      case "LATE_PAYMENT":
+        title = "⏰ Late Payment Penalty — ₹" + penalty.amount;
+        body = `A penalty of ₹${penalty.amount} has been added to your bill because your payment was delayed. Please open the Payments section and clear your dues immediately to avoid further charges.`;
+        break;
+      case "MINIMUM_ENTRY":
+        title = "⚖️ Low Contribution Penalty — ₹" + penalty.amount;
+        body = `You've been penalized ₹${penalty.amount} because your monthly contribution was below the required minimum. Add more entries to stay above your fair share next cycle.`;
+        break;
+      case "DAMAGE":
+        title = "🔧 Damage Penalty — ₹" + penalty.amount;
+        body = `A damage penalty of ₹${penalty.amount} has been applied to your account. Reason: "${penalty.desc}". This has been added to your current bill.`;
+        break;
+      case "RULE_VIOLATION":
+        title = "📋 Rule Violation Penalty — ₹" + penalty.amount;
+        body = `A rule violation penalty of ₹${penalty.amount} has been charged. Reason: "${penalty.desc}". This has been added to your current bill.`;
+        break;
+      default: // OTHER
+        title = "⚠️ Penalty Applied — ₹" + penalty.amount;
+        body = `A penalty of ₹${penalty.amount} has been added to your bill. Reason: "${penalty.desc}". Open the Payments section to see your updated balance.`;
+    }
+
     return await this.pushToUser(title, body, penalizedUser.id);
   }
 
@@ -211,10 +234,10 @@ export class PushNotificationService {
    * ✏️ Notify penalty edited
    */
   async notifyPenaltyEdited(penalizedUser: { id: string }, penalty: { desc: string, amount: number, oldAmount?: number }) {
-    const title = "✏️ Penalty Updated";
-    const body = penalty.oldAmount 
-      ? `Your penalty "${penalty.desc}" was updated from ₹${penalty.oldAmount} to ₹${penalty.amount}.`
-      : `Your penalty "${penalty.desc}" was updated to ₹${penalty.amount}.`;
+    const title = "✏️ Penalty Updated on Your Bill";
+    const body = penalty.oldAmount
+      ? `The penalty "${penalty.desc}" on your bill has been revised from ₹${penalty.oldAmount} to ₹${penalty.amount}. Open the Payments section to see your updated balance.`
+      : `The penalty "${penalty.desc}" on your bill has been updated to ₹${penalty.amount}. Open the Payments section to see your updated balance.`;
     return await this.pushToUser(title, body, penalizedUser.id);
   }
 
@@ -222,8 +245,8 @@ export class PushNotificationService {
    * 🗑️ Notify penalty deleted
    */
   async notifyPenaltyDeleted(penalizedUser: { id: string }, penalty: { desc: string, amount: number }) {
-    const title = "🗑️ Penalty Removed";
-    const body = `Good news! Your penalty "${penalty.desc}" of ₹${penalty.amount} has been removed.`;
+    const title = "✅ Penalty Removed from Your Bill";
+    const body = `Good news! The penalty "${penalty.desc}" of ₹${penalty.amount} has been removed from your bill. Your total due has been reduced accordingly.`;
     return await this.pushToUser(title, body, penalizedUser.id);
   }
 

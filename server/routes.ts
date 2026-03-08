@@ -410,12 +410,14 @@ export function registerRoutes(app: Express): Server {
         timestamp: new Date(),
       });
 
-      // 📢 Send notification to the penalized user
+      // New penalty has billId=null — it will be picked up automatically when the next bill is generated
+
+      // �📢 Send notification to the penalized user
       try {
         const notificationService = new PushNotificationService(req.user.flatId);
         await notificationService.notifyPenaltyApplied(
           { id: userId }, 
-          { desc: description, amount: Number(amount) }
+          { desc: description, amount: Number(amount), type }
         );
 
         // ⚠️ Check and notify users with low contribution warnings after penalty applied
@@ -466,6 +468,19 @@ export function registerRoutes(app: Express): Server {
 
       if (!updatedPenalty) {
         return res.status(404).json({ message: "Penalty not found" });
+      }
+
+      // 🔗 Adjust payment penalty only if this penalty was already applied to a specific bill
+      try {
+        const penaltyUserId = typeof originalPenalty.userId === 'object' && originalPenalty.userId !== null
+          ? (originalPenalty.userId as any)._id?.toString() ?? String(originalPenalty.userId)
+          : String(originalPenalty.userId);
+        const delta = Number(amount) - Number(originalPenalty.amount);
+        if (delta !== 0 && originalPenalty.billId) {
+          await storage.adjustPaymentPenalty(penaltyUserId, req.user.flatId, delta, String(originalPenalty.billId));
+        }
+      } catch (syncErr) {
+        console.warn("Failed to sync penalty update to payment record:", syncErr);
       }
 
       await storage.logActivity({
@@ -529,6 +544,18 @@ export function registerRoutes(app: Express): Server {
 
       if (!success) {
         return res.status(404).json({ message: "Penalty not found" });
+      }
+
+      // 🔗 Reverse penalty amount only if this penalty was already applied to a specific bill
+      try {
+        const penaltyUserId = typeof penalty.userId === 'object' && penalty.userId !== null
+          ? (penalty.userId as any)._id?.toString() ?? String(penalty.userId)
+          : String(penalty.userId);
+        if (penalty.billId) {
+          await storage.adjustPaymentPenalty(penaltyUserId, req.user.flatId, -Number(penalty.amount), String(penalty.billId));
+        }
+      } catch (syncErr) {
+        console.warn("Failed to sync penalty deletion to payment record:", syncErr);
       }
 
       await storage.logActivity({
@@ -938,20 +965,18 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date()
       });
 
-      // Build per-user entry totals for this month (approved entries only)
+      // Build per-user entry totals from all UNAPPLIED approved entries (not yet counted in any bill)
       const userEntryMap: Record<string, number> = {};
+      const userEntryIds: Record<string, string[]> = {};
       try {
         if (entryDeductionEnabled !== false) {
-          const allEntries = await storage.getEntriesByFlatId(flatId);
-          for (const entry of allEntries || []) {
-            if (entry?.status !== "APPROVED") continue;
-            const entryDate = entry.dateTime ? new Date(entry.dateTime) : null;
-            if (!entryDate || isNaN(entryDate.getTime())) continue;
-            const entryMonth = entryDate.toLocaleString("default", { month: "long" });
-            const entryYear = entryDate.getFullYear();
-            if (entryMonth === monthStr && entryYear === yearNum) {
-              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-              if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
+          const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
+          for (const entry of unappliedEntries || []) {
+            const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+            if (uid) {
+              userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
+              if (!userEntryIds[uid]) userEntryIds[uid] = [];
+              userEntryIds[uid].push(String(entry._id));
             }
           }
         }
@@ -960,6 +985,9 @@ export function registerRoutes(app: Express): Server {
       }
 
       const payments = [];
+      const allAppliedPenaltyIds: string[] = [];
+      const allAppliedEntryIds: string[] = [];
+
       for (const user of users) {
         const uid = (user._id && typeof user._id === "string") ? user._id : String(user._id);
 
@@ -973,8 +1001,23 @@ export function registerRoutes(app: Express): Server {
           console.warn("Carry-forward lookup failed for user", uid, e);
         }
 
+        // Collect unapplied penalties for this user
+        let initialPenalty = 0;
+        const userPenaltyIds: string[] = [];
+        try {
+          const unappliedPenalties = await storage.getUnappliedPenaltiesForUser(uid, flatId);
+          for (const p of unappliedPenalties) {
+            initialPenalty += Number(p.amount) || 0;
+            userPenaltyIds.push(String(p._id));
+          }
+          initialPenalty = parseFloat(initialPenalty.toFixed(2));
+        } catch (e) {
+          console.warn("Unapplied penalty lookup failed for user", uid, e);
+        }
+
         const entryDeduction = parseFloat((userEntryMap[uid] || 0).toFixed(2));
         const totalDue = parseFloat(Math.max(0, splitAmount + carryForwardAmount - entryDeduction).toFixed(2));
+        const effectiveTotal = parseFloat((totalDue + initialPenalty).toFixed(2));
 
         const payment = await storage.createPayment({
           billId: bill._id,
@@ -985,10 +1028,22 @@ export function registerRoutes(app: Express): Server {
           carryForwardAmount,
           entryDeduction,
           totalDue,
-          status: totalDue === 0 ? "PAID" : "PENDING",
+          penalty: initialPenalty,
+          status: effectiveTotal === 0 ? "PAID" : "PENDING",
           dueDate: due,
         });
         payments.push(payment);
+
+        allAppliedPenaltyIds.push(...userPenaltyIds);
+        allAppliedEntryIds.push(...(userEntryIds[uid] || []));
+      }
+
+      // Mark entries and penalties as applied to this bill so they aren't counted again
+      try {
+        await storage.markEntriesAppliedToBill(allAppliedEntryIds, String(bill._id));
+        await storage.markPenaltiesAppliedToBill(allAppliedPenaltyIds, String(bill._id));
+      } catch (markErr) {
+        console.warn("Failed to mark entries/penalties as applied to bill:", markErr);
       }
 
       try {
@@ -1331,13 +1386,78 @@ export function registerRoutes(app: Express): Server {
         if (!isNaN(d.getTime())) updates.dueDate = d;
       }
       if (entryDeductionEnabled !== undefined) updates.entryDeductionEnabled = !!entryDeductionEnabled;
+
       const payments = await storage.getPaymentsByBillId(req.params.billId);
       const userCount = Math.max(1, payments.length);
       if (updates.totalAmount != null) {
         updates.splitAmount = parseFloat((updates.totalAmount / userCount).toFixed(2));
       }
+
       const updated = await storage.updateBill(req.params.billId, updates);
       if (!updated) return res.status(500).json({ message: "Failed to update bill" });
+
+      // ── Recalculate all payment records after bill edit ──────────────────
+      const newSplitAmount = updates.splitAmount ?? bill.splitAmount;
+      const newEntryDeductionEnabled = updates.entryDeductionEnabled !== undefined
+        ? updates.entryDeductionEnabled
+        : bill.entryDeductionEnabled;
+      const newMonth = updates.month ?? bill.month;
+      const newYear = updates.year ?? bill.year;
+      const newDueDate = updates.dueDate ?? bill.dueDate;
+
+      // Build per-user entry totals for the bill's month (approved entries only)
+      const userEntryMap: Record<string, number> = {};
+      if (newEntryDeductionEnabled) {
+        try {
+          const allEntries = await storage.getEntriesByFlatId(req.user.flatId);
+          for (const entry of allEntries || []) {
+            if (entry?.status !== "APPROVED") continue;
+            const entryDate = entry.dateTime ? new Date(entry.dateTime) : null;
+            if (!entryDate || isNaN(entryDate.getTime())) continue;
+            const entryMonth = entryDate.toLocaleString("default", { month: "long" });
+            const entryYear = entryDate.getFullYear();
+            if (entryMonth === newMonth && entryYear === newYear) {
+              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+              if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
+            }
+          }
+        } catch (e) {
+          console.warn("Entry deduction lookup failed during bill update:", e);
+        }
+      }
+
+      // Update each payment record with recalculated values
+      for (const payment of payments) {
+        const uid = (payment.userId?._id ?? payment.userId)?.toString?.() ?? String(payment.userId);
+        const entryDeduction = newEntryDeductionEnabled
+          ? parseFloat((userEntryMap[uid] || 0).toFixed(2))
+          : 0;
+        const carryForward = Number(payment.carryForwardAmount) || 0;
+        const totalDue = parseFloat(Math.max(0, newSplitAmount + carryForward - entryDeduction).toFixed(2));
+        const paidAmount = Number(payment.paidAmount) || 0;
+        const penalty = Number(payment.penalty) || 0;
+        const penaltyWaived = !!payment.penaltyWaived;
+        const effectiveTotal = parseFloat((totalDue + (penaltyWaived ? 0 : penalty)).toFixed(2));
+        const newStatus = paidAmount >= effectiveTotal ? "PAID" : "PENDING";
+
+        const paymentUpdate: any = {
+          amount: newSplitAmount,
+          entryDeduction,
+          totalDue,
+          dueDate: newDueDate,
+          status: newStatus,
+        };
+        // Set/clear paidAt based on new status
+        if (newStatus === "PAID" && !payment.paidAt) {
+          paymentUpdate.paidAt = new Date();
+        } else if (newStatus === "PENDING") {
+          paymentUpdate.paidAt = null;
+        }
+
+        await storage.updatePayment(payment._id, paymentUpdate);
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const updatedPayments = await storage.getPaymentsByBillId(req.params.billId);
       res.json({ ...updated, payments: updatedPayments });
     } catch (error: any) {

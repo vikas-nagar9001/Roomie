@@ -238,13 +238,15 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
         nextPenaltyDate: new Date(),
       });
 
-      // 🔔 Send individual penalty notification to the penalized user
+      // Auto penalty has billId=null — it will be picked up automatically when the next bill is generated
+
+      // �🔔 Send individual penalty notification to the penalized user
       try {
         const { PushNotificationService } = await import('./push-notification-service.js');
         const notificationService = new PushNotificationService(flat._id);
         
         const penaltyTitle = `⚖️ ${msg} Penalty Applied`;
-        const penaltyMessage = `You've been penalized ₹${penaltyAmount} for low contribution. Your contribution ₹${finalUserContribution.toFixed(2)} is below the required ₹${finalFairShare.toFixed(2)}.`;
+        const penaltyMessage = `You've been penalized ₹${penaltyAmount} because your monthly contribution ₹${finalUserContribution.toFixed(2)} is below the required minimum ₹${finalFairShare.toFixed(2)}. Add more entries next cycle to avoid this. Check the Payments section for your updated bill.`;
         
         await notificationService.pushToUser(penaltyTitle, penaltyMessage, user._id.toString());
         console.log(`📧 Penalty notification sent to user ${user.name}`);

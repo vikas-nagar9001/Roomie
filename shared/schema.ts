@@ -56,6 +56,7 @@ export interface Entry {
   dateTime: Date;
   status: EntryStatus;  userId: string;
   flatId: string;
+  billId?: string; // Set when this entry has been counted in a specific bill
 }
 
 export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER" | "MINIMUM_ENTRY";
@@ -70,6 +71,7 @@ export interface Penalty {
   image?: string;
   createdAt: Date;  createdBy: string;
   nextPenaltyDate?: Date; // Date when the next penalty will be applied if contribution deficit persists
+  billId?: string; // Set when this penalty has been applied to a specific bill
 }
 
 
