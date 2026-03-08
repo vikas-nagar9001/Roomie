@@ -867,13 +867,28 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Get all bills
+  // Get all bills (with payment status: Paid if all users paid in full, Pending if any has remaining)
   app.get("/api/bills", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
 
     try {
       const bills = await storage.getBillsByFlatId(req.user.flatId);
-      res.json(bills);
+      const withStatus = await Promise.all(bills.map(async (bill: any) => {
+        const payments = await storage.getPaymentsByBillId(bill._id);
+        let paymentStatus: "Paid" | "Pending" = "Paid";
+        for (const p of payments) {
+          const baseDue = (p.totalDue != null && p.totalDue > 0) ? p.totalDue : p.amount;
+          const penalty = p.penaltyWaived ? 0 : (Number(p.penalty) || 0);
+          const effectiveTotal = baseDue + penalty;
+          const paid = Number(p.paidAmount) || 0;
+          if (paid < effectiveTotal) {
+            paymentStatus = "Pending";
+            break;
+          }
+        }
+        return { ...bill, paymentStatus };
+      }));
+      res.json(withStatus);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch bills" });
     }
@@ -1128,7 +1143,7 @@ export function registerRoutes(app: Express): Server {
       const flatId = req.user.flatId;
       const bills = await storage.getBillsByFlatId(flatId);
       const lines: string[] = [];
-      lines.push(row(["Record Type", "Month", "Year", "Due Date", "Total Amount", "Per Person", "Members", "Expense Name", "Expense Amount", "Member Name", "Base", "Entry Deduction", "Carry Forward", "Total Due", "Paid", "Remaining", "Status"]));
+      lines.push(row(["Record Type", "Month", "Year", "Due Date", "Total Amount", "Per Person", "Members", "Expense Name", "Expense Amount", "Member Name", "Base", "Entry Deduction", "Carry Forward", "Penalty", "Total Due", "Paid", "Remaining", "Status"]));
       for (const bill of bills) {
         const payments = await storage.getPaymentsByBillId(bill._id);
         const dueStr = bill.dueDate ? new Date(bill.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
@@ -1137,10 +1152,10 @@ export function registerRoutes(app: Express): Server {
         const total = bill.totalAmount ?? 0;
         const perPerson = bill.splitAmount ?? 0;
         const members = payments.length;
-        lines.push(row(["Bill", month, year, dueStr, total, perPerson, members, "", "", "", "", "", "", "", "", "", ""]));
+        lines.push(row(["Bill", month, year, dueStr, total, perPerson, members, "", "", "", "", "", "", "", "", "", "", ""]));
         if (Array.isArray(bill.items)) {
           for (const item of bill.items) {
-            lines.push(row(["Expense", month, year, "", "", "", "", item.name ?? "", item.amount ?? "", "", "", "", "", "", "", "", ""]));
+            lines.push(row(["Expense", month, year, "", "", "", "", item.name ?? "", item.amount ?? "", "", "", "", "", "", "", "", "", ""]));
           }
         }
         for (const p of payments) {
@@ -1149,11 +1164,13 @@ export function registerRoutes(app: Express): Server {
           const base = p.amount ?? 0;
           const entryDed = p.entryDeduction ?? 0;
           const carryFwd = p.carryForwardAmount ?? 0;
-          const totalDue = (p.totalDue && p.totalDue > 0) ? p.totalDue : p.amount;
+          const penaltyAmt = p.penaltyWaived ? 0 : (Number(p.penalty) || 0);
+          const baseDue = (p.totalDue && p.totalDue > 0) ? p.totalDue : p.amount;
+          const effectiveTotal = baseDue + penaltyAmt;
           const paid = p.paidAmount ?? 0;
-          const remaining = Math.max(0, totalDue - paid);
+          const remaining = Math.max(0, effectiveTotal - paid);
           const status = p.status ?? "PENDING";
-          lines.push(row(["Payment", month, year, "", "", "", "", "", "", name, base, entryDed, carryFwd, totalDue, paid, remaining, status]));
+          lines.push(row(["Payment", month, year, "", "", "", "", "", "", name, base, entryDed, carryFwd, penaltyAmt, effectiveTotal, paid, remaining, status]));
         }
         lines.push("");
       }
@@ -1165,6 +1182,88 @@ export function registerRoutes(app: Express): Server {
     } catch (error: any) {
       console.error("Bills backup failed:", error);
       res.status(500).json({ message: error?.message || "Backup failed" });
+    }
+  });
+
+  // Clear carry forward for a bill (e.g. when previous months are all paid). Admin only.
+  app.post("/api/bills/:billId/clear-carry-forward", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const bill = await storage.getBillById(req.params.billId);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (bill.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
+      const payments = await storage.getPaymentsByBillId(bill._id);
+      let updated = 0;
+      for (const p of payments) {
+        const cf = Number(p.carryForwardAmount) || 0;
+        if (cf <= 0) continue;
+        const baseDue = (p.totalDue != null && p.totalDue > 0) ? p.totalDue : p.amount;
+        const newTotalDue = parseFloat(Math.max(0, baseDue - cf).toFixed(2));
+        await storage.updatePayment(p._id, { carryForwardAmount: 0, totalDue: newTotalDue });
+        updated++;
+      }
+      res.json({ message: "Carry forward cleared for this bill", paymentsUpdated: updated });
+    } catch (error: any) {
+      console.error("Clear carry forward failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to clear carry forward" });
+    }
+  });
+
+  // Apply penalty data from MR 10 sheet (ENTRIES section: Amount - Penalty = Total). Admin only.
+  const SHEET_PENALTY_DATA: Array<{ month: string; year: number; penalties: Array<{ userName: string; penalty: number }> }> = [
+    { month: "June", year: 2025, penalties: [ { userName: "Aniket Nanga", penalty: 82 }, { userName: "Rajuu dhaya", penalty: 107 } ] },
+    { month: "July", year: 2025, penalties: [ { userName: "Rajuu donn", penalty: 158 }, { userName: "Kodaba Bhill", penalty: 262 } ] },
+    { month: "September", year: 2025, penalties: [ { userName: "Rajuu donn", penalty: 191 }, { userName: "Aniket", penalty: 66 }, { userName: "Vishal Boss", penalty: 50 } ] },
+    { month: "October", year: 2025, penalties: [ { userName: "Vishal Boss", penalty: 31 }, { userName: "Aniket", penalty: 4 }, { userName: "Rajuu donn", penalty: 40 } ] },
+    { month: "November", year: 2025, penalties: [ { userName: "Vikas Nagar", penalty: 2 }, { userName: "Rajuu donn", penalty: 90 }, { userName: "Hariom Guru", penalty: 112 } ] },
+    { month: "December", year: 2025, penalties: [ { userName: "Hariom Guru", penalty: 218 }, { userName: "Rajuu donn", penalty: 439 } ] },
+    { month: "January", year: 2026, penalties: [ { userName: "Rajuu donn", penalty: 15 }, { userName: "Hariom Guru", penalty: 172 }, { userName: "Aniket", penalty: 13 }, { userName: "Vishal Boss", penalty: 13 } ] },
+    { month: "February", year: 2026, penalties: [ { userName: "Hariom Guru", penalty: 16 }, { userName: "Vishal Boss", penalty: 16 } ] },
+    { month: "March", year: 2026, penalties: [ { userName: "Rajuu donn", penalty: 0 }, { userName: "Vikas Nagar", penalty: 79 }, { userName: "Aniket", penalty: 182 }, { userName: "Hariom Guru", penalty: 29 }, { userName: "Vishal Boss", penalty: 16 } ] },
+  ];
+  app.post("/api/bills/apply-sheet-penalties", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    const normalize = (s: string) => s.replace(/[^\w\s]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+    const firstWord = (s: string) => (s.split(/\s+/)[0] || "").toLowerCase();
+    const matchUser = (userName: string, users: any[]) => {
+      const n = normalize(userName);
+      const first = firstWord(userName);
+      for (const u of users) {
+        const un = normalize(u.name || "");
+        const uFirst = firstWord(u.name || "");
+        if (un === n || un.includes(first) || n.includes(uFirst) || un.includes(n) || n.includes(un)) return u;
+      }
+      return null;
+    };
+    try {
+      const flatId = req.user.flatId;
+      const allBills = await storage.getBillsByFlatId(flatId);
+      const users = await storage.getUsersByFlatId(flatId);
+      let applied = 0;
+      for (const row of SHEET_PENALTY_DATA) {
+        const bill = allBills.find((b: any) =>
+          String(b.month || "").trim().toLowerCase() === row.month.toLowerCase() && Number(b.year) === row.year
+        );
+        if (!bill) continue;
+        const payments = await storage.getPaymentsByBillId(bill._id);
+        for (const { userName, penalty } of row.penalties) {
+          const user = matchUser(userName, users);
+          if (!user) continue;
+          const payment = payments.find((p: any) => {
+            const uid = (p.userId?._id ?? p.userId)?.toString?.();
+            return uid === (user._id && typeof user._id === "string" ? user._id : String(user._id));
+          });
+          if (!payment) continue;
+          await storage.updatePayment(payment._id, { penalty: Number(penalty), penaltyWaived: false });
+          applied++;
+        }
+      }
+      res.json({ message: "Sheet penalties applied", applied });
+    } catch (error: any) {
+      console.error("Apply sheet penalties failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to apply penalties" });
     }
   });
 
@@ -1268,7 +1367,7 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
-  // Update payment — supports partial payments via paidAmount field
+  // Update payment — supports paidAmount and penalty (penalty adds to amount owed, shown minus from user's balance)
   app.patch("/api/payments/:id", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
@@ -1278,23 +1377,26 @@ export function registerRoutes(app: Express): Server {
     try {
       const existing = await PaymentModel.findById(req.params.id);
       if (!existing) return res.status(404).json({ message: "Payment not found" });
+      if (existing.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
 
       const newPaidAmount = req.body.paidAmount !== undefined
         ? parseFloat(req.body.paidAmount)
         : (existing.paidAmount || 0);
+      const penalty = req.body.penalty !== undefined ? parseFloat(req.body.penalty) : (existing.penalty ?? 0);
+      const penaltyWaived = req.body.penaltyWaived !== undefined ? !!req.body.penaltyWaived : (existing.penaltyWaived ?? false);
 
-      // totalDue falls back to amount for legacy records that don't have totalDue set
-      const totalDue = (existing.totalDue && existing.totalDue > 0)
-        ? existing.totalDue
-        : existing.amount;
+      const baseDue = (existing.totalDue != null && existing.totalDue > 0) ? existing.totalDue : existing.amount;
+      const effectiveTotal = parseFloat((baseDue + (penaltyWaived ? 0 : penalty)).toFixed(2));
+      const isFullyPaid = newPaidAmount >= effectiveTotal;
 
-      const isFullyPaid = newPaidAmount >= totalDue;
-
-      const updated = await storage.updatePayment(req.params.id, {
+      const updatePayload: any = {
         paidAmount: newPaidAmount,
+        penalty,
+        penaltyWaived,
         status: isFullyPaid ? "PAID" : "PENDING",
         paidAt: isFullyPaid ? new Date() : null,
-      });
+      };
+      const updated = await storage.updatePayment(req.params.id, updatePayload);
 
       if (isFullyPaid && updated?.userId) {
         try {
@@ -1337,7 +1439,9 @@ export function registerRoutes(app: Express): Server {
 
       if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-      const totalDue = (payment.totalDue && payment.totalDue > 0) ? payment.totalDue : payment.amount;
+      const baseDue = (payment.totalDue && payment.totalDue > 0) ? payment.totalDue : payment.amount;
+      const penalty = payment.penaltyWaived ? 0 : (Number(payment.penalty) || 0);
+      const totalDue = baseDue + penalty;
       const remaining = Math.max(0, totalDue - (payment.paidAmount || 0));
 
       if (remaining <= 0 || payment.status === "PAID") {

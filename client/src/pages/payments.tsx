@@ -54,6 +54,7 @@ interface BillSummary {
   entryDeductionEnabled: boolean;
   items: BillItem[];
   createdAt: string;
+  paymentStatus?: "Paid" | "Pending";
 }
 
 interface PaymentRecord {
@@ -92,8 +93,11 @@ const getInitials = (name: string) =>
 
 const fmt = (n: number) => `₹${(n ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const getEffectiveTotalDue = (p: PaymentRecord) =>
-  p.totalDue > 0 ? p.totalDue : p.amount;
+const getEffectiveTotalDue = (p: PaymentRecord) => {
+  const base = p.totalDue > 0 ? p.totalDue : p.amount;
+  const penalty = p.penaltyWaived ? 0 : (p.penalty ?? 0);
+  return base + penalty;
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -1119,11 +1123,13 @@ function BillListItem({
   bill: BillSummary; isSelected: boolean; onClick: () => void;
 }) {
   const dueStr = bill.dueDate ? format(new Date(bill.dueDate), "d MMM yyyy") : "";
+  const status = bill.paymentStatus ?? "Pending";
+  const isPaid = status === "Paid";
   return (
     <button
       onClick={onClick}
       className={cn(
-        "w-full text-left px-4 py-3 flex items-center justify-between transition-colors group",
+        "w-full text-left px-4 py-3 flex items-center justify-between gap-2 transition-colors group",
         isSelected
           ? "bg-[#582c84]/30 text-white border-l-2 border-[#9f5bf7]"
           : "text-white/60 hover:bg-white/5 hover:text-white border-l-2 border-transparent"
@@ -1134,6 +1140,14 @@ function BillListItem({
         <p className="text-xs opacity-50 mt-0.5">₹{bill.totalAmount.toLocaleString()}</p>
         {dueStr && <p className="text-[10px] opacity-40 mt-0.5">Due {dueStr}</p>}
       </div>
+      <span
+        className={cn(
+          "shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full border",
+          isPaid ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"
+        )}
+      >
+        {status}
+      </span>
       <ChevronRight className={cn("w-4 h-4 shrink-0 opacity-30 transition-transform", isSelected && "opacity-60")} />
     </button>
   );
@@ -1193,6 +1207,8 @@ function BillDetailView({
     return (due - (p.paidAmount || 0)) > 0;
   }).length;
 
+  const invFmt = (n: number) => (n ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const handlePrintInvoice = () => {
     const payment = currentUserId
       ? bill.payments.find(p => String(p.userId?._id ?? p.userId) === String(currentUserId))
@@ -1211,55 +1227,97 @@ function BillDetailView({
     const userName = payment?.userId?.name ?? "Member";
     const logoUrl = typeof window !== "undefined" ? window.location.origin + "/static/images/Roomie.png" : "";
 
+    const baseStyles = `
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #111; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .invoice { max-width: 100%; margin: 0; padding: 10px 12px; }
+    .brand { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 2px solid #111; }
+    .brand-left { display: flex; align-items: center; gap: 10px; }
+    .brand img.logo-img { height: 36px; width: auto; max-width: 140px; object-fit: contain; display: block; }
+    .logo-fallback { display: flex; align-items: center; gap: 6px; }
+    .logo-box { width: 36px; height: 36px; background: #1a1a1a; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .logo-box svg { width: 20px; height: 20px; }
+    .brand-text { font-size: 18px; font-weight: 800; color: #111; letter-spacing: 0.06em; }
+    .brand-tag { font-size: 9px; color: #333; letter-spacing: 0.04em; margin-top: 0; }
+    .invoice-label { font-size: 9px; font-weight: 700; color: #111; letter-spacing: 0.1em; text-align: right; }
+    .invoice-period { font-size: 14px; font-weight: 700; color: #111; margin-top: 1px; }
+    .bill-head { background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
+    .bill-title { font-size: 14px; font-weight: 700; color: #111; margin: 0 0 4px 0; }
+    .bill-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: #222; }
+    .bill-meta span { display: flex; align-items: center; gap: 4px; }
+    .bill-meta strong { color: #111; }
+    .section-head { font-size: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; padding-bottom: 2px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11px; }
+    table.expenses thead th { background: #eee; padding: 4px 8px; border: 1px solid #ddd; color: #111; font-weight: 600; }
+    table.expenses th, table.expenses td { padding: 4px 8px; text-align: left; border-bottom: 1px solid #e5e5e5; color: #111; }
+    table.expenses .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+    table.expenses .total-row td { font-weight: 700; background: #eee; padding: 5px 8px; color: #111; border-bottom: 2px solid #ddd; }
+    table.expenses .per-person { font-size: 10px; color: #333; }
+    .members-table { font-size: 10px; }
+    .members-table th, .members-table td { padding: 3px 6px; border: 1px solid #ddd; color: #111; }
+    .members-table thead th { background: #eee; font-weight: 600; }
+    .members-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .members-table .penalty { color: #b91c1c; font-weight: 500; }
+    .your-payment { background: #1a1a1a; color: #fff; border-radius: 8px; padding: 10px 12px; margin-top: 4px; }
+    .your-payment .name { font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #fff; }
+    .pay-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 11px; }
+    .pay-row.emphasis { font-weight: 700; font-size: 12px; padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.3); }
+    .pay-row .label, .pay-row .value { color: #fff; }
+    .pay-row .value.penalty-val { color: #fca5a5; }
+    .footer { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; font-size: 10px; color: #333; text-align: center; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { size: A4; margin: 8mm; }
+      .invoice { page-break-inside: avoid; padding: 6px 8px; }
+      .invoice-wrap { break-inside: avoid; }
+    }
+    `;
+
+    const memberRows = bill.payments.map((p: PaymentRecord) => {
+      const due = getEffectiveTotalDue(p);
+      const rem = Math.max(0, due - (p.paidAmount ?? 0));
+      const pen = p.penaltyWaived ? 0 : (p.penalty ?? 0);
+      const name = p.userId?.name ?? "Member";
+      return `<tr>
+        <td>${name}</td>
+        <td class="num">₹${invFmt(p.amount ?? 0)}</td>
+        <td class="num">−₹${invFmt(p.entryDeduction ?? 0)}</td>
+        <td class="num">${(p.carryForwardAmount ?? 0) > 0 ? "+₹" + invFmt(p.carryForwardAmount) : "—"}</td>
+        <td class="num penalty">${pen > 0 ? "+₹" + invFmt(pen) : "—"}</td>
+        <td class="num">₹${invFmt(due)}</td>
+        <td class="num">₹${invFmt(p.paidAmount ?? 0)}</td>
+        <td class="num">₹${invFmt(rem)}</td>
+      </tr>`;
+    }).join("");
+
+    const adminInvoiceBody = isAdmin ? `
+    <div class="section-head">Member payments</div>
+    <table class="expenses members-table">
+      <thead><tr><th>Member</th><th class="num">Base</th><th class="num">Entry ded.</th><th class="num">Carry fwd</th><th class="num">Penalty</th><th class="num">Total due</th><th class="num">Paid</th><th class="num">Remaining</th></tr></thead>
+      <tbody>${memberRows}</tbody>
+    </table>` : `
+    <div class="section-head">Your payment</div>
+    <div class="your-payment">
+      <div class="name">${userName}</div>
+      ${baseAmount > 0 ? `<div class="pay-row"><span class="label">Base share</span><span class="value">₹${invFmt(baseAmount)}</span></div>` : ""}
+      ${entryDed !== 0 ? `<div class="pay-row"><span class="label">Entry deduction</span><span class="value">−₹${invFmt(Math.abs(entryDed))}</span></div>` : ""}
+      ${carryForward > 0 ? `<div class="pay-row"><span class="label">Carry forward</span><span class="value">+₹${invFmt(carryForward)}</span></div>` : ""}
+      ${!payment?.penaltyWaived && (payment?.penalty ?? 0) > 0 ? `<div class="pay-row"><span class="label">Penalty</span><span class="value penalty-val">+₹${invFmt(payment?.penalty ?? 0)}</span></div>` : ""}
+      <div class="pay-row"><span class="label">Total due</span><span class="value">₹${invFmt(totalDue)}</span></div>
+      <div class="pay-row"><span class="label">Paid</span><span class="value">₹${invFmt(paid)}</span></div>
+      <div class="pay-row emphasis"><span class="label">Remaining</span><span class="value">₹${invFmt(remaining)}</span></div>
+    </div>`;
+
     const html = `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Invoice — ${bill.month} ${bill.year} · Roomie</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; padding: 0; color: #111; background: #fff; font-size: 13px; line-height: 1.4; }
-    .invoice { max-width: 520px; margin: 0 auto; padding: 16px 20px; }
-    .brand { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 2px solid #111; }
-    .brand-left { display: flex; align-items: center; gap: 12px; }
-    .brand img.logo-img { height: 44px; width: auto; max-width: 160px; object-fit: contain; display: block; }
-    .logo-fallback { display: flex; align-items: center; gap: 8px; }
-    .logo-box { width: 44px; height: 44px; background: linear-gradient(145deg, #582c84 0%, #6b35a0 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .logo-box svg { width: 24px; height: 24px; }
-    .brand-text { font-size: 22px; font-weight: 800; color: #111; letter-spacing: 0.06em; }
-    .brand-tag { font-size: 10px; color: #333; letter-spacing: 0.04em; margin-top: 1px; }
-    .invoice-label { font-size: 10px; font-weight: 700; color: #111; letter-spacing: 0.12em; text-align: right; }
-    .invoice-period { font-size: 16px; font-weight: 700; color: #111; margin-top: 2px; }
-    .bill-head { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
-    .bill-title { font-size: 18px; font-weight: 700; color: #111; margin: 0 0 6px 0; }
-    .bill-meta { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: #333; }
-    .bill-meta span { display: flex; align-items: center; gap: 4px; }
-    .bill-meta strong { color: #111; }
-    .section-head { font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; padding-bottom: 4px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 13px; }
-    table.expenses thead th { background: #f1f5f9; padding: 6px 10px; border: 1px solid #e2e8f0; }
-    table.expenses th, table.expenses td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-    table.expenses th { color: #333; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
-    table.expenses .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
-    table.expenses .total-row td { font-weight: 700; background: #f1f5f9; padding: 8px 10px; color: #111; border-bottom: 2px solid #e2e8f0; }
-    table.expenses .per-person { font-size: 12px; color: #555; }
-    .your-payment { background: linear-gradient(145deg, #582c84 0%, #6b35a0 100%); color: #fff; border-radius: 10px; padding: 14px 16px; margin-top: 4px; box-shadow: 0 4px 12px rgba(88,44,132,0.2); }
-    .your-payment .name { font-size: 14px; font-weight: 700; margin-bottom: 10px; }
-    .pay-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
-    .pay-row.emphasis { font-weight: 700; font-size: 14px; padding-top: 8px; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.3); }
-    .pay-row .label { opacity: 0.95; }
-    .pay-row .value { font-variant-numeric: tabular-nums; font-weight: 600; }
-    .footer { margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0; font-size: 11px; color: #666; text-align: center; }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      @page { size: A4; margin: 12mm; }
-      .invoice { page-break-inside: avoid; padding: 12px 16px; }
-    }
-  </style>
+  <style>${baseStyles}</style>
 </head>
 <body>
-  <div class="invoice">
+  <div class="invoice invoice-wrap">
     <header class="brand">
       <div class="brand-left">
         <img src="${logoUrl}" alt="Roomie" class="logo-img" onerror="this.style.display='none'; var f=document.getElementById('brand-fallback'); if(f) f.style.display='flex';" />
@@ -1292,23 +1350,12 @@ function BillDetailView({
     <table class="expenses">
       <thead><tr><th>Item</th><th class="amount">Amount (₹)</th></tr></thead>
       <tbody>
-        ${bill.items.map(i => `<tr><td>${i.name}</td><td class="amount">${i.amount.toLocaleString("en-IN")}</td></tr>`).join("")}
+        ${bill.items.map((i: BillItem) => `<tr><td>${i.name}</td><td class="amount">${i.amount.toLocaleString("en-IN")}</td></tr>`).join("")}
         <tr class="total-row"><td>Total</td><td class="amount">₹${bill.totalAmount.toLocaleString("en-IN")}</td></tr>
-        <tr class="per-person"><td>Per person (${bill.payments.length} members)</td><td class="amount">₹${bill.splitAmount.toFixed(2)}</td></tr>
+        <tr class="per-person"><td>Per person (${bill.payments.length} members)</td><td class="amount">₹${invFmt(bill.splitAmount)}</td></tr>
       </tbody>
     </table>
-
-    <div class="section-head">Your payment</div>
-    <div class="your-payment">
-      <div class="name">${userName}</div>
-      ${baseAmount > 0 ? `<div class="pay-row"><span class="label">Base share</span><span class="value">₹${baseAmount.toFixed(2)}</span></div>` : ""}
-      ${entryDed !== 0 ? `<div class="pay-row"><span class="label">Entry deduction</span><span class="value">${entryDed > 0 ? "−" : ""}₹${Math.abs(entryDed).toFixed(2)}</span></div>` : ""}
-      ${carryForward > 0 ? `<div class="pay-row"><span class="label">Carry forward (pending)</span><span class="value">+₹${carryForward.toFixed(2)}</span></div>` : ""}
-      <div class="pay-row"><span class="label">Total due</span><span class="value">₹${totalDue.toFixed(2)}</span></div>
-      <div class="pay-row"><span class="label">Paid</span><span class="value">₹${paid.toFixed(2)}</span></div>
-      <div class="pay-row emphasis"><span class="label">Remaining</span><span class="value">₹${remaining.toFixed(2)}</span></div>
-    </div>
-
+    ${adminInvoiceBody}
     <p class="footer">Generated from Roomie on ${generatedAt}</p>
   </div>
 </body>
@@ -1553,6 +1600,7 @@ function BillDetailView({
                   </th>
                 )}
                 <th className="text-right text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Carry Fwd</th>
+                <th className="text-right text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Penalty</th>
                 <th className="text-right text-white/40 font-medium px-3 py-2.5 whitespace-nowrap bg-white/[0.03]">
                   Total Due
                 </th>
@@ -1613,6 +1661,12 @@ function BillDetailView({
                     <td className="px-3 py-3 text-right whitespace-nowrap">
                       {payment.carryForwardAmount > 0
                         ? <span className="text-orange-400">+₹{payment.carryForwardAmount.toFixed(2)}</span>
+                        : <span className="text-white/20">—</span>}
+                    </td>
+
+                    <td className="px-3 py-3 text-right whitespace-nowrap">
+                      {!payment.penaltyWaived && (payment.penalty ?? 0) > 0
+                        ? <span className="text-red-400">+₹{(payment.penalty ?? 0).toFixed(2)}</span>
                         : <span className="text-white/20">—</span>}
                     </td>
 
@@ -1737,13 +1791,20 @@ function BillDetailView({
                 {payment.carryForwardAmount > 0 && (
                   <MobileAmountBox
                     label="Carry Forward"
-                    value={`+₹${payment.carryForwardAmount.toFixed(2)}`}
+                    value={`+${fmt(payment.carryForwardAmount)}`}
                     valueClass="text-orange-400"
+                  />
+                )}
+                {!payment.penaltyWaived && (payment.penalty ?? 0) > 0 && (
+                  <MobileAmountBox
+                    label="Penalty"
+                    value={`+${fmt(payment.penalty ?? 0)}`}
+                    valueClass="text-red-400"
                   />
                 )}
                 <MobileAmountBox
                   label="Total Due"
-                  value={`₹${totalDue.toFixed(2)}`}
+                  value={fmt(totalDue)}
                   valueClass="text-white font-semibold"
                 />
                 <MobileAmountBox
