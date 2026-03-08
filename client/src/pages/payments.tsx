@@ -90,7 +90,7 @@ interface FormBillItem {
 const getInitials = (name: string) =>
   name ? name.split(" ").filter(Boolean).map(w => w[0]?.toUpperCase() || "").join("") : "";
 
-const fmt = (n: number) => `₹${(n || 0).toFixed(2)}`;
+const fmt = (n: number) => `₹${(n ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const getEffectiveTotalDue = (p: PaymentRecord) =>
   p.totalDue > 0 ? p.totalDue : p.amount;
@@ -1077,13 +1077,13 @@ function StatCard({
   label: string; value: string; color: string; icon: React.ReactNode;
 }) {
   return (
-    <Card className="bg-[#151525] border border-white/5 text-white">
-      <CardContent className="pt-3 pb-3 px-4">
-        <div className="flex items-center justify-between mb-1.5">
-          <p className="text-white/40 text-xs font-medium truncate pr-1">{label}</p>
+    <Card className="bg-[#151525] border border-white/5 text-white min-w-0">
+      <CardContent className="pt-3 pb-3 px-3 sm:px-4">
+        <div className="flex items-center justify-between mb-1.5 gap-1">
+          <p className="text-white/40 text-xs font-medium truncate min-w-0">{label}</p>
           {icon}
         </div>
-        <p className={cn("text-lg font-bold truncate", color)}>{value}</p>
+        <p className={cn("text-sm sm:text-lg font-bold break-all", color)}>{value}</p>
       </CardContent>
     </Card>
   );
@@ -1313,15 +1313,44 @@ function BillDetailView({
   </div>
 </body>
 </html>`;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => {
-      win.print();
-      win.close();
-    }, 350);
+
+    // Use iframe for reliable print on mobile (avoids pop-up block and "problem printing" errors)
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Invoice print");
+    iframe.style.cssText = "position:fixed;width:0;height:0;border:0;overflow:hidden;clip:rect(0,0,0,0);";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return;
+    }
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const printFrame = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {
+        // Fallback: open in new window for browsers that restrict iframe print
+        const win = window.open("", "_blank");
+        if (win) {
+          win.document.write(html);
+          win.document.close();
+          win.focus();
+          setTimeout(() => { win.print(); }, 500);
+        }
+      }
+      setTimeout(() => {
+        if (iframe.parentNode) document.body.removeChild(iframe);
+      }, 1000);
+    };
+
+    // Wait for content and images to be ready (longer on mobile)
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const delay = isMobile ? 800 : 400;
+    setTimeout(printFrame, delay);
   };
 
   return (
