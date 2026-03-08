@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, PaymentModel, BillModel } from "./storage";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { sendInviteEmail, sendPasswordResetEmail } from "./email";
@@ -887,32 +887,388 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const users = await storage.getUsersByFlatId(req.user.flatId);
+      const { items, totalAmount, month, year, dueDate, entryDeductionEnabled } = req.body;
+      const flatId = req.user.flatId;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ message: "At least one expense item is required" });
+      }
+      const total = Number(totalAmount);
+      if (isNaN(total) || total <= 0) {
+        return res.status(400).json({ message: "Invalid total amount" });
+      }
+      const due = dueDate ? new Date(dueDate) : new Date();
+      if (isNaN(due.getTime())) {
+        return res.status(400).json({ message: "Invalid due date" });
+      }
+
+      const users = await storage.getUsersByFlatId(flatId);
+      if (users.length === 0) {
+        return res.status(400).json({ message: "No active users found in flat" });
+      }
+
+      const splitAmount = parseFloat((total / users.length).toFixed(2));
+      const monthStr = month || due.toLocaleString("default", { month: "long" });
+      const yearNum = year != null ? Number(year) : due.getFullYear();
+
       const bill = await storage.createBill({
-        ...req.body,
-        flatId: req.user.flatId,
+        items: items.map((i: { name: string; amount: number }) => ({ name: String(i.name || "").trim(), amount: Number(i.amount) || 0 })),
+        totalAmount: total,
+        splitAmount,
+        month: monthStr,
+        year: yearNum,
+        dueDate: due,
+        flatId,
+        entryDeductionEnabled: entryDeductionEnabled !== false,
         createdAt: new Date()
       });
 
-      // Create payments for each user
-      await Promise.all(users.map(user =>
-        storage.createPayment({
+      // Build per-user entry totals for this month (approved entries only)
+      const userEntryMap: Record<string, number> = {};
+      try {
+        if (entryDeductionEnabled !== false) {
+          const allEntries = await storage.getEntriesByFlatId(flatId);
+          for (const entry of allEntries || []) {
+            if (entry?.status !== "APPROVED") continue;
+            const entryDate = entry.dateTime ? new Date(entry.dateTime) : null;
+            if (!entryDate || isNaN(entryDate.getTime())) continue;
+            const entryMonth = entryDate.toLocaleString("default", { month: "long" });
+            const entryYear = entryDate.getFullYear();
+            if (entryMonth === monthStr && entryYear === yearNum) {
+              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+              if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
+            }
+          }
+        }
+      } catch (entryErr) {
+        console.warn("Entry deduction lookup failed, continuing without:", entryErr);
+      }
+
+      const payments = [];
+      for (const user of users) {
+        const uid = (user._id && typeof user._id === "string") ? user._id : String(user._id);
+
+        let carryForwardAmount = 0;
+        try {
+          const lastPayment = await storage.getLastPaymentForUser(uid, flatId);
+          const prevTotalDue = lastPayment ? (Number(lastPayment.totalDue) > 0 ? Number(lastPayment.totalDue) : Number(lastPayment.amount)) : 0;
+          const prevPaid = lastPayment ? (Number(lastPayment.paidAmount) || 0) : 0;
+          carryForwardAmount = parseFloat(Math.max(0, prevTotalDue - prevPaid).toFixed(2));
+        } catch (e) {
+          console.warn("Carry-forward lookup failed for user", uid, e);
+        }
+
+        const entryDeduction = parseFloat((userEntryMap[uid] || 0).toFixed(2));
+        const totalDue = parseFloat(Math.max(0, splitAmount + carryForwardAmount - entryDeduction).toFixed(2));
+
+        const payment = await storage.createPayment({
           billId: bill._id,
           userId: user._id,
-          amount: bill.splitAmount,
-          dueDate: bill.dueDate,
-          flatId: req.user.flatId,
-          status: "PENDING"
-        })
-      ));
+          flatId,
+          amount: splitAmount,
+          paidAmount: 0,
+          carryForwardAmount,
+          entryDeduction,
+          totalDue,
+          status: totalDue === 0 ? "PAID" : "PENDING",
+          dueDate: due,
+        });
+        payments.push(payment);
+      }
 
-      res.status(201).json(bill);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to create bill" });
+      try {
+        await storage.logActivity({
+          userId: req.user._id,
+          type: "PAYMENT_ADDED",
+          description: `Created bill for ${monthStr} ${yearNum} — ₹${total} (₹${splitAmount}/person)`,
+          timestamp: new Date(),
+        });
+      } catch (logErr) {
+        console.warn("Activity log failed:", logErr);
+      }
+
+      try {
+        const pushService = new PushNotificationService(flatId);
+        const dueStr = due ? due.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : undefined;
+        await pushService.notifyNewBillCreated(monthStr, yearNum, total, dueStr, bill._id?.toString?.());
+      } catch (pushErr) {
+        console.warn("New bill notification failed:", pushErr);
+      }
+
+      res.status(201).json({ ...bill, payments });
+    } catch (error: any) {
+      console.error("Failed to create bill:", error);
+      const msg = error?.message || "Failed to create bill";
+      res.status(500).json({ message: msg });
     }
   });
 
-  // Update payment status
+  // Import historical bills from sheet data (admin only) — exact values, no recalculation
+  app.post("/api/bills/import", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    const normalize = (s: string) => s.replace(/[^\w\s]/g, "").toLowerCase().trim().replace(/\s+/g, " ");
+    const firstWord = (s: string) => (s.split(/\s+/)[0] || "").toLowerCase();
+    const matchUser = (userName: string, users: any[]) => {
+      const n = normalize(userName);
+      const first = firstWord(userName);
+      for (const u of users) {
+        const un = normalize(u.name || "");
+        const uFirst = firstWord(u.name || "");
+        if (un === n || un.includes(first) || n.includes(uFirst) || un.includes(n) || n.includes(un)) return u;
+      }
+      return null;
+    };
+    try {
+      const { bills: billsPayload } = req.body as { bills: Array<{
+        month: string;
+        year: number;
+        dueDate?: string;
+        items: Array<{ name: string; amount: number }>;
+        payments: Array<{
+          userName: string;
+          entryDeduction: number;
+          carryForwardAmount: number;
+          paidAmount: number;
+          totalDue: number;
+        }>;
+      }> };
+      if (!billsPayload || !Array.isArray(billsPayload) || billsPayload.length === 0) {
+        return res.status(400).json({ message: "bills array is required and must not be empty" });
+      }
+      const flatId = req.user.flatId;
+      const users = await storage.getUsersByFlatId(flatId);
+      if (users.length === 0) {
+        return res.status(400).json({ message: "No users in flat" });
+      }
+      const created: { month: string; year: number; billId: string; paymentsCount: number }[] = [];
+      const errors: string[] = [];
+      for (const b of billsPayload) {
+        const items = (b.items || []).filter(i => i && String(i.name || "").trim() && Number(i.amount) >= 0);
+        if (items.length === 0) {
+          errors.push(`${b.month} ${b.year}: no valid items`);
+          continue;
+        }
+        const totalAmount = items.reduce((s, i) => s + (Number(i.amount) || 0), 0);
+        const payments = b.payments || [];
+        if (payments.length === 0) {
+          errors.push(`${b.month} ${b.year}: no payments`);
+          continue;
+        }
+        const splitAmount = parseFloat((totalAmount / payments.length).toFixed(2));
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const mi = monthNames.findIndex(m => m.toLowerCase() === String(b.month).trim().toLowerCase());
+        const dueDate = b.dueDate ? new Date(b.dueDate) : new Date(Number(b.year), mi >= 0 ? mi : 0, 5);
+        const monthStr = String(b.month || dueDate.toLocaleString("default", { month: "long" })).trim();
+        const yearNum = Number(b.year) || dueDate.getFullYear();
+        const bill = await storage.createBill({
+          items: items.map(i => ({ name: String(i.name || "").trim(), amount: Number(i.amount) || 0 })),
+          totalAmount,
+          splitAmount,
+          month: monthStr,
+          year: yearNum,
+          dueDate: isNaN(dueDate.getTime()) ? new Date(yearNum, 11, 1) : dueDate,
+          flatId,
+          entryDeductionEnabled: true,
+          createdAt: new Date()
+        });
+        let paymentsCount = 0;
+        for (const p of payments) {
+          const user = matchUser(String(p.userName || "").trim(), users);
+          if (!user) {
+            errors.push(`${b.month} ${b.year}: no user match for "${p.userName}"`);
+            continue;
+          }
+          const entryDeduction = parseFloat(Number(p.entryDeduction ?? 0).toFixed(2));
+          const carryForwardAmount = parseFloat(Number(p.carryForwardAmount ?? 0).toFixed(2));
+          const paidAmount = parseFloat(Number(p.paidAmount ?? 0).toFixed(2));
+          const totalDue = parseFloat(Number(p.totalDue ?? 0).toFixed(2));
+          const status = totalDue <= paidAmount ? "PAID" : "PENDING";
+          await storage.createPayment({
+            billId: bill._id,
+            userId: user._id,
+            flatId,
+            amount: splitAmount,
+            paidAmount,
+            carryForwardAmount,
+            entryDeduction,
+            totalDue,
+            status,
+            dueDate: bill.dueDate,
+            paidAt: status === "PAID" ? new Date() : undefined
+          });
+          paymentsCount++;
+        }
+        created.push({ month: monthStr, year: yearNum, billId: String(bill._id), paymentsCount });
+      }
+      res.status(201).json({ message: "Import complete", created, errors: errors.length ? errors : undefined });
+    } catch (error: any) {
+      console.error("Bills import failed:", error);
+      res.status(500).json({ message: error?.message || "Import failed" });
+    }
+  });
+
+  // Backup all bills data for the flat (admin only) — returns CSV file, month-wise
+  app.get("/api/bills/backup", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    const escapeCsv = (v: unknown): string => {
+      const s = v == null ? "" : String(v);
+      if (s.includes(",") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+        return `"${s.replace(/"/g, '""')}"`;
+      }
+      return s;
+    };
+    const row = (arr: unknown[]) => arr.map(escapeCsv).join(",");
+    try {
+      const flatId = req.user.flatId;
+      const bills = await storage.getBillsByFlatId(flatId);
+      const lines: string[] = [];
+      lines.push(row(["Record Type", "Month", "Year", "Due Date", "Total Amount", "Per Person", "Members", "Expense Name", "Expense Amount", "Member Name", "Base", "Entry Deduction", "Carry Forward", "Total Due", "Paid", "Remaining", "Status"]));
+      for (const bill of bills) {
+        const payments = await storage.getPaymentsByBillId(bill._id);
+        const dueStr = bill.dueDate ? new Date(bill.dueDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "";
+        const month = bill.month || "";
+        const year = String(bill.year ?? "");
+        const total = bill.totalAmount ?? 0;
+        const perPerson = bill.splitAmount ?? 0;
+        const members = payments.length;
+        lines.push(row(["Bill", month, year, dueStr, total, perPerson, members, "", "", "", "", "", "", "", "", "", ""]));
+        if (Array.isArray(bill.items)) {
+          for (const item of bill.items) {
+            lines.push(row(["Expense", month, year, "", "", "", "", item.name ?? "", item.amount ?? "", "", "", "", "", "", "", "", ""]));
+          }
+        }
+        for (const p of payments) {
+          const user = p.userId as { name?: string };
+          const name = user?.name ?? "";
+          const base = p.amount ?? 0;
+          const entryDed = p.entryDeduction ?? 0;
+          const carryFwd = p.carryForwardAmount ?? 0;
+          const totalDue = (p.totalDue && p.totalDue > 0) ? p.totalDue : p.amount;
+          const paid = p.paidAmount ?? 0;
+          const remaining = Math.max(0, totalDue - paid);
+          const status = p.status ?? "PENDING";
+          lines.push(row(["Payment", month, year, "", "", "", "", "", "", name, base, entryDed, carryFwd, totalDue, paid, remaining, status]));
+        }
+        lines.push("");
+      }
+      const csv = lines.join("\r\n");
+      const filename = `roomie-bills-backup-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.send(csv);
+    } catch (error: any) {
+      console.error("Bills backup failed:", error);
+      res.status(500).json({ message: error?.message || "Backup failed" });
+    }
+  });
+
+  // Delete ALL bills and their payments for the flat (admin only) — requires confirmation on client
+  app.delete("/api/bills/all", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    try {
+      const { deletedBills, deletedPayments } = await storage.deleteAllBillsByFlatId(req.user.flatId);
+      res.status(200).json({
+        message: "All bills deleted permanently from database",
+        deletedBills,
+        deletedPayments,
+      });
+    } catch (error: any) {
+      console.error("Delete all bills failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to delete all bills" });
+    }
+  });
+
+  // Get a single bill with its payments
+  app.get("/api/bills/:billId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const bill = await storage.getBillById(req.params.billId);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
+        return res.sendStatus(403);
+      }
+      const payments = await storage.getPaymentsByBillId(req.params.billId);
+      res.json({ ...bill, payments });
+    } catch (error) {
+      console.error("Failed to fetch bill:", error);
+      res.status(500).json({ message: "Failed to fetch bill" });
+    }
+  });
+
+  // Update bill (edit items, total, due date, etc.)
+  app.patch("/api/bills/:billId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    try {
+      const bill = await storage.getBillById(req.params.billId);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
+        return res.sendStatus(403);
+      }
+      const { items, totalAmount, month, year, dueDate, entryDeductionEnabled } = req.body;
+      const updates: any = {};
+      if (items != null && Array.isArray(items)) {
+        updates.items = items.map((i: { name: string; amount: number }) => ({
+          name: String(i.name || "").trim(),
+          amount: Number(i.amount) || 0
+        }));
+      }
+      if (totalAmount != null) updates.totalAmount = Number(totalAmount);
+      if (month != null) updates.month = String(month);
+      if (year != null) updates.year = Number(year);
+      if (dueDate != null) {
+        const d = new Date(dueDate);
+        if (!isNaN(d.getTime())) updates.dueDate = d;
+      }
+      if (entryDeductionEnabled !== undefined) updates.entryDeductionEnabled = !!entryDeductionEnabled;
+      const payments = await storage.getPaymentsByBillId(req.params.billId);
+      const userCount = Math.max(1, payments.length);
+      if (updates.totalAmount != null) {
+        updates.splitAmount = parseFloat((updates.totalAmount / userCount).toFixed(2));
+      }
+      const updated = await storage.updateBill(req.params.billId, updates);
+      if (!updated) return res.status(500).json({ message: "Failed to update bill" });
+      const updatedPayments = await storage.getPaymentsByBillId(req.params.billId);
+      res.json({ ...updated, payments: updatedPayments });
+    } catch (error: any) {
+      console.error("Failed to update bill:", error);
+      res.status(500).json({ message: error?.message || "Failed to update bill" });
+    }
+  });
+
+  // Delete bill and all its payments
+  app.delete("/api/bills/:billId", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    try {
+      const bill = await storage.getBillById(req.params.billId);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
+        return res.sendStatus(403);
+      }
+      const ok = await storage.deleteBill(req.params.billId);
+      if (!ok) return res.status(500).json({ message: "Failed to delete bill" });
+      res.status(200).json({ message: "Bill deleted" });
+    } catch (error: any) {
+      console.error("Failed to delete bill:", error);
+      res.status(500).json({ message: "Failed to delete bill" });
+    }
+  });
+
+  // Update payment — supports partial payments via paidAmount field
   app.patch("/api/payments/:id", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
@@ -920,23 +1276,55 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const payment = await PaymentModel.findByIdAndUpdate(
-        req.params.id,
-        {
-          status: req.body.status,
-          paidAmount: req.body.status === "PAID" ? req.body.amount : 0,
-          ...(req.body.status === "PAID" ? { paidAt: new Date() } : { paidAt: null })
-        },
-        { new: true }
-      ).populate('userId', 'name email profilePicture');
+      const existing = await PaymentModel.findById(req.params.id);
+      if (!existing) return res.status(404).json({ message: "Payment not found" });
 
-      res.json(payment);
+      const newPaidAmount = req.body.paidAmount !== undefined
+        ? parseFloat(req.body.paidAmount)
+        : (existing.paidAmount || 0);
+
+      // totalDue falls back to amount for legacy records that don't have totalDue set
+      const totalDue = (existing.totalDue && existing.totalDue > 0)
+        ? existing.totalDue
+        : existing.amount;
+
+      const isFullyPaid = newPaidAmount >= totalDue;
+
+      const updated = await storage.updatePayment(req.params.id, {
+        paidAmount: newPaidAmount,
+        status: isFullyPaid ? "PAID" : "PENDING",
+        paidAt: isFullyPaid ? new Date() : null,
+      });
+
+      if (isFullyPaid && updated?.userId) {
+        try {
+          const u = updated.userId as any;
+          const uid = (u._id || u)?.toString?.();
+          const uname = u?.name || "User";
+          if (uid) {
+            const pushService = new PushNotificationService(req.user.flatId);
+            await pushService.sendPaymentFullyPaidNotification({ id: uid, name: uname });
+          }
+        } catch (pushErr) {
+          console.warn("Fully paid notification failed:", pushErr);
+        }
+      }
+
+      await storage.logActivity({
+        userId: req.user._id,
+        type: "PAYMENT_STATUS_UPDATED",
+        description: `Recorded ₹${newPaidAmount} payment for user`,
+        timestamp: new Date(),
+      });
+
+      res.json(updated);
     } catch (error) {
+      console.error("Failed to update payment:", error);
       res.status(500).json({ message: "Failed to update payment" });
     }
   });
 
-  // Send payment reminder
+  // Send payment reminder via push notification (skip if already paid)
   app.post("/api/payments/:id/remind", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
     if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
@@ -945,17 +1333,31 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const payment = await PaymentModel.findById(req.params.id)
-        .populate("userId", "email name");
+        .populate("userId", "name email _id");
 
-      if (!payment) {
-        return res.status(404).json({ message: "Payment not found" });
+      if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+      const totalDue = (payment.totalDue && payment.totalDue > 0) ? payment.totalDue : payment.amount;
+      const remaining = Math.max(0, totalDue - (payment.paidAmount || 0));
+
+      if (remaining <= 0 || payment.status === "PAID") {
+        return res.status(400).json({ message: "Payment already complete. No reminder needed." });
       }
 
-      // TODO: Implement email reminder
-      // await sendPaymentReminder(payment.userId.email, payment.userId.name, payment.amount);
+      const userObj = payment.userId as any;
+      const userId = (userObj._id || userObj)?.toString();
+      const userName = userObj.name || "User";
+
+      try {
+        const pushService = new PushNotificationService(req.user.flatId);
+        await pushService.sendPaymentReminder({ id: userId, name: userName }, totalDue, remaining);
+      } catch (pushError) {
+        console.warn("Push notification failed for payment reminder:", pushError);
+      }
 
       res.sendStatus(200);
     } catch (error) {
+      console.error("Failed to send payment reminder:", error);
       res.status(500).json({ message: "Failed to send reminder" });
     }
   });

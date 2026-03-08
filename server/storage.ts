@@ -15,7 +15,6 @@ import {
   InsertPenalty,
   Penalty,
   PenaltySettings,
-  PenaltySettingsModel,
   PushSubscription,
 } from "@shared/schema";
 import session from "express-session";
@@ -84,6 +83,8 @@ const activitySchema = new mongoose.Schema({
       "PENALTY_ADDED",
       "PENALTY_UPDATED",
       "PENALTY_DELETED",
+      "PAYMENT_ADDED",
+      "PAYMENT_STATUS_UPDATED",
     ],
     required: true,
   },
@@ -145,6 +146,7 @@ const billSchema = new mongoose.Schema({
   totalAmount: { type: Number, required: true },
   splitAmount: { type: Number, required: true },
   dueDate: { type: Date, required: true },
+  entryDeductionEnabled: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -152,8 +154,11 @@ const paymentSchema = new mongoose.Schema({
   billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  amount: { type: Number, required: true },
-  paidAmount: { type: Number, default: 0 },
+  amount: { type: Number, required: true },        // base split amount per person
+  paidAmount: { type: Number, default: 0 },        // how much has been received
+  carryForwardAmount: { type: Number, default: 0 }, // unpaid balance from previous bill
+  entryDeduction: { type: Number, default: 0 },    // approved entries deducted from share
+  totalDue: { type: Number, default: 0 },          // amount + carryForward - entryDeduction
   penalty: { type: Number, default: 0 },
   penaltyWaived: { type: Boolean, default: false },
   status: { type: String, enum: ["PAID", "PENDING"], default: "PENDING" },
@@ -163,8 +168,8 @@ const paymentSchema = new mongoose.Schema({
 });
 
 const EntryModel = mongoose.model("Entry", entrySchema);
-const BillModel = mongoose.model("Bill", billSchema);
-const PaymentModel = mongoose.model("Payment", paymentSchema);
+export const BillModel = mongoose.model("Bill", billSchema);
+export const PaymentModel = mongoose.model("Payment", paymentSchema);
 const PenaltyModel = mongoose.model("Penalty", penaltySchema);
 const PenaltySettingsModel = mongoose.model("PenaltySettings", penaltySettingsSchema);
 
@@ -191,6 +196,14 @@ export interface IStorage {
   getUserActivities(userId: string): Promise<ActivitySchema[]>;
   createBill(data: any): Promise<any>;
   getBillsByFlatId(flatId: string): Promise<any[]>;
+  getBillById(billId: string): Promise<any>;
+  updateBill(billId: string, data: any): Promise<any>;
+  deleteBill(billId: string): Promise<boolean>;
+  deleteAllBillsByFlatId(flatId: string): Promise<{ deletedBills: number; deletedPayments: number }>;
+  createPayment(data: any): Promise<any>;
+  getPaymentsByBillId(billId: string): Promise<any[]>;
+  updatePayment(id: string, data: any): Promise<any>;
+  getLastPaymentForUser(userId: string, flatId: string): Promise<any>;
   deleteEntry(id: string): Promise<boolean>;
   // Penalty methods
   createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty>;
@@ -672,10 +685,75 @@ export class MongoStorage implements IStorage {
     return bills.map(bill => this.convertId(bill.toObject()));
   }
 
+  async getBillById(billId: string): Promise<any> {
+    const bill = await BillModel.findById(billId);
+    return bill ? this.convertId(bill.toObject()) : null;
+  }
+
+  async updateBill(billId: string, data: any): Promise<any> {
+    const bill = await BillModel.findByIdAndUpdate(billId, { $set: data }, { new: true });
+    return bill ? this.convertId(bill.toObject()) : null;
+  }
+
+  async deleteBill(billId: string): Promise<boolean> {
+    try {
+      await PaymentModel.deleteMany({ billId });
+      const result = await BillModel.findByIdAndDelete(billId);
+      return !!result;
+    } catch (err) {
+      console.error("deleteBill failed:", err);
+      return false;
+    }
+  }
+
+  async deleteAllBillsByFlatId(flatId: string): Promise<{ deletedBills: number; deletedPayments: number }> {
+    try {
+      const billIds = await BillModel.find({ flatId }).distinct("_id");
+      const paymentsResult = await PaymentModel.deleteMany({ billId: { $in: billIds } });
+      const billsResult = await BillModel.deleteMany({ flatId });
+      return {
+        deletedBills: billsResult.deletedCount ?? 0,
+        deletedPayments: paymentsResult.deletedCount ?? 0,
+      };
+    } catch (err) {
+      console.error("deleteAllBillsByFlatId failed:", err);
+      return { deletedBills: 0, deletedPayments: 0 };
+    }
+  }
+
   async createPayment(data: any): Promise<any> {
     const payment = new PaymentModel(data);
     await payment.save();
     return this.convertId(payment.toObject());
+  }
+
+  async getPaymentsByBillId(billId: string): Promise<any[]> {
+    const payments = await PaymentModel.find({ billId })
+      .populate({ path: 'userId', select: 'name email profilePicture' })
+      .sort({ createdAt: 1 });
+    return payments.map(payment => {
+      const obj = payment.toObject();
+      return {
+        ...this.convertId(obj),
+        userId: obj.userId ? this.convertId(obj.userId as any) : null
+      };
+    });
+  }
+
+  async updatePayment(id: string, data: any): Promise<any> {
+    const payment = await PaymentModel.findByIdAndUpdate(id, data, { new: true })
+      .populate({ path: 'userId', select: 'name email profilePicture' });
+    if (!payment) return null;
+    const obj = payment.toObject();
+    return {
+      ...this.convertId(obj),
+      userId: obj.userId ? this.convertId(obj.userId as any) : null
+    };
+  }
+
+  async getLastPaymentForUser(userId: string, flatId: string): Promise<any> {
+    const payment = await PaymentModel.findOne({ userId, flatId }).sort({ createdAt: -1 });
+    return payment ? this.convertId(payment.toObject()) : null;
   }
 
   async getPaymentsByFlatId(flatId: string): Promise<any[]> {

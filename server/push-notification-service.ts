@@ -32,8 +32,9 @@ export class PushNotificationService {
 
   /**
    * 📢 Notify ALL users in the flat
+   * @param extraData - optional data to include in notification payload (e.g. url, billId for click handling)
    */
-  async pushToAllUsers(title: string, body: string) {
+  async pushToAllUsers(title: string, body: string, extraData?: Record<string, unknown>) {
     console.log(`📢 [ALL USERS - Flat ${this.flatId}] ${title}: ${body}`);
     
     try {
@@ -45,7 +46,7 @@ export class PushNotificationService {
         return { success: false, message: 'No subscriptions found for this flat' };
       }
 
-      return await this.sendNotificationToSubscriptions(subscriptions, title, body);
+      return await this.sendNotificationToSubscriptions(subscriptions, title, body, extraData);
     } catch (error: any) {
       console.error(`Error in pushToAllUsers for flat ${this.flatId}:`, error);
       return {
@@ -244,6 +245,36 @@ export class PushNotificationService {
   }
 
   /**
+   * 💰 Payment reminder notification — includes total due and pending amount
+   */
+  async sendPaymentReminder(user: { id: string, name: string }, totalDue: number, remainingAmount: number) {
+    const title = "💰 Payment Reminder";
+    const body = `Hi ${user.name}, your total due is ₹${totalDue.toFixed(2)}. Pending amount: ₹${remainingAmount.toFixed(2)}. Please clear your dues in the Roomie app.`;
+    return await this.pushToUser(title, body, user.id);
+  }
+
+  /**
+   * 📋 Notify all flat members when a new monthly bill is created.
+   * Title includes month so users see "this month's bill"; click opens Payments page (and optionally selects the bill).
+   */
+  async notifyNewBillCreated(month: string, year: number, totalAmount: number, dueDateStr?: string, billId?: string) {
+    const title = `📋 New bill for ${month} ${year}`;
+    const dueText = dueDateStr ? ` Due ${dueDateStr}.` : "";
+    const body = `This month's bill is here. Total: ₹${totalAmount.toLocaleString()}.${dueText} Tap to open and check your share.`;
+    const url = billId ? `/payments?billId=${encodeURIComponent(billId)}` : "/payments";
+    return await this.pushToAllUsers(title, body, { url, billId: billId || undefined });
+  }
+
+  /**
+   * ✅ Payment fully paid — notify user (no reminders after this)
+   */
+  async sendPaymentFullyPaidNotification(user: { id: string, name: string }) {
+    const title = "✅ Payment Complete";
+    const body = `Hi ${user.name}, your payment for this month's bill has been recorded. You're all set!`;
+    return await this.pushToUser(title, body, user.id);
+  }
+
+  /**
    * 🚀 Notify all users about app updates
    */
   async notifyAppUpdate(updateDetails: string) {
@@ -377,8 +408,9 @@ export class PushNotificationService {
 
   /**
    * Helper method to send notifications to a list of subscriptions
+   * @param extraData - optional data merged into payload.data (e.g. url for click-to-open)
    */
-  private async sendNotificationToSubscriptions(subscriptions: any[], title: string, body: string) {
+  private async sendNotificationToSubscriptions(subscriptions: any[], title: string, body: string, extraData?: Record<string, unknown>) {
     // Generate unique tag to prevent notifications from replacing each other
     const uniqueTag = `roomie-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
@@ -393,7 +425,8 @@ export class PushNotificationService {
         url: '/',
         timestamp: Date.now(),
         notificationId: uniqueTag, // Include ID in data for tracking
-        type: 'roomie-notification'
+        type: 'roomie-notification',
+        ...extraData
       },
       timestamp: Date.now(),
       silent: false,

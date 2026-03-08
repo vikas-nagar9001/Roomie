@@ -20,35 +20,34 @@ export function MobileNav() {
           { href: "/penalties", label: "Penalties", icon: FiAlertTriangle },
           { href: "/notifications", label: "Alerts", icon: FiBell },
         ].map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href}>
-            <a
-              className={`relative group flex flex-col items-center justify-center text-xs font-medium transition-all duration-300 ${
-                isActive(href) ? "text-[#ab6cff]" : "text-white/70 hover:text-white"
+          <Link
+            key={href}
+            href={href}
+            className={`relative group flex flex-col items-center justify-center text-xs font-medium transition-all duration-300 ${
+              isActive(href) ? "text-[#ab6cff]" : "text-white/70 hover:text-white"
+            }`}
+          >
+            {/* Highlight Box */}
+            <div
+              className={`absolute top-1 left-1/2 -translate-x-1/2 mt-[-2px] w-16 h-16 rounded-xl transition-all duration-300 ${
+                isActive(href)
+                  ? "bg-[#582c84]/20 shadow-inner"
+                  : "bg-white/5 opacity-0 group-hover:opacity-100"
               }`}
-            >
-              {/* Highlight Box */}
-              <div
-                className={`absolute top-1 left-1/2 -translate-x-1/2 mt-[-2px] w-16 h-16 rounded-xl transition-all duration-300 ${
-                  isActive(href)
-                    ? "bg-[#582c84]/20 shadow-inner"
-                    : "bg-white/5 opacity-0 group-hover:opacity-100"
-                }`}
-              ></div>
+            />
 
-              {/* Icon + Text */}
-              <div className="relative flex flex-col items-center justify-center px-3 py-2">
-                <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""} relative`}>
-                  <Icon className={`w-5 h-5 transition-all duration-300 ${isActive(href) ? "scale-110" : ""}`} />
-                  {/* Notification badge for bell icon */}
-                  {href === "/notifications" && unreadCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-[#0f0f1f] shadow-md">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </div>
-                <span className="mt-1 text-[10px] font-medium">{label}</span>
+            {/* Icon + Text */}
+            <div className="relative flex flex-col items-center justify-center px-3 py-2">
+              <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""} relative`}>
+                <Icon className={`w-5 h-5 transition-all duration-300 ${isActive(href) ? "scale-110" : ""}`} />
+                {href === "/notifications" && unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-[#0f0f1f] shadow-md">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
               </div>
-            </a>
+              <span className="mt-1 text-[10px] font-medium">{label}</span>
+            </div>
           </Link>
         ))}
       </nav>

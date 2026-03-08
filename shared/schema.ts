@@ -16,8 +16,15 @@ export interface PushSubscription {
 export interface Payment {
   _id: string;
   billId: string;
-  userId: string;
-  amount: number;
+  userId: string | { _id: string; name: string; email?: string; profilePicture?: string };
+  flatId: string;
+  amount: number;           // base split amount per person
+  paidAmount: number;       // how much has been received so far
+  carryForwardAmount: number; // unpaid balance from previous bill
+  entryDeduction: number;   // approved entries deducted from this user's share
+  totalDue: number;         // amount + carryForward - entryDeduction (actual amount owed)
+  penalty: number;
+  penaltyWaived: boolean;
   status: "PAID" | "PENDING";
   dueDate: Date;
   paidAt?: Date;
@@ -36,6 +43,7 @@ export interface Bill {
   totalAmount: number;
   splitAmount: number;
   dueDate: Date;
+  entryDeductionEnabled: boolean;
   createdAt: Date;
 }
 
