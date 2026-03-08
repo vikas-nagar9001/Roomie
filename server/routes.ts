@@ -949,12 +949,32 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "No active users found in flat" });
       }
 
-      const splitAmount = parseFloat((total / users.length).toFixed(2));
+      // Helper: calculate per-user share from items with optional member lists
+      const calcUserShare = (userId: string, parsedItems: Array<{name: string; amount: number; members: string[]}>) => {
+        let share = 0;
+        for (const item of parsedItems) {
+          const mems = item.members || [];
+          const isIncluded = mems.length === 0 || mems.map(String).includes(String(userId));
+          if (!isIncluded) continue;
+          const count = mems.length === 0 ? users.length : mems.length;
+          share += item.amount / count;
+        }
+        return parseFloat(share.toFixed(2));
+      };
+
+      const splitAmount = parseFloat((total / users.length).toFixed(2)); // average for display
       const monthStr = month || due.toLocaleString("default", { month: "long" });
       const yearNum = year != null ? Number(year) : due.getFullYear();
 
+      // Parse items with members
+      const parsedItems = items.map((i: { name: string; amount: number; members?: string[] }) => ({
+        name: String(i.name || "").trim(),
+        amount: Number(i.amount) || 0,
+        members: Array.isArray(i.members) ? i.members.map(String) : []
+      }));
+
       const bill = await storage.createBill({
-        items: items.map((i: { name: string; amount: number }) => ({ name: String(i.name || "").trim(), amount: Number(i.amount) || 0 })),
+        items: parsedItems,
         totalAmount: total,
         splitAmount,
         month: monthStr,
@@ -1016,14 +1036,15 @@ export function registerRoutes(app: Express): Server {
         }
 
         const entryDeduction = parseFloat((userEntryMap[uid] || 0).toFixed(2));
-        const totalDue = parseFloat(Math.max(0, splitAmount + carryForwardAmount - entryDeduction).toFixed(2));
+        const userBaseAmount = calcUserShare(uid, parsedItems);
+        const totalDue = parseFloat(Math.max(0, userBaseAmount + carryForwardAmount - entryDeduction).toFixed(2));
         const effectiveTotal = parseFloat((totalDue + initialPenalty).toFixed(2));
 
         const payment = await storage.createPayment({
           billId: bill._id,
           userId: user._id,
           flatId,
-          amount: splitAmount,
+          amount: userBaseAmount,
           paidAmount: 0,
           carryForwardAmount,
           entryDeduction,
@@ -1373,9 +1394,10 @@ export function registerRoutes(app: Express): Server {
       const { items, totalAmount, month, year, dueDate, entryDeductionEnabled } = req.body;
       const updates: any = {};
       if (items != null && Array.isArray(items)) {
-        updates.items = items.map((i: { name: string; amount: number }) => ({
+        updates.items = items.map((i: { name: string; amount: number; members?: string[] }) => ({
           name: String(i.name || "").trim(),
-          amount: Number(i.amount) || 0
+          amount: Number(i.amount) || 0,
+          members: Array.isArray(i.members) ? i.members.map(String) : []
         }));
       }
       if (totalAmount != null) updates.totalAmount = Number(totalAmount);
@@ -1397,43 +1419,54 @@ export function registerRoutes(app: Express): Server {
       if (!updated) return res.status(500).json({ message: "Failed to update bill" });
 
       // ── Recalculate all payment records after bill edit ──────────────────
-      const newSplitAmount = updates.splitAmount ?? bill.splitAmount;
       const newEntryDeductionEnabled = updates.entryDeductionEnabled !== undefined
         ? updates.entryDeductionEnabled
         : bill.entryDeductionEnabled;
-      const newMonth = updates.month ?? bill.month;
-      const newYear = updates.year ?? bill.year;
       const newDueDate = updates.dueDate ?? bill.dueDate;
 
-      // Build per-user entry totals for the bill's month (approved entries only)
+      // Build per-user entry totals using ONLY entries already locked to this bill
+      // (never re-scan by date — entries are immutable once applied to a bill)
       const userEntryMap: Record<string, number> = {};
       if (newEntryDeductionEnabled) {
         try {
-          const allEntries = await storage.getEntriesByFlatId(req.user.flatId);
-          for (const entry of allEntries || []) {
-            if (entry?.status !== "APPROVED") continue;
-            const entryDate = entry.dateTime ? new Date(entry.dateTime) : null;
-            if (!entryDate || isNaN(entryDate.getTime())) continue;
-            const entryMonth = entryDate.toLocaleString("default", { month: "long" });
-            const entryYear = entryDate.getFullYear();
-            if (entryMonth === newMonth && entryYear === newYear) {
-              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-              if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
-            }
+          const billEntries = await storage.getEntriesByBillId(req.params.billId);
+          for (const entry of billEntries) {
+            const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+            if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
           }
         } catch (e) {
-          console.warn("Entry deduction lookup failed during bill update:", e);
+          // Fallback: keep existing entryDeduction from each payment record unchanged
+          console.warn("Entry deduction lookup failed during bill update — keeping existing values:", e);
+          for (const payment of payments) {
+            const uid = (payment.userId?._id ?? payment.userId)?.toString?.() ?? String(payment.userId);
+            userEntryMap[uid] = Number(payment.entryDeduction) || 0;
+          }
         }
       }
 
       // Update each payment record with recalculated values
+      const newItems = updates.items ?? bill.items;
+      const calcUpdatedUserShare = (userId: string) => {
+        let share = 0;
+        const usersCount = Math.max(1, payments.length);
+        for (const item of newItems) {
+          const mems: string[] = (item.members || []).map(String);
+          const isIncluded = mems.length === 0 || mems.includes(String(userId));
+          if (!isIncluded) continue;
+          const count = mems.length === 0 ? usersCount : mems.length;
+          share += item.amount / count;
+        }
+        return parseFloat(share.toFixed(2));
+      };
+
       for (const payment of payments) {
         const uid = (payment.userId?._id ?? payment.userId)?.toString?.() ?? String(payment.userId);
         const entryDeduction = newEntryDeductionEnabled
           ? parseFloat((userEntryMap[uid] || 0).toFixed(2))
           : 0;
+        const userBaseAmount = calcUpdatedUserShare(uid);
         const carryForward = Number(payment.carryForwardAmount) || 0;
-        const totalDue = parseFloat(Math.max(0, newSplitAmount + carryForward - entryDeduction).toFixed(2));
+        const totalDue = parseFloat(Math.max(0, userBaseAmount + carryForward - entryDeduction).toFixed(2));
         const paidAmount = Number(payment.paidAmount) || 0;
         const penalty = Number(payment.penalty) || 0;
         const penaltyWaived = !!payment.penaltyWaived;
@@ -1441,7 +1474,7 @@ export function registerRoutes(app: Express): Server {
         const newStatus = paidAmount >= effectiveTotal ? "PAID" : "PENDING";
 
         const paymentUpdate: any = {
-          amount: newSplitAmount,
+          amount: userBaseAmount,
           entryDeduction,
           totalDue,
           dueDate: newDueDate,

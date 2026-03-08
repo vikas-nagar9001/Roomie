@@ -42,6 +42,13 @@ const DEFAULT_RECURRING_ITEMS = [
 interface BillItem {
   name: string;
   amount: number;
+  members?: string[];
+}
+
+interface FlatMember {
+  _id: string;
+  name: string;
+  profilePicture?: string;
 }
 
 interface BillSummary {
@@ -84,6 +91,7 @@ interface BillDetail extends BillSummary {
 interface FormBillItem {
   name: string;
   amount: string;
+  members: string[]; // empty = all members
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,7 +125,7 @@ export default function PaymentsPage() {
   const [recordPayment, setRecordPayment] = useState<PaymentRecord | null>(null);
   const [recordPaymentAmount, setRecordPaymentAmount] = useState("");
   const [billItems, setBillItems] = useState<FormBillItem[]>(
-    DEFAULT_RECURRING_ITEMS.map(i => ({ name: i.name, amount: "" }))
+    DEFAULT_RECURRING_ITEMS.map(i => ({ name: i.name, amount: "", members: [] }))
   );
   const [entryDeductionEnabled, setEntryDeductionEnabled] = useState(true);
   const [dueDays, setDueDays] = useState(5);
@@ -150,6 +158,11 @@ export default function PaymentsPage() {
 
   const { data: paymentSettings } = useQuery<typeof settings>({
     queryKey: ["/api/payment-settings"],
+  });
+
+  const { data: flatMembers = [] } = useQuery<FlatMember[]>({
+    queryKey: ["/api/users"],
+    enabled: isAdmin,
   });
 
   // When opened from notification (e.g. /payments?billId=xxx), select that bill
@@ -229,7 +242,7 @@ export default function PaymentsPage() {
     mutationFn: async () => {
       const items = billItems
         .filter(i => i.name.trim() && parseFloat(i.amount) > 0)
-        .map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount) }));
+        .map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount), members: i.members }));
 
       if (items.length === 0) throw new Error("Add at least one item with an amount");
 
@@ -258,7 +271,7 @@ export default function PaymentsPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/bills", data._id] });
       setSelectedBillId(data._id);
       setIsCreateBillOpen(false);
-      setBillItems(DEFAULT_RECURRING_ITEMS.map(i => ({ name: i.name, amount: "" })));
+      setBillItems(DEFAULT_RECURRING_ITEMS.map(i => ({ name: i.name, amount: "", members: [] })));
       setEntryDeductionEnabled(true);
       showSuccess("Bill created successfully!");
       hideLoader();
@@ -458,11 +471,18 @@ export default function PaymentsPage() {
   const updateBillItem = (index: number, field: "name" | "amount", value: string) =>
     setBillItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
 
+  const toggleBillItemMember = (itemIndex: number, memberId: string) =>
+    setBillItems(prev => prev.map((item, i) => {
+      if (i !== itemIndex) return item;
+      const already = item.members.includes(memberId);
+      return { ...item, members: already ? item.members.filter(m => m !== memberId) : [...item.members, memberId] };
+    }));
+
   const removeBillItem = (index: number) =>
     setBillItems(prev => prev.filter((_, i) => i !== index));
 
   const addCustomItem = () =>
-    setBillItems(prev => [...prev, { name: "", amount: "" }]);
+    setBillItems(prev => [...prev, { name: "", amount: "", members: [] }]);
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -615,6 +635,7 @@ export default function PaymentsPage() {
                     bill={billDetail}
                     isAdmin={isAdmin}
                     currentUserId={user?._id}
+                    flatMembers={flatMembers}
                     onRecordPayment={(p) => { setRecordPayment(p); setRecordPaymentAmount(""); }}
                     onSendReminder={(id) => sendReminderMutation.mutate(id)}
                     onDeleteBill={() => { setBillToDeleteId(billDetail._id); setIsDeleteBillOpen(true); }}
@@ -630,26 +651,27 @@ export default function PaymentsPage() {
 
       {/* ── Create Bill Dialog ── */}
       <Dialog open={isCreateBillOpen} onOpenChange={setIsCreateBillOpen}>
-        <DialogContent aria-describedby={undefined} className="max-w-lg w-full bg-[#151525] border border-[#582c84]/30 text-white max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent aria-describedby={undefined} className="max-w-lg w-full bg-[#151525] border border-[#582c84]/30 text-white flex flex-col" style={{maxHeight: '90vh'}}>
+          <DialogHeader className="shrink-0">
             <DialogTitle className="text-white flex items-center gap-2">
               <Receipt className="w-5 h-5 text-[#9f5bf7]" />
               Create Monthly Bill
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
+          <div className="modal-scroll flex-1 overflow-y-auto min-h-0 space-y-4 py-2 pr-1">
             <div className="space-y-2">
               <Label className="text-white/50 text-xs uppercase tracking-wide">Expense Items</Label>
               {billItems.map((item, index) => (
-                <div key={index} className="flex items-center gap-2">
+              <div key={index} className="bg-black/20 rounded-lg border border-white/[0.06] p-2.5 space-y-2">
+                <div className="flex items-center gap-2">
                   <Input
                     placeholder="Expense name"
                     value={item.name}
                     onChange={e => updateBillItem(index, "name", e.target.value)}
-                    className="flex-1 bg-black/30 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-[#582c84]"
+                    className="flex-1 bg-black/30 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-[#582c84] h-8 text-sm"
                   />
-                  <div className="relative w-32">
+                  <div className="relative w-28">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40 text-sm pointer-events-none">₹</span>
                     <Input
                       type="number"
@@ -657,7 +679,7 @@ export default function PaymentsPage() {
                       placeholder="0"
                       value={item.amount}
                       onChange={e => updateBillItem(index, "amount", e.target.value)}
-                      className="pl-6 bg-black/30 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-[#582c84]"
+                      className="pl-6 bg-black/30 border-white/10 text-white placeholder:text-white/30 focus-visible:ring-[#582c84] h-8 text-sm"
                     />
                   </div>
                   <Button
@@ -665,17 +687,43 @@ export default function PaymentsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeBillItem(index)}
-                    className="shrink-0 text-white/30 hover:text-red-400 hover:bg-red-400/10"
+                    className="shrink-0 h-8 w-8 text-white/20 hover:text-red-400 hover:bg-red-400/10"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-              ))}
+                {flatMembers.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-white/25 text-[10px] uppercase tracking-wide">Split:</span>
+                    {flatMembers.map(m => {
+                      const selected = item.members.length === 0 || item.members.includes(m._id);
+                      return (
+                        <button
+                          key={m._id}
+                          type="button"
+                          onClick={() => toggleBillItemMember(index, m._id)}
+                          title={m.name}
+                          className={cn(
+                            "flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border transition-all",
+                            selected
+                              ? "bg-[#582c84]/30 border-[#7c3fbf]/50 text-[#c08bff]"
+                              : "bg-transparent border-white/[0.07] text-white/20"
+                          )}
+                        >
+                          {!selected && <span className="text-red-400/60 text-[9px]">✕</span>}
+                          {m.name.split(" ")[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
               <Button
                 type="button"
                 variant="ghost"
                 onClick={addCustomItem}
-                className="w-full border border-dashed border-white/10 text-[#9f5bf7] hover:text-[#c08bff] hover:bg-[#582c84]/10"
+                className="w-full border border-dashed border-white/10 text-[#9f5bf7] hover:text-[#c08bff] hover:bg-[#582c84]/10 h-8 text-sm"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Custom Expense
@@ -720,7 +768,7 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-3 shrink-0 border-t border-white/[0.06]">
             <Button
               variant="ghost"
               onClick={() => setIsCreateBillOpen(false)}
@@ -993,11 +1041,12 @@ function BillListItem({
 }
 
 function BillDetailView({
-  bill, isAdmin, currentUserId, onRecordPayment, onSendReminder, onDeleteBill, onUpdateBill, onEditError,
+  bill, isAdmin, currentUserId, flatMembers = [], onRecordPayment, onSendReminder, onDeleteBill, onUpdateBill, onEditError,
 }: {
   bill: BillDetail;
   isAdmin: boolean;
   currentUserId?: string;
+  flatMembers?: FlatMember[];
   onRecordPayment: (p: PaymentRecord) => void;
   onSendReminder: (id: string) => void;
   onDeleteBill?: () => void;
@@ -1011,7 +1060,7 @@ function BillDetailView({
   const [editEntryDeduction, setEditEntryDeduction] = useState(true);
 
   const startEdit = () => {
-    setEditItems(bill.items?.length ? bill.items.map(i => ({ name: i.name, amount: String(i.amount) })) : [{ name: "", amount: "" }]);
+    setEditItems(bill.items?.length ? bill.items.map(i => ({ name: i.name, amount: String(i.amount), members: i.members || [] })) : [{ name: "", amount: "", members: [] }]);
     setEditDueDate(bill.dueDate ? format(new Date(bill.dueDate), "yyyy-MM-dd") : "");
     setEditEntryDeduction(bill.entryDeductionEnabled !== false);
     setIsEditing(true);
@@ -1022,7 +1071,7 @@ function BillDetailView({
   };
 
   const saveEdit = () => {
-    const items = editItems.filter(i => i.name.trim() && parseFloat(i.amount) > 0).map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount) }));
+    const items = editItems.filter(i => i.name.trim() && parseFloat(i.amount) > 0).map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount), members: i.members || [] }));
     if (items.length === 0) {
       onEditError?.("Add at least one expense item with amount");
       return;
@@ -1256,13 +1305,45 @@ function BillDetailView({
             </div>
             <Label className="text-white/50 text-xs uppercase">Expense items</Label>
             {editItems.map((item, idx) => (
-              <div key={idx} className="flex gap-2">
-                <Input placeholder="Name" value={item.name} onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))} className="flex-1 bg-black/30 border-white/10 text-white" />
-                <Input type="number" placeholder="Amount" value={item.amount} onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))} className="w-28 bg-black/30 border-white/10 text-white" />
-                <Button type="button" variant="ghost" size="icon" onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))} className="text-white/40 hover:text-red-400"><Trash2 className="w-4 h-4" /></Button>
+              <div key={idx} className="bg-black/20 rounded-lg border border-white/[0.06] p-2.5 space-y-2">
+                <div className="flex gap-2">
+                  <Input placeholder="Name" value={item.name} onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))} className="flex-1 bg-black/30 border-white/10 text-white h-8 text-sm" />
+                  <Input type="number" placeholder="Amount" value={item.amount} onChange={e => setEditItems(prev => prev.map((x, i) => i === idx ? { ...x, amount: e.target.value } : x))} className="w-28 bg-black/30 border-white/10 text-white h-8 text-sm" />
+                  <Button type="button" variant="ghost" size="icon" onClick={() => setEditItems(prev => prev.filter((_, i) => i !== idx))} className="h-8 w-8 text-white/20 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></Button>
+                </div>
+                {flatMembers.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-white/25 text-[10px] uppercase tracking-wide">Split:</span>
+                    {flatMembers.map(m => {
+                      const selected = (item.members || []).length === 0 || (item.members || []).includes(m._id);
+                      return (
+                        <button
+                          key={m._id}
+                          type="button"
+                          onClick={() => setEditItems(prev => prev.map((x, i) => {
+                            if (i !== idx) return x;
+                            const mems = x.members || [];
+                            const already = mems.includes(m._id);
+                            return { ...x, members: already ? mems.filter(id => id !== m._id) : [...mems, m._id] };
+                          }))}
+                          title={m.name}
+                          className={cn(
+                            "flex items-center gap-1 text-[11px] px-2 py-0.5 rounded border transition-all",
+                            selected
+                              ? "bg-[#582c84]/30 border-[#7c3fbf]/50 text-[#c08bff]"
+                              : "bg-transparent border-white/[0.07] text-white/20"
+                          )}
+                        >
+                          {!selected && <span className="text-red-400/60 text-[9px]">✕</span>}
+                          {m.name.split(" ")[0]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ))}
-            <Button type="button" variant="ghost" size="sm" onClick={() => setEditItems(prev => [...prev, { name: "", amount: "" }])} className="text-[#9f5bf7]">+ Add item</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setEditItems(prev => [...prev, { name: "", amount: "", members: [] }])} className="text-[#9f5bf7] h-8 text-sm">+ Add item</Button>
             <div className="flex items-center gap-4">
               <div className="space-y-1">
                 <Label className="text-white/50 text-xs">Due date</Label>
@@ -1357,7 +1438,9 @@ function BillDetailView({
               <div className="text-right">
                 <p className="text-white/40 text-xs">Total</p>
                 <p className="text-white font-bold text-2xl">₹{bill.totalAmount.toLocaleString()}</p>
-                <p className="text-[#9f5bf7] text-sm mt-0.5">₹{bill.splitAmount.toFixed(2)}/person</p>
+                {bill.items.every(item => !item.members || item.members.length === 0) && (
+                  <p className="text-[#9f5bf7] text-sm mt-0.5">₹{bill.splitAmount.toFixed(2)}/person</p>
+                )}
               </div>
             </div>
           </div>
@@ -1381,9 +1464,23 @@ function BillDetailView({
           <div className="p-4">
             <div className="space-y-2">
               {bill.items.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-1">
-                  <span className="text-white/70 text-sm">{item.name}</span>
-                  <span className="text-[#9f5bf7] font-medium text-sm">₹{item.amount.toLocaleString()}</span>
+                <div key={i} className="flex items-start justify-between py-1 gap-2">
+                  <div className="min-w-0">
+                    <span className="text-white/70 text-sm">{item.name}</span>
+                    {item.members && item.members.length > 0 && flatMembers.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {item.members.map(mid => {
+                          const m = flatMembers.find(f => f._id === mid);
+                          return m ? (
+                            <span key={mid} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#582c84]/25 border border-[#582c84]/30 text-[#c08bff]/70">
+                              {m.name.split(" ")[0]}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[#9f5bf7] font-medium text-sm shrink-0">₹{item.amount.toLocaleString()}</span>
                 </div>
               ))}
             </div>
@@ -1393,10 +1490,27 @@ function BillDetailView({
                 <span className="text-white text-sm font-semibold">Grand Total</span>
                 <span className="text-white font-bold">₹{bill.totalAmount.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-white/50 text-xs">Per person ({bill.payments.length} members)</span>
-                <span className="text-[#9f5bf7] font-semibold text-sm">₹{bill.splitAmount.toFixed(2)}</span>
-              </div>
+              {bill.entryDeductionEnabled && (() => {
+                const totalEntries = bill.payments.reduce((s, p) => s + (p.entryDeduction || 0), 0);
+                return totalEntries > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/50 text-xs">Total entry deductions</span>
+                      <span className="text-green-400 text-sm font-medium">−₹{totalEntries.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-white/70 text-xs font-medium">Net payable (after entries)</span>
+                      <span className="text-white font-semibold">₹{(bill.totalAmount - totalEntries).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  </>
+                ) : null;
+              })()}
+              {bill.items.every(item => !item.members || item.members.length === 0) && (
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-xs">Per person ({bill.payments.length} members)</span>
+                  <span className="text-[#9f5bf7] font-semibold text-sm">₹{bill.splitAmount.toFixed(2)}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

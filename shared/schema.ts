@@ -39,6 +39,7 @@ export interface Bill {
   items: Array<{
     name: string;
     amount: number;
+    members?: string[]; // user IDs — empty or omitted = all members
   }>;
   totalAmount: number;
   splitAmount: number;

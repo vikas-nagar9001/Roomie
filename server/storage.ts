@@ -143,7 +143,8 @@ const billSchema = new mongoose.Schema({
   year: { type: Number, required: true },
   items: [{
     name: { type: String, required: true },
-    amount: { type: Number, required: true }
+    amount: { type: Number, required: true },
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] // empty = all members
   }],
   totalAmount: { type: Number, required: true },
   splitAmount: { type: Number, required: true },
@@ -169,7 +170,7 @@ const paymentSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-const EntryModel = mongoose.model("Entry", entrySchema);
+export const EntryModel = mongoose.model("Entry", entrySchema);
 export const BillModel = mongoose.model("Bill", billSchema);
 export const PaymentModel = mongoose.model("Payment", paymentSchema);
 const PenaltyModel = mongoose.model("Penalty", penaltySchema);
@@ -209,6 +210,7 @@ export interface IStorage {
   adjustPaymentPenalty(userId: string, flatId: string, amountDelta: number, billId?: string): Promise<boolean>;
   getUnappliedEntriesByFlatId(flatId: string): Promise<any[]>;
   markEntriesAppliedToBill(entryIds: string[], billId: string): Promise<void>;
+  getEntriesByBillId(billId: string): Promise<any[]>;
   getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]>;
   markPenaltiesAppliedToBill(penaltyIds: string[], billId: string): Promise<void>;
   deleteEntry(id: string): Promise<boolean>;
@@ -804,6 +806,11 @@ export class MongoStorage implements IStorage {
    */
   async getUnappliedEntriesByFlatId(flatId: string): Promise<any[]> {
     const entries = await EntryModel.find({ flatId, status: "APPROVED", billId: null });
+    return entries.map(e => this.convertId(e.toObject()));
+  }
+
+  async getEntriesByBillId(billId: string): Promise<any[]> {
+    const entries = await EntryModel.find({ billId, status: "APPROVED" });
     return entries.map(e => this.convertId(e.toObject()));
   }
 
