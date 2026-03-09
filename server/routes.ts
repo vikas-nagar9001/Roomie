@@ -1417,8 +1417,9 @@ export function registerRoutes(app: Express): Server {
           amount: Number(i.amount) || 0,
           members: Array.isArray(i.members) ? i.members.map(String) : []
         }));
+        // Always recalculate totalAmount from items — never trust the sent value
+        updates.totalAmount = updates.items.reduce((s: number, i: any) => s + i.amount, 0);
       }
-      if (totalAmount != null) updates.totalAmount = Number(totalAmount);
       if (month != null) updates.month = String(month);
       if (year != null) updates.year = Number(year);
       if (dueDate != null) {
@@ -1429,9 +1430,8 @@ export function registerRoutes(app: Express): Server {
 
       const payments = await storage.getPaymentsByBillId(req.params.billId);
       const userCount = Math.max(1, payments.length);
-      if (updates.totalAmount != null) {
-        updates.splitAmount = parseFloat((updates.totalAmount / userCount).toFixed(2));
-      }
+      // splitAmount = average (for display); always derived from the new totalAmount
+      updates.splitAmount = parseFloat((updates.totalAmount / userCount).toFixed(2));
 
       const updated = await storage.updateBill(req.params.billId, updates);
       if (!updated) return res.status(500).json({ message: "Failed to update bill" });

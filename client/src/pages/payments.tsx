@@ -1111,7 +1111,10 @@ function BillDetailView({
       : "—";
     const generatedAt = format(new Date(), "do MMMM yyyy 'at' hh:mm a");
     const userName = payment?.userId?.name ?? "Member";
-    const logoUrl = typeof window !== "undefined" ? window.location.origin + "/static/images/Roomie.png" : "";
+    const logoUrl = typeof window !== "undefined" ? window.location.origin + "/static/images/roomie_black.png" : "";
+
+    const isPaidBill = remaining === 0 && totalDue > 0;
+    const isPartialBill = paid > 0 && remaining > 0;
 
     const baseStyles = `
     * { box-sizing: border-box; }
@@ -1132,25 +1135,47 @@ function BillDetailView({
     .bill-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: #222; }
     .bill-meta span { display: flex; align-items: center; gap: 4px; }
     .bill-meta strong { color: #111; }
-    .section-head { font-size: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; padding-bottom: 2px; }
+    .section-head { font-size: 10px; font-weight: 700; color: #555; text-transform: uppercase; letter-spacing: 0.07em; margin: 10px 0 4px 0; padding-bottom: 3px; border-bottom: 1px solid #e5e5e5; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 11px; }
-    table.expenses thead th { background: #eee; padding: 4px 8px; border: 1px solid #ddd; color: #111; font-weight: 600; }
-    table.expenses th, table.expenses td { padding: 4px 8px; text-align: left; border-bottom: 1px solid #e5e5e5; color: #111; }
+    table.expenses thead th { background: #f0f0f0; padding: 5px 8px; border: 1px solid #ddd; color: #333; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    table.expenses th, table.expenses td { padding: 5px 8px; text-align: left; border-bottom: 1px solid #ebebeb; color: #111; }
     table.expenses .amount { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
-    table.expenses .total-row td { font-weight: 700; background: #eee; padding: 5px 8px; color: #111; border-bottom: 2px solid #ddd; }
-    table.expenses .per-person { font-size: 10px; color: #333; }
+    table.expenses .total-row td { font-weight: 700; background: #1a1a1a; color: #fff; padding: 6px 8px; border-bottom: none; font-size: 12px; }
+    table.expenses .per-person td { font-size: 10px; color: #555; background: #fafafa; font-style: italic; }
+    .item-members { font-size: 9px; margin-top: 3px; display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }
+    .item-members-label { font-size: 9px; color: #888; font-style: italic; margin-right: 2px; }
+    .item-member-chip { background: #e8f0fe; border: 1px solid #c5d8fc; border-radius: 3px; padding: 1px 5px; font-size: 9px; color: #1a56db; font-weight: 500; }
     .members-table { font-size: 10px; }
-    .members-table th, .members-table td { padding: 3px 6px; border: 1px solid #ddd; color: #111; }
-    .members-table thead th { background: #eee; font-weight: 600; }
+    .members-table th, .members-table td { padding: 4px 7px; border: 1px solid #e5e5e5; color: #111; }
+    .members-table thead th { background: #f0f0f0; font-weight: 700; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; color: #444; }
     .members-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-    .members-table .penalty { color: #b91c1c; font-weight: 500; }
-    .your-payment { background: #1a1a1a; color: #fff; border-radius: 8px; padding: 10px 12px; margin-top: 4px; }
-    .your-payment .name { font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #fff; }
-    .pay-row { display: flex; justify-content: space-between; align-items: center; padding: 2px 0; font-size: 11px; }
-    .pay-row.emphasis { font-weight: 700; font-size: 12px; padding-top: 6px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.3); }
-    .pay-row .label, .pay-row .value { color: #fff; }
-    .pay-row .value.penalty-val { color: #fca5a5; }
-    .footer { margin-top: 8px; padding-top: 6px; border-top: 1px solid #ddd; font-size: 10px; color: #333; text-align: center; }
+    .members-table .row-paid { background: #f0fdf4; }
+    .members-table .row-partial { background: #fefce8; }
+    .members-table .row-pending { background: #fff8f8; }
+    .badge { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+    .badge-paid { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+    .badge-partial { background: #fef9c3; color: #92400e; border: 1px solid #fde68a; }
+    .badge-pending { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+    .val-green { color: #15803d; font-weight: 600; }
+    .val-yellow { color: #b45309; font-weight: 600; }
+    .val-red { color: #b91c1c; font-weight: 600; }
+    .val-penalty { color: #b91c1c; font-weight: 600; }
+    .val-entry { color: #15803d; }
+    .val-carry { color: #b45309; }
+    .your-payment { border-radius: 8px; padding: 10px 12px; margin-top: 4px; border: 2px solid; }
+    .your-payment.status-paid { background: #f0fdf4; border-color: #86efac; }
+    .your-payment.status-partial { background: #fefce8; border-color: #fde047; }
+    .your-payment.status-pending { background: #fff8f8; border-color: #fecaca; }
+    .your-payment .name { font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #111; display: flex; align-items: center; gap: 6px; }
+    .pay-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; font-size: 11px; border-bottom: 1px solid rgba(0,0,0,0.06); }
+    .pay-row:last-child { border-bottom: none; }
+    .pay-row.emphasis { font-weight: 700; font-size: 13px; padding-top: 7px; margin-top: 4px; border-top: 2px solid rgba(0,0,0,0.1); border-bottom: none; }
+    .pay-row .label { color: #444; }
+    .pay-row .value { color: #111; font-weight: 500; }
+    .pay-row .value.penalty-val { color: #b91c1c; font-weight: 600; }
+    .pay-row .value.entry-val { color: #15803d; }
+    .pay-row .value.carry-val { color: #b45309; }
+    .footer { margin-top: 10px; padding-top: 6px; border-top: 1px solid #e5e5e5; font-size: 9px; color: #888; text-align: center; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       @page { size: A4; margin: 8mm; }
@@ -1164,34 +1189,41 @@ function BillDetailView({
       const rem = Math.max(0, due - (p.paidAmount ?? 0));
       const pen = p.penaltyWaived ? 0 : (p.penalty ?? 0);
       const name = p.userId?.name ?? "Member";
-      return `<tr>
-        <td>${name}</td>
+      const rowClass = rem === 0 && due > 0 ? "row-paid" : (p.paidAmount ?? 0) > 0 ? "row-partial" : "row-pending";
+      const remCell = rem === 0 && due > 0
+        ? `<span class="badge badge-paid">✓ PAID</span>`
+        : rem > 0 && (p.paidAmount ?? 0) > 0
+          ? `<span class="val-yellow">₹${invFmt(rem)}</span>`
+          : `<span class="val-red">₹${invFmt(rem)}</span>`;
+      return `<tr class="${rowClass}">
+        <td><strong>${name}</strong></td>
         <td class="num">₹${invFmt(p.amount ?? 0)}</td>
-        <td class="num">−₹${invFmt(p.entryDeduction ?? 0)}</td>
-        <td class="num">${(p.carryForwardAmount ?? 0) > 0 ? "+₹" + invFmt(p.carryForwardAmount) : "—"}</td>
-        <td class="num penalty">${pen > 0 ? "+₹" + invFmt(pen) : "—"}</td>
-        <td class="num">₹${invFmt(due)}</td>
-        <td class="num">₹${invFmt(p.paidAmount ?? 0)}</td>
-        <td class="num">₹${invFmt(rem)}</td>
+        <td class="num val-entry">${(p.entryDeduction ?? 0) > 0 ? `−₹${invFmt(p.entryDeduction ?? 0)}` : "—"}</td>
+        <td class="num val-carry">${(p.carryForwardAmount ?? 0) > 0 ? "+₹" + invFmt(p.carryForwardAmount) : "—"}</td>
+        <td class="num val-penalty">${pen > 0 ? "+₹" + invFmt(pen) : "—"}</td>
+        <td class="num"><strong>₹${invFmt(due)}</strong></td>
+        <td class="num val-green">₹${invFmt(p.paidAmount ?? 0)}</td>
+        <td class="num">${remCell}</td>
       </tr>`;
     }).join("");
 
+    const payStatusClass = isPaidBill ? "status-paid" : isPartialBill ? "status-partial" : "status-pending";
     const adminInvoiceBody = isAdmin ? `
     <div class="section-head">Member payments</div>
     <table class="expenses members-table">
       <thead><tr><th>Member</th><th class="num">Base</th><th class="num">Entry ded.</th><th class="num">Carry fwd</th><th class="num">Penalty</th><th class="num">Total due</th><th class="num">Paid</th><th class="num">Remaining</th></tr></thead>
       <tbody>${memberRows}</tbody>
     </table>` : `
-    <div class="section-head">Your payment</div>
-    <div class="your-payment">
-      <div class="name">${userName}</div>
-      ${baseAmount > 0 ? `<div class="pay-row"><span class="label">Base share</span><span class="value">₹${invFmt(baseAmount)}</span></div>` : ""}
-      ${entryDed !== 0 ? `<div class="pay-row"><span class="label">Entry deduction</span><span class="value">−₹${invFmt(Math.abs(entryDed))}</span></div>` : ""}
-      ${carryForward > 0 ? `<div class="pay-row"><span class="label">Carry forward</span><span class="value">+₹${invFmt(carryForward)}</span></div>` : ""}
-      ${!payment?.penaltyWaived && (payment?.penalty ?? 0) > 0 ? `<div class="pay-row"><span class="label">Penalty</span><span class="value penalty-val">+₹${invFmt(payment?.penalty ?? 0)}</span></div>` : ""}
-      <div class="pay-row"><span class="label">Total due</span><span class="value">₹${invFmt(totalDue)}</span></div>
-      <div class="pay-row"><span class="label">Paid</span><span class="value">₹${invFmt(paid)}</span></div>
-      <div class="pay-row emphasis"><span class="label">Remaining</span><span class="value">₹${invFmt(remaining)}</span></div>
+    <div class="section-head">Your payment summary</div>
+    <div class="your-payment ${payStatusClass}">
+      <div class="name">${userName} ${isPaidBill ? '<span class="badge badge-paid" style="font-size:10px;">✓ PAID</span>' : isPartialBill ? '<span class="badge badge-partial">Partial</span>' : '<span class="badge badge-pending">Pending</span>'}</div>
+      ${baseAmount > 0 ? `<div class="pay-row"><span class="label">Base share (your portion of total bill)</span><span class="value">₹${invFmt(baseAmount)}</span></div>` : ""}
+      ${entryDed !== 0 ? `<div class="pay-row"><span class="label">Entry deduction <span style="font-weight:400;font-size:10px;color:#555">(your past cash entries adjusted)</span></span><span class="value entry-val">−₹${invFmt(Math.abs(entryDed))}</span></div>` : ""}
+      ${carryForward > 0 ? `<div class="pay-row"><span class="label">Carry forward <span style="font-weight:400;font-size:10px;color:#555">(unpaid amount from last bill)</span></span><span class="value carry-val">+₹${invFmt(carryForward)}</span></div>` : ""}
+      ${!payment?.penaltyWaived && (payment?.penalty ?? 0) > 0 ? `<div class="pay-row"><span class="label">Penalty <span style="font-weight:400;font-size:10px;color:#555">(late payment charge)</span></span><span class="value penalty-val">+₹${invFmt(payment?.penalty ?? 0)}</span></div>` : ""}
+      <div class="pay-row"><span class="label"><strong>Total due</strong></span><span class="value"><strong>₹${invFmt(totalDue)}</strong></span></div>
+      <div class="pay-row"><span class="label">Amount paid</span><span class="value val-green">₹${invFmt(paid)}</span></div>
+      <div class="pay-row emphasis"><span class="label">Remaining balance</span><span class="value" style="color:${isPaidBill ? '#15803d' : isPartialBill ? '#b45309' : '#b91c1c'}">${isPaidBill ? '✓ PAID' : '₹' + invFmt(remaining)}</span></div>
     </div>`;
 
     const html = `
@@ -1232,13 +1264,22 @@ function BillDetailView({
       </div>
     </div>
 
-    <div class="section-head">Expense breakdown</div>
+    <div class="section-head">Expense breakdown — what was charged this month</div>
     <table class="expenses">
       <thead><tr><th>Item</th><th class="amount">Amount (₹)</th></tr></thead>
       <tbody>
-        ${bill.items.map((i: BillItem) => `<tr><td>${i.name}</td><td class="amount">${i.amount.toLocaleString("en-IN")}</td></tr>`).join("")}
+        ${bill.items.map((i: BillItem) => {
+          const hasMembers = i.members && i.members.length > 0;
+          const memberChips = hasMembers
+            ? i.members!.map((id: string) => {
+                const m = flatMembers.find((fm: FlatMember) => String(fm._id) === String(id));
+                return m ? `<span class="item-member-chip">${m.name.split(' ')[0]}</span>` : null;
+              }).filter(Boolean).join('')
+            : '';
+          return `<tr><td>${i.name}${hasMembers ? `<div class="item-members"><span class="item-members-label">Split among:</span>${memberChips}</div>` : ''}</td><td class="amount">${i.amount.toLocaleString('en-IN')}</td></tr>`;
+        }).join("")}
         <tr class="total-row"><td>Total</td><td class="amount">₹${bill.totalAmount.toLocaleString("en-IN")}</td></tr>
-        <tr class="per-person"><td>Per person (${bill.payments.length} members)</td><td class="amount">₹${invFmt(bill.splitAmount)}</td></tr>
+        ${bill.items.every((i: BillItem) => !i.members || i.members.length === 0) ? `<tr class="per-person"><td>Per person (${bill.payments.length} members)</td><td class="amount">₹${invFmt(bill.splitAmount)}</td></tr>` : ''}
       </tbody>
     </table>
     ${adminInvoiceBody}
