@@ -967,16 +967,51 @@ export function registerRoutes(app: Express): Server {
       const yearNum = year != null ? Number(year) : due.getFullYear();
 
       // Parse items with members
-      const parsedItems = items.map((i: { name: string; amount: number; members?: string[] }) => ({
+      const parsedItems: Array<{name: string; amount: number; members: string[]}> = items.map((i: { name: string; amount: number; members?: string[] }) => ({
         name: String(i.name || "").trim(),
         amount: Number(i.amount) || 0,
         members: Array.isArray(i.members) ? i.members.map(String) : []
       }));
 
+      // ── Auto-add "Entries" item from unapplied approved entries ──────────
+      const userEntryMap: Record<string, number> = {};
+      const userEntryIds: Record<string, string[]> = {};
+      let totalEntriesAmount = 0;
+      if (entryDeductionEnabled !== false) {
+        try {
+          const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
+          for (const entry of unappliedEntries || []) {
+            const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+            const amt = Number(entry.amount) || 0;
+            if (uid && amt > 0) {
+              userEntryMap[uid] = (userEntryMap[uid] || 0) + amt;
+              if (!userEntryIds[uid]) userEntryIds[uid] = [];
+              userEntryIds[uid].push(String(entry._id));
+              totalEntriesAmount += amt;
+            }
+          }
+        } catch (entryErr) {
+          console.warn("Entry fetch failed, continuing without:", entryErr);
+        }
+        // Add as expense item so total reflects entries (split equally, recovered via deduction)
+        if (totalEntriesAmount > 0) {
+          // Remove any existing "Entries" item the admin may have added manually
+          const filtered = parsedItems.filter(i => i.name.toLowerCase() !== "entries");
+          filtered.push({ name: "Entries", amount: totalEntriesAmount, members: [] });
+          parsedItems.length = 0;
+          parsedItems.push(...filtered);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
+      // Recalculate total and split with entries included
+      const finalTotal = parsedItems.reduce((s, i) => s + i.amount, 0);
+      const finalSplit = parseFloat((finalTotal / users.length).toFixed(2));
+
       const bill = await storage.createBill({
         items: parsedItems,
-        totalAmount: total,
-        splitAmount,
+        totalAmount: finalTotal,
+        splitAmount: finalSplit,
         month: monthStr,
         year: yearNum,
         dueDate: due,
@@ -985,24 +1020,7 @@ export function registerRoutes(app: Express): Server {
         createdAt: new Date()
       });
 
-      // Build per-user entry totals from all UNAPPLIED approved entries (not yet counted in any bill)
-      const userEntryMap: Record<string, number> = {};
-      const userEntryIds: Record<string, string[]> = {};
-      try {
-        if (entryDeductionEnabled !== false) {
-          const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
-          for (const entry of unappliedEntries || []) {
-            const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-            if (uid) {
-              userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
-              if (!userEntryIds[uid]) userEntryIds[uid] = [];
-              userEntryIds[uid].push(String(entry._id));
-            }
-          }
-        }
-      } catch (entryErr) {
-        console.warn("Entry deduction lookup failed, continuing without:", entryErr);
-      }
+      // userEntryMap and userEntryIds already populated above
 
       const payments = [];
       const allAppliedPenaltyIds: string[] = [];

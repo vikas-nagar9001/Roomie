@@ -656,8 +656,9 @@ export class MongoStorage implements IStorage {
   }
 
   async getEntriesByFlatId(flatId: string) {
-    const entries = await EntryModel.find({ flatId })
-      .populate('userId', 'name email profilePicture');
+    const entries = await EntryModel.find({
+      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] }
+    }).populate('userId', 'name email profilePicture');
     return entries.map((entry) => this.convertId(entry.toObject()));
   }
 
@@ -805,12 +806,19 @@ export class MongoStorage implements IStorage {
    * Returns all APPROVED entries for a flat that have not yet been counted in any bill (billId = null).
    */
   async getUnappliedEntriesByFlatId(flatId: string): Promise<any[]> {
-    const entries = await EntryModel.find({ flatId, status: "APPROVED", billId: null });
+    const entries = await EntryModel.find({
+      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] },
+      status: "APPROVED",
+      $or: [{ billId: null }, { billId: { $exists: false } }]
+    });
     return entries.map(e => this.convertId(e.toObject()));
   }
 
   async getEntriesByBillId(billId: string): Promise<any[]> {
-    const entries = await EntryModel.find({ billId, status: "APPROVED" });
+    const entries = await EntryModel.find({
+      billId: { $in: [billId, new mongoose.Types.ObjectId(billId)] },
+      status: "APPROVED"
+    });
     return entries.map(e => this.convertId(e.toObject()));
   }
 
@@ -826,7 +834,11 @@ export class MongoStorage implements IStorage {
    * Returns all penalties for a user/flat that have not yet been applied to any bill (billId = null).
    */
   async getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]> {
-    const penalties = await PenaltyModel.find({ userId, flatId, billId: null });
+    const penalties = await PenaltyModel.find({
+      userId: { $in: [userId, new mongoose.Types.ObjectId(userId)] },
+      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] },
+      $or: [{ billId: null }, { billId: { $exists: false } }]
+    });
     return penalties.map(p => this.convertId(p.toObject()));
   }
 
