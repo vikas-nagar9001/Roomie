@@ -180,6 +180,41 @@ export default function EntriesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showContributionStatus, setShowContributionStatus] = useState(false);
 
+  const updateEntryStatusInCache = (entryId: string, status: "APPROVED" | "REJECTED") => {
+    queryClient.setQueryData<Entry[]>(["/api/entries"], (old) => {
+      if (!old) return old;
+      return old.map((e) => (e && (e as any)._id === entryId ? ({ ...(e as any), status } as any) : e));
+    });
+  };
+
+  const approveRejectMutation = useMutation({
+    mutationFn: async ({ entryId, status }: { entryId: string; status: "APPROVED" | "REJECTED" }) => {
+      showLoader();
+      const route = status === "APPROVED" ? "approved" : "rejected";
+      const res = await apiRequest("POST", `/api/entries/${entryId}/${route}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as any)?.message || "Failed to update entry");
+      return { entryId, status };
+    },
+    onMutate: async ({ entryId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/entries"] });
+      const prev = queryClient.getQueryData<Entry[]>(["/api/entries"]);
+      updateEntryStatusInCache(entryId, status);
+      return { prev };
+    },
+    onError: (err: any, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["/api/entries"], ctx.prev);
+      showError(err?.message || "Failed to update entry status");
+      hideLoader();
+    },
+    onSuccess: ({ status }) => {
+      showSuccess(status === "APPROVED" ? "Entry approved" : "Entry rejected");
+      queryClient.invalidateQueries({ queryKey: ["/api/entries"], exact: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/entries/total"], exact: true });
+      hideLoader();
+    },
+  });
+
   // Effect to reset selected entries when search query is cleared
   useEffect(() => {
     if (!searchQuery) {
@@ -1295,22 +1330,8 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white" onClick={() => {
-                              showLoader(); // Show loader before approving
-                              fetch(`/api/entries/${entry._id}/approved`, { method: "POST" })
-                                .then(() => {
-                                  toast({
-                                    title: "Entry Approved",
-                                    description: `Entry "${entry.name}" has been approved successfully.`,
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                                  hideLoader(); // Hide loader after success
-                                })
-                                .catch((error) => {
-                                  console.error(error);
-                                  hideLoader(); // Hide loader on error
-                                });
-                            }}
+                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"
+                            onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "APPROVED" })}
                           >
                             Approve
                           </Button>
@@ -1318,23 +1339,8 @@ export default function EntriesPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500" onClick={() => {
-                              showLoader(); // Show loader before rejecting
-                              fetch(`/api/entries/${entry._id}/rejected`, { method: "POST" })
-                                .then(() => {
-                                  toast({
-                                    title: "Entry Rejected",
-                                    description: `Entry "${entry.name}" has been rejected.`,
-                                    variant: "destructive",
-                                  });
-                                  queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                                  hideLoader(); // Hide loader after success
-                                })
-                                .catch((error) => {
-                                  console.error(error);
-                                  hideLoader(); // Hide loader on error
-                                });
-                            }}
+                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"
+                            onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "REJECTED" })}
                           >
                             Decline
                           </Button>
