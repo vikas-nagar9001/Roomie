@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { FiUser, FiBell, FiCheck, FiCheckCircle, FiList, FiCreditCard, FiAlertTriangle, FiLogIn, FiSettings } from "react-icons/fi";
-import { Link, useLocation } from "wouter";
+import { FiUser, FiBell, FiCheck, FiCheckCircle, FiList, FiCreditCard, FiAlertTriangle, FiLogIn, FiSettings, FiClock } from "react-icons/fi";
+import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 const Logo = "/static/images/Roomie.png";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -11,6 +11,7 @@ import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 const getInitials = (name: string | undefined) => {
   if (!name) return "U";
@@ -33,7 +34,6 @@ function formatPopupTime(date: Date) {
 
 export function Header() {
   const { user } = useAuth();
-  const [location] = useLocation();
   const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
     queryKey: ["/api/user/activities"],
     queryFn: async () => {
@@ -45,6 +45,16 @@ export function Header() {
     refetchOnWindowFocus: true,
   });
   const unreadCount = activities.filter((a) => !a.read).length;
+
+  // ── PWA App Icon Badge (like WhatsApp) ──────────────────────────────────
+  useEffect(() => {
+    if (!("setAppBadge" in navigator)) return;
+    if (unreadCount > 0) {
+      (navigator as any).setAppBadge(unreadCount).catch(() => {});
+    } else {
+      (navigator as any).clearAppBadge().catch(() => {});
+    }
+  }, [unreadCount]);
 
   const markOneRead = useMutation({
     mutationFn: async (id: string) => {
@@ -81,23 +91,41 @@ export function Header() {
 
   return (
     <div className="fixed top-0 left-0 w-full z-50 bg-[#0f0f1f]/95 backdrop-blur-md border-b border-white/[0.05]">
-      <div className={`flex justify-between items-center ${location !== '/' ? 'pl-4 pr-4 pt-3 pb-2' : 'pl-1 pr-1 pt-3 pb-2'}`}>
-        <Link to="/" className="flex items-center gap-3">
+      <div className="flex justify-between items-center px-3 pt-2 pb-1">
+        {/* Left: logo */}
+        <Link to="/" className="flex items-center">
           <img src={Logo} alt="Logo" className="h-16 w-24" />
         </Link>
 
         <div className="flex items-center gap-4 sm:gap-6">
-          {/* Notification Bell — desktop only */}
-          <div className="relative hidden sm:flex items-center justify-center">
+          {/* History link — desktop only */}
+          <Link href="/history" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white/50 hover:text-[#c49bff] hover:bg-[#582c84]/15 border border-transparent hover:border-[#7c3fbf]/25 transition-all text-xs font-medium">
+            <FiClock className="w-3.5 h-3.5" />
+            History
+          </Link>
+
+          {/* Notification Bell — mobile: link to page, desktop: popover */}
+          <div className="relative flex items-center justify-center">
+            {/* Mobile bell → direct link */}
+            <Link href="/notifications" className="relative sm:hidden flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] active:bg-[#582c84]/20 transition-all">
+              <FiBell className="w-[18px] h-[18px] text-white/70" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-[#0f0f1f] shadow-lg">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Desktop bell → popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="relative flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-[#582c84]/20 hover:border-[#7c3fbf]/40 transition-all focus:outline-none"
+                  className="relative hidden sm:flex items-center justify-center w-9 h-9 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-[#582c84]/20 hover:border-[#7c3fbf]/40 transition-all focus:outline-none"
                 >
-                  <FiBell className="w-4.5 h-4.5 text-white/70 hover:text-[#c49bff] transition" />
+                  <FiBell className="w-[18px] h-[18px] text-white/70 hover:text-[#c49bff] transition" />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 bg-[#7c3fbf] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-[#0f0f1f] shadow-lg">
+                    <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-[#0f0f1f] shadow-lg">
                       {unreadCount > 99 ? "99+" : unreadCount}
                     </span>
                   )}

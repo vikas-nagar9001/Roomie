@@ -14,6 +14,7 @@ import ProfilePage from "@/pages/profile";
 import PaymentsPage from "@/pages/payments";
 import PenaltiesPage from "@/pages/penalties";
 import NotificationPage from "@/pages/notifications";
+import HistoryPage from "@/pages/history";
 import { ProtectedRoute } from "./lib/protected-route";
 import Loader from "@/components/common/Loader";
 import { useLoader } from "@/services/loaderService";
@@ -33,6 +34,7 @@ function Router() {
       <ProtectedRoute path="/payments" component={PaymentsPage} />
       <ProtectedRoute path="/penalties" component={PenaltiesPage} />
       <ProtectedRoute path="/notifications" component={NotificationPage} />
+      <ProtectedRoute path="/history" component={HistoryPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -1,8 +1,5 @@
-import { FiHome, FiList, FiUser, FiCreditCard, FiAlertTriangle, FiBell } from "react-icons/fi";
+import { FiHome, FiList, FiCreditCard, FiAlertTriangle, FiClock } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import type { Activity } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 
 export function MobileNav() {
   const [location] = useLocation();
@@ -10,27 +7,15 @@ export function MobileNav() {
   // Utility to check active route
   const isActive = (path) => location === path;
 
-  const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
-    queryKey: ["/api/user/activities"],
-    queryFn: async () => {
-      const res = await apiRequest("GET", "/api/user/activities");
-      if (!res.ok) throw new Error("Failed to fetch notifications");
-      return res.json();
-    },
-    refetchInterval: 20_000,
-    refetchOnWindowFocus: true,
-  });
-  const unreadCount = activities.filter((a) => !a.read).length;
-
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 bg-[#0f0f1f]/95 py-1 px-4 flex justify-around items-center z-50 backdrop-blur-xl border-t border-white/10 shadow-lg">
         {[
-          { href: "/", label: "Home", icon: FiHome },
-          { href: "/entries", label: "Entries", icon: FiList },
-          { href: "/payments", label: "Payments", icon: FiCreditCard },
+          { href: "/",          label: "Home",      icon: FiHome },
+          { href: "/entries",   label: "Entries",   icon: FiList },
+          { href: "/payments",  label: "Payments",  icon: FiCreditCard },
           { href: "/penalties", label: "Penalties", icon: FiAlertTriangle },
-          { href: "/notifications", label: "Alerts", icon: FiBell },
+          { href: "/history",   label: "History",   icon: FiClock },
         ].map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
@@ -52,11 +37,6 @@ export function MobileNav() {
             <div className="relative flex flex-col items-center justify-center px-3 py-2">
               <div className={`p-2 rounded-full transition-all duration-300 ${isActive(href) ? "bg-[#582c84]/30" : ""} relative`}>
                 <Icon className={`w-5 h-5 transition-all duration-300 ${isActive(href) ? "scale-110" : ""}`} />
-                {href === "/notifications" && unreadCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-[11px] font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-[#0f0f1f] shadow-md">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
               </div>
               <span className="mt-1 text-[10px] font-medium">{label}</span>
             </div>

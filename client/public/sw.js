@@ -81,7 +81,30 @@ self.addEventListener('push', (event) => {
     silent: notificationData.silent || false
   });
 
-  event.waitUntil(notificationPromise);
+  // 🔴 Update app icon badge with real unread count (works when app is in background)
+  const badgePromise = fetch('/api/user/activities', {
+    credentials: 'include',
+    headers: { 'Accept': 'application/json' }
+  })
+    .then(r => r.ok ? r.json() : [])
+    .then(activities => {
+      const unread = Array.isArray(activities)
+        ? activities.filter(a => !a.read).length
+        : 0;
+      if ('setAppBadge' in self.registration) {
+        return unread > 0
+          ? self.registration.setAppBadge(unread)
+          : self.registration.clearAppBadge();
+      }
+    })
+    .catch(() => {
+      // Fallback: show a generic dot when fetch fails
+      if ('setAppBadge' in self.registration) {
+        return self.registration.setAppBadge().catch(() => {});
+      }
+    });
+
+  event.waitUntil(Promise.all([notificationPromise, badgePromise]));
 });
 
 // Handle notification clicks
@@ -101,35 +124,56 @@ self.addEventListener('notificationclick', (event) => {
 
   // For 'view' action or clicking the notification body
   const targetUrl = event.notification.data?.url || '/';
+
+  // Refresh badge count after click (app will update accurately on focus)
+  const refreshBadge = fetch('/api/user/activities', {
+    credentials: 'include',
+    headers: { 'Accept': 'application/json' }
+  })
+    .then(r => r.ok ? r.json() : [])
+    .then(activities => {
+      const unread = Array.isArray(activities)
+        ? activities.filter(a => !a.read).length
+        : 0;
+      if ('setAppBadge' in self.registration) {
+        return unread > 0
+          ? self.registration.setAppBadge(unread)
+          : self.registration.clearAppBadge();
+      }
+    })
+    .catch(() => {});
   
   event.waitUntil(
-    clients.matchAll({ 
-      type: 'window',
-      includeUncontrolled: true 
-    }).then((clientList) => {
-      console.log('👀 Found', clientList.length, 'open windows');
-      
-      // If the app is already open, focus it and navigate to target URL
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          console.log('🎯 Focusing existing window and navigating to:', targetUrl);
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            url: targetUrl,
-            notificationData: event.notification.data
-          });
-          return client.focus();
+    Promise.all([
+      refreshBadge,
+      clients.matchAll({ 
+        type: 'window',
+        includeUncontrolled: true 
+      }).then((clientList) => {
+        console.log('👀 Found', clientList.length, 'open windows');
+        
+        // If the app is already open, focus it and navigate to target URL
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            console.log('🎯 Focusing existing window and navigating to:', targetUrl);
+            client.postMessage({
+              type: 'NOTIFICATION_CLICK',
+              url: targetUrl,
+              notificationData: event.notification.data
+            });
+            return client.focus();
+          }
         }
-      }
-      
-      // If app is not open, open it with the target URL
-      if (clients.openWindow) {
-        console.log('🚀 Opening new window to:', targetUrl);
-        return clients.openWindow(targetUrl);
-      }
-    }).catch((error) => {
-      console.error('❌ Error handling notification click:', error);
-    })
+        
+        // If app is not open, open it with the target URL
+        if (clients.openWindow) {
+          console.log('🚀 Opening new window to:', targetUrl);
+          return clients.openWindow(targetUrl);
+        }
+      }).catch((error) => {
+        console.error('❌ Error handling notification click:', error);
+      })
+    ])
   );
 });
 

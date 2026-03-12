@@ -16,6 +16,28 @@ import { updatePenaltyScheduler } from "./penalty-checker"; // Make sure you imp
 import { applyPenaltiesForFlat } from "./penalty-checker";
 import { clearPenaltyInterval } from "./penalty-checker";
 import { PushNotificationService } from "./push-notification-service";
+import mongoose from "mongoose";
+
+// ─── MonthlyHistory Model (seeded summary data) ───────────────────────────────
+const _memberEntrySchema = new mongoose.Schema({
+  name:          String,
+  userId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  entryAmount:   { type: Number, default: 0 },
+  penaltyAmount: { type: Number, default: 0 },
+  netAmount:     { type: Number, default: 0 },
+});
+const _monthlyHistorySchema = new mongoose.Schema({
+  flatId:     { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
+  month:      String,
+  year:       Number,
+  monthIndex: Number,
+  members:    [_memberEntrySchema],
+  grandTotal: { type: Number, default: 0 },
+  createdAt:  { type: Date, default: Date.now },
+});
+const MonthlyHistoryModel =
+  mongoose.models["MonthlyHistory"] ??
+  mongoose.model("MonthlyHistory", _monthlyHistorySchema);
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
@@ -284,6 +306,116 @@ export function registerRoutes(app: Express): Server {
 
   // Serve profile pictures
   app.use("/uploads/profiles", express.static("uploads/profiles"));
+
+  // ─── History API ──────────────────────────────────────────────────────────
+  // GET /api/history — unified history: entries + penalties for the flat
+  app.get("/api/history", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const [entries, penalties] = await Promise.all([
+        storage.getEntriesByFlatId(req.user.flatId),
+        storage.getPenaltiesByFlatId(req.user.flatId),
+      ]);
+      res.json({ entries, penalties });
+    } catch (error) {
+      console.error("Failed to get history:", error);
+      res.status(500).json({ message: "Failed to get history" });
+    }
+  });
+
+  // GET /api/monthly-history — seeded historical monthly summaries
+  app.get("/api/monthly-history", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const records = await MonthlyHistoryModel.find({ flatId: req.user.flatId })
+        .sort({ year: -1, monthIndex: -1 })
+        .lean();
+      res.json(records);
+    } catch (error) {
+      console.error("Failed to get monthly history:", error);
+      res.status(500).json({ message: "Failed to get monthly history" });
+    }
+  });
+
+  // GET /api/monthly-history/backup — CSV download of all (or year-filtered) monthly history
+  app.get("/api/monthly-history/backup", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const yearFilter = req.query.year ? Number(req.query.year) : null;
+      const query: any = { flatId: req.user.flatId };
+      if (yearFilter && !isNaN(yearFilter)) query.year = yearFilter;
+      const records = await MonthlyHistoryModel.find(query)
+        .sort({ year: 1, monthIndex: 1 })
+        .lean() as any[];
+      const esc = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const row = (...cols: unknown[]) => cols.map(esc).join(",");
+      const lines: string[] = [row("Month", "Year", "Member", "Entry Amount", "Penalty Amount", "Net Amount", "Grand Total")];
+      for (const rec of records) {
+        const members: any[] = rec.members || [];
+        if (members.length === 0) {
+          lines.push(row(rec.month, rec.year, "", "", "", "", rec.grandTotal));
+        } else {
+          members.forEach((m, i) => {
+            lines.push(row(rec.month, rec.year, m.name, m.entryAmount, m.penaltyAmount, m.netAmount ?? (m.entryAmount - m.penaltyAmount), i === 0 ? rec.grandTotal : ""));
+          });
+        }
+      }
+      const suffix = yearFilter ? `-${yearFilter}` : "";
+      const filename = `roomie-history-backup${suffix}-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.send(lines.join("\r\n"));
+    } catch (error) {
+      console.error("Failed to backup monthly history:", error);
+      res.status(500).json({ message: "Failed to backup" });
+    }
+  });
+
+  // DELETE /api/monthly-history/all — delete all history for this flat
+  app.delete("/api/monthly-history/all", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const result = await MonthlyHistoryModel.deleteMany({ flatId: req.user.flatId });
+      res.json({ deleted: result.deletedCount });
+    } catch (error) {
+      console.error("Failed to delete all monthly history:", error);
+      res.status(500).json({ message: "Failed to delete" });
+    }
+  });
+
+  // DELETE /api/monthly-history/year/:year — delete all months for a given year
+  app.delete("/api/monthly-history/year/:year", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const year = Number(req.params.year);
+      if (isNaN(year)) return res.status(400).json({ message: "Invalid year" });
+      const result = await MonthlyHistoryModel.deleteMany({ flatId: req.user.flatId, year });
+      res.json({ deleted: result.deletedCount });
+    } catch (error) {
+      console.error("Failed to delete year history:", error);
+      res.status(500).json({ message: "Failed to delete" });
+    }
+  });
+
+  // DELETE /api/monthly-history/:id — delete a single month record
+  app.delete("/api/monthly-history/:id", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const record = await MonthlyHistoryModel.findOneAndDelete({ _id: req.params.id, flatId: req.user.flatId });
+      if (!record) return res.status(404).json({ message: "Record not found" });
+      res.json({ deleted: 1 });
+    } catch (error) {
+      console.error("Failed to delete monthly history record:", error);
+      res.status(500).json({ message: "Failed to delete" });
+    }
+  });
 
   // Penalties API endpoints
   // Get all penalties for a flat
