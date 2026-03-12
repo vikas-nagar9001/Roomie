@@ -3,6 +3,40 @@ import mongoose from "mongoose";
 
 const penaltyIntervals = new Map<string, NodeJS.Timeout>(); // Store intervals per flat
 
+// Track last seen month so we can detect month rollover
+let _lastSeenMonth = new Date().getMonth();
+let _lastSeenYear  = new Date().getFullYear();
+
+/** Called once per day (from the penalty checker loop). Saves previous month snapshot for all flats on the 1st of every new month. */
+async function maybeAutoSnapshot() {
+  const now   = new Date();
+  const month = now.getMonth();
+  const year  = now.getFullYear();
+  if (month === _lastSeenMonth && year === _lastSeenYear) return; // same month, nothing to do
+  _lastSeenMonth = month;
+  _lastSeenYear  = year;
+
+  // We just crossed into a new month → snapshot the previous month for every flat
+  const prevMonth = month === 0 ? 11 : month - 1;
+  const prevYear  = month === 0 ? year - 1 : year;
+
+  console.log(`📅 Month rollover detected → auto-snapshotting ${prevMonth + 1}/${prevYear} for all flats`);
+  try {
+    const { snapshotMonthForFlat } = await import("./routes.js");
+    const flats = await storage.getAllFlats();
+    for (const flat of flats) {
+      try {
+        await snapshotMonthForFlat(flat._id.toString(), prevYear, prevMonth);
+        console.log(`✅ Auto-snapshot saved for flat ${flat._id} — ${prevMonth + 1}/${prevYear}`);
+      } catch (e) {
+        console.error(`❌ Auto-snapshot failed for flat ${flat._id}:`, e);
+      }
+    }
+  } catch (e) {
+    console.error("Auto-snapshot import error:", e);
+  }
+}
+
 export function clearPenaltyInterval(flatId: string) {
 
   if (penaltyIntervals.has(flatId)) {
@@ -139,11 +173,13 @@ export async function setupPenaltyChecker(flatId: string) {
   const timeoutId = setTimeout(async () => {
     console.log(`🔔 Executing penalty check for flat ${flatId} after remaining time`);
     await checkAndApplyPenalties(flatId);
+    maybeAutoSnapshot().catch(() => {}); // check month rollover on each penalty run
     
     // After first penalty, set up regular interval for future cycles
     const recurringIntervalId = setInterval(() => {
       console.log(`🔄 Executing recurring penalty check for flat ${flatId}`);
       checkAndApplyPenalties(flatId);
+      maybeAutoSnapshot().catch(() => {}); // check month rollover on each penalty run
     }, warningPeriodMs);
     
     // Update the stored interval to the recurring one
@@ -285,6 +321,3 @@ export async function applyPenaltiesForFlat(flat: any, settings: any, extraParam
 
   return deficitUser;
 }
-
-// Start penalty checkers for all flats
-startPenaltyCheckers();

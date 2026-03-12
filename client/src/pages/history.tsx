@@ -18,7 +18,7 @@ import {
 import {
   FiArrowLeft, FiChevronLeft, FiChevronRight, FiChevronDown,
   FiList, FiAlertTriangle, FiCheckCircle, FiXCircle, FiClock,
-  FiDownload, FiTrash2, FiAlertOctagon,
+  FiDownload, FiTrash2, FiAlertOctagon, FiSave,
 } from "react-icons/fi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -122,7 +122,8 @@ export default function HistoryPage() {
     | { kind: "backup-year"; year: number }
     | { kind: "all" }
     | { kind: "year"; year: number }
-    | { kind: "month"; id: string; label: string };
+    | { kind: "month"; id: string; label: string }
+    | { kind: "delete-member"; userId: string; name: string };
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
@@ -143,6 +144,31 @@ export default function HistoryPage() {
     onError: () => showError("Delete failed"),
   });
 
+  // Admin — delete a member (user) from the flat
+  const deleteMember = useMutation({
+    mutationFn: (userId: string) => apiRequest("DELETE", `/api/users/${userId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/history"] });
+      qc.invalidateQueries({ queryKey: ["/api/allUsers"] });
+      showSuccess("Member removed from flat");
+      setConfirmAction(null);
+      setSelectedUserId(null);
+    },
+    onError: (e: any) => showError(e?.message || "Failed to remove member"),
+  });
+
+  // Admin — snapshot mutation (save current or any month to monthly history)
+  const snapshotMutation = useMutation({
+    mutationFn: ({ year, monthIndex }: { year: number; monthIndex: number }) =>
+      apiRequest("POST", "/api/monthly-history/snapshot", { year, monthIndex }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["/api/monthly-history"] });
+      const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      showSuccess(`Snapshot saved for ${names[vars.monthIndex]} ${vars.year}`);
+    },
+    onError: () => showError("Snapshot failed"),
+  });
+
   function handleConfirm() {
     if (!confirmAction) return;
     if (confirmAction.kind === "backup-all")  { window.open("/api/monthly-history/backup", "_blank"); setConfirmAction(null); return; }
@@ -150,6 +176,7 @@ export default function HistoryPage() {
     if (confirmAction.kind === "all")   deleteAll.mutate();
     if (confirmAction.kind === "year")  deleteYear.mutate(confirmAction.year);
     if (confirmAction.kind === "month") deleteMonth.mutate(confirmAction.id);
+    if (confirmAction.kind === "delete-member") deleteMember.mutate(confirmAction.userId);
   }
 
   function downloadBackup() {
@@ -511,7 +538,7 @@ export default function HistoryPage() {
         )}
 
         {/* ── Admin Panel ── */}
-        {isAdmin && monthlyHistories.length > 0 && !selectedUserId && (
+        {isAdmin && !selectedUserId && (
           <div className="mb-4">
             <button
               onClick={() => setShowAdminPanel(v => !v)}
@@ -531,6 +558,22 @@ export default function HistoryPage() {
 
             {showAdminPanel && (
               <div className="mt-2 bg-[#0f0f1e] border border-white/[0.07] rounded-2xl overflow-hidden">
+
+                {/* ─ Snapshot section */}
+                <div className="px-4 pt-3.5 pb-3 border-b border-white/[0.05]">
+                  <p className="text-[10px] uppercase tracking-widest text-emerald-400/50 font-semibold mb-1">Save to History</p>
+                  <p className="text-[10px] text-white/30 mb-2.5">Saves approved entries + penalties as a permanent monthly snapshot</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      disabled={snapshotMutation.isPending}
+                      onClick={() => snapshotMutation.mutate({ year: currentDate.getFullYear(), monthIndex: currentDate.getMonth() })}
+                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400/80 hover:text-emerald-400 text-xs font-semibold transition-all disabled:opacity-40"
+                    >
+                      <FiSave className="w-3.5 h-3.5" />
+                      {format(currentDate, "MMM yyyy")}
+                    </button>
+                  </div>
+                </div>
 
                 {/* ─ Backup section */}
                 <div className="px-4 pt-3.5 pb-3 border-b border-white/[0.05]">
@@ -554,6 +597,7 @@ export default function HistoryPage() {
                 </div>
 
                 {/* ─ Delete section */}
+                {monthlyHistories.length > 0 && (
                 <div className="px-4 pt-3.5 pb-3.5">
                   <p className="text-[10px] uppercase tracking-widest text-red-400/40 font-semibold mb-2.5">Delete Records — Cannot be undone</p>
                   <div className="flex flex-wrap gap-2">
@@ -582,6 +626,7 @@ export default function HistoryPage() {
                     </button>
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -590,16 +635,18 @@ export default function HistoryPage() {
         {/* ── Unified Confirm Modal ── */}
         {confirmAction && (() => {
           const isBackup = confirmAction.kind.startsWith("backup");
+          const isMemberDelete = confirmAction.kind === "delete-member";
 
-          const title    = isBackup ? "Backup Data" : "Delete Records";
-          const subtitle = isBackup ? "CSV file will be downloaded to your device" : "This action is permanent and cannot be undone";
+          const title    = isBackup ? "Backup Data" : isMemberDelete ? "Remove Member" : "Delete Records";
+          const subtitle = isBackup ? "CSV file will be downloaded to your device" : isMemberDelete ? "This will permanently remove the user from the flat" : "This action is permanent and cannot be undone";
 
           const scope =
-            confirmAction.kind === "backup-all"  ? "All History" :
-            confirmAction.kind === "backup-year" ? `Year ${(confirmAction as any).year}` :
-            confirmAction.kind === "all"         ? "All History" :
-            confirmAction.kind === "year"        ? `Year ${(confirmAction as any).year}` :
-                                                   (confirmAction as any).label;
+            confirmAction.kind === "backup-all"     ? "All History" :
+            confirmAction.kind === "backup-year"    ? `Year ${(confirmAction as any).year}` :
+            confirmAction.kind === "all"            ? "All History" :
+            confirmAction.kind === "year"           ? `Year ${(confirmAction as any).year}` :
+            confirmAction.kind === "delete-member"  ? (confirmAction as any).name :
+                                                      (confirmAction as any).label;
 
           const detail =
             confirmAction.kind === "backup-all"
@@ -610,9 +657,11 @@ export default function HistoryPage() {
               ? "All monthly history records for this flat will be permanently removed from the database."
               : confirmAction.kind === "year"
               ? `All monthly records for the year ${(confirmAction as any).year} will be permanently removed.`
+              : confirmAction.kind === "delete-member"
+              ? `${(confirmAction as any).name} will be removed from the flat. Their entries and penalties will remain in the records.`
               : `The summary record for ${(confirmAction as any).label} will be permanently removed.`;
 
-          const isPending = deleteAll.isPending || deleteYear.isPending || deleteMonth.isPending;
+          const isPending = deleteAll.isPending || deleteYear.isPending || deleteMonth.isPending || deleteMember.isPending;
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
@@ -1081,42 +1130,58 @@ export default function HistoryPage() {
                         ? Math.round((s.entryAmount / totalEntryAmt) * 100)
                         : 0;
                       return (
-                        <button
+                        <div
                           key={s.userId}
-                          onClick={() => setSelectedUserId(s.userId)}
-                          className="w-full bg-[#111120] hover:bg-[#15152a] active:scale-[0.99] border border-white/[0.06] hover:border-[#7c3fbf]/30 rounded-2xl px-4 py-3.5 flex items-center gap-3 transition-all text-left"
+                          className="w-full bg-[#111120] hover:bg-[#15152a] border border-white/[0.06] hover:border-[#7c3fbf]/30 rounded-2xl transition-all flex items-center"
                         >
-                          <Avatar className="w-10 h-10 shrink-0">
-                            <AvatarImage src={s.avatar} />
-                            <AvatarFallback className="bg-[#582c84]/25 text-[#c49bff] text-xs font-bold">
-                              {getInitials(s.name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white leading-tight">{s.name}</p>
-                            <div className="flex items-center gap-3 mt-1 flex-wrap">
-                              <span className="text-[11px] text-emerald-400 font-medium">
-                                📋 {s.entryCount} · ₹{s.entryAmount.toLocaleString("en-IN")}
-                              </span>
-                              {s.penaltyCount > 0 && (
-                                <span className="text-[11px] text-amber-400 font-medium">
-                                  ⚠️ {s.penaltyCount} penalties
+                          {/* tap area — view details */}
+                          <button
+                            onClick={() => setSelectedUserId(s.userId)}
+                            className="flex-1 min-w-0 px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+                          >
+                            <Avatar className="w-10 h-10 shrink-0">
+                              <AvatarImage src={s.avatar} />
+                              <AvatarFallback className="bg-[#582c84]/25 text-[#c49bff] text-xs font-bold">
+                                {getInitials(s.name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white leading-tight">{s.name}</p>
+                              <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                <span className="text-[11px] text-emerald-400 font-medium">
+                                  📋 {s.entryCount} · ₹{s.entryAmount.toLocaleString("en-IN")}
                                 </span>
-                              )}
+                                {s.penaltyCount > 0 && (
+                                  <span className="text-[11px] text-amber-400 font-medium">
+                                    ⚠️ {s.penaltyCount} penalties
+                                  </span>
+                                )}
+                              </div>
+                              <div className="w-full h-1 bg-white/[0.05] rounded-full mt-2 overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-[#7c3fbf] to-[#c49bff] rounded-full transition-all duration-500"
+                                  style={{ width: `${sharePercent}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="w-full h-1 bg-white/[0.05] rounded-full mt-2 overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-[#7c3fbf] to-[#c49bff] rounded-full transition-all duration-500"
-                                style={{ width: `${sharePercent}%` }}
-                              />
+                            <div className="shrink-0 text-right">
+                              <p className="text-sm font-bold text-[#c49bff]">{sharePercent}%</p>
+                              <p className="text-[9px] text-white/25 mt-0.5">share</p>
                             </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p className="text-sm font-bold text-[#c49bff]">{sharePercent}%</p>
-                            <p className="text-[9px] text-white/25 mt-0.5">share</p>
-                          </div>
-                          <FiChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-                        </button>
+                            <FiChevronRight className="w-4 h-4 text-white/20 shrink-0" />
+                          </button>
+
+                          {/* admin — delete member button */}
+                          {isAdmin && s.userId !== user?._id && (
+                            <button
+                              onClick={e => { e.stopPropagation(); setConfirmAction({ kind: "delete-member", userId: s.userId, name: s.name }); }}
+                              className="shrink-0 mr-3 p-2 rounded-xl text-red-400/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                              title={`Remove ${s.name}`}
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

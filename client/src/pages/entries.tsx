@@ -67,6 +67,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
     })
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/history"] });
         showSuccess(`Entry "${entry.name}" has been deleted successfully.`);
         hideLoader(); // Hide loader after successful deletion
       })
@@ -116,6 +117,7 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
             })
               .then(() => {
                 queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/history"] });
                 showSuccess(`Entry "${entry.name}" has been updated successfully.`);
                 setOpen(false); // Close the dialog on success
                 hideLoader(); // Hide loader after successful update
@@ -211,6 +213,7 @@ export default function EntriesPage() {
       showSuccess(status === "APPROVED" ? "Entry approved" : "Entry rejected");
       queryClient.invalidateQueries({ queryKey: ["/api/entries"], exact: true });
       queryClient.invalidateQueries({ queryKey: ["/api/entries/total"], exact: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       hideLoader();
     },
   });
@@ -352,6 +355,7 @@ export default function EntriesPage() {
       .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
         queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/history"] });
 
         showSuccess(`${selectedEntries.length} entries have been deleted successfully.`);
 
@@ -429,6 +433,7 @@ export default function EntriesPage() {
       setDataLoading(true);
       queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
       queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/history"] });
       showSuccess("Entry added successfully");
       setOpenAddDialog(false); // Close the Add Entry dialog on success
       setNewEntry({ name: "", amount: "" }); // Optionally, clear the form

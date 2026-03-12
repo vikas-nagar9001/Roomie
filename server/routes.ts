@@ -39,6 +39,57 @@ const MonthlyHistoryModel =
   mongoose.models["MonthlyHistory"] ??
   mongoose.model("MonthlyHistory", _monthlyHistorySchema);
 
+// ─── Standalone snapshot helper (also used by penalty-checker auto-snapshot) ──
+const _MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+export async function snapshotMonthForFlat(flatId: string, year: number, monthIndex: number) {
+  const startOfMonth = new Date(year, monthIndex, 1);
+  const endOfMonth   = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
+  const [allEntries, allPenalties, users] = await Promise.all([
+    storage.getEntriesByFlatId(flatId),
+    storage.getPenaltiesByFlatId(flatId),
+    storage.getUsersByFlatId(flatId),
+  ]);
+
+  const entries   = allEntries.filter(e => {
+    const d = new Date(e.dateTime || e.createdAt);
+    return d >= startOfMonth && d <= endOfMonth && e.status === "APPROVED";
+  });
+  const penalties = allPenalties.filter(p => {
+    const d = new Date(p.createdAt);
+    return d >= startOfMonth && d <= endOfMonth;
+  });
+
+  const memberMap: Record<string, { name: string; userId: any; entryAmount: number; penaltyAmount: number }> = {};
+  for (const u of users) {
+    memberMap[u._id.toString()] = { name: u.name, userId: u._id, entryAmount: 0, penaltyAmount: 0 };
+  }
+  for (const e of entries) {
+    const uid = typeof e.userId === "object" ? ((e.userId as any)._id ?? e.userId).toString() : e.userId.toString();
+    if (!memberMap[uid]) memberMap[uid] = { name: (e.userId as any)?.name ?? "Unknown", userId: uid, entryAmount: 0, penaltyAmount: 0 };
+    memberMap[uid].entryAmount += e.amount;
+  }
+  for (const p of penalties) {
+    const uid = typeof p.userId === "object" ? ((p.userId as any)._id ?? p.userId).toString() : p.userId.toString();
+    if (!memberMap[uid]) memberMap[uid] = { name: (p.userId as any)?.name ?? "Unknown", userId: uid, entryAmount: 0, penaltyAmount: 0 };
+    memberMap[uid].penaltyAmount += p.amount;
+  }
+
+  const members = Object.values(memberMap).map(m => ({
+    name: m.name, userId: m.userId,
+    entryAmount: m.entryAmount, penaltyAmount: m.penaltyAmount,
+    netAmount: m.entryAmount - m.penaltyAmount,
+  }));
+  const grandTotal = members.reduce((s, m) => s + m.entryAmount, 0);
+
+  return MonthlyHistoryModel.findOneAndUpdate(
+    { flatId, year, monthIndex },
+    { flatId, month: _MONTH_NAMES[monthIndex], year, monthIndex, members, grandTotal, createdAt: new Date() },
+    { upsert: true, new: true }
+  );
+}
+
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
 
@@ -414,6 +465,24 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to delete monthly history record:", error);
       res.status(500).json({ message: "Failed to delete" });
+    }
+  });
+
+  // POST /api/monthly-history/snapshot — compute & save a month summary
+  // Body: { year?: number, monthIndex?: number }  (defaults to previous calendar month)
+  app.post("/api/monthly-history/snapshot", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") return res.sendStatus(403);
+    try {
+      const now = new Date();
+      const targetYear  = req.body.year       != null ? Number(req.body.year)       : (now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear());
+      const targetMonth = req.body.monthIndex != null ? Number(req.body.monthIndex) : (now.getMonth() === 0 ? 11 : now.getMonth() - 1);
+
+      const record = await snapshotMonthForFlat(req.user.flatId, targetYear, targetMonth);
+      res.json({ message: `Snapshot saved for ${_MONTH_NAMES[targetMonth]} ${targetYear}`, record });
+    } catch (error) {
+      console.error("Failed to create monthly history snapshot:", error);
+      res.status(500).json({ message: "Failed to create snapshot" });
     }
   });
 

@@ -185,7 +185,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
     }
   } catch (error) {
     console.error("Error:", error);
-    showError(data?.message || error.message || "Failed to delete user");
+    showError(data?.message || (error instanceof Error ? error.message : "Failed to delete user"));
   } finally {
     setTimeout(() => {
       hideLoader();
@@ -293,7 +293,21 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                   }).format(new Date(user.createdAt))}
                 </TableCell>
                 <TableCell className="text-center">
-                  <DropdownMenu>
+                  <div className="flex items-center justify-center gap-1">
+                    {/* Direct delete button — always visible for admin */}
+                    <button
+                      title={`Delete ${user.name}`}
+                      onClick={() => {
+                        setUserToDelete(user._id);
+                        setUserToDeleteDetails(user);
+                        setDeleteDialogOpen(true);
+                      }}
+                      className="p-1.5 rounded-lg text-red-400/60 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+
+                    <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
@@ -373,6 +387,7 @@ export function UserTable({ search, onLoadComplete }: UserTableProps) {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

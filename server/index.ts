@@ -2,7 +2,6 @@ import express, { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
-import "./penalty-checker"; // Import penalty checker
 
 const app = express();
 app.use(express.json());
@@ -14,6 +13,8 @@ const server = registerRoutes(app);
 (async () => {
   try {
     await storage.connect();
+    const { startPenaltyCheckers } = await import("./penalty-checker");
+    startPenaltyCheckers().catch(e => console.error("Penalty checker init error:", e));
 
     // Static assets caching middleware
     app.use((req, res, next) => {
