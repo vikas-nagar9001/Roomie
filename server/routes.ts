@@ -429,7 +429,7 @@ export function registerRoutes(app: Express): Server {
       await storage.logActivity({
         userId: req.user._id,
         type: "PENALTY_ADDED",
-        description: `Added a ${type} penalty of ₹${amount} to ${userId}`,
+        description: `Added a ${type} penalty of ₹${amount} to ${(await storage.getUser(String(userId)))?.name ?? userId}`,
         timestamp: new Date(),
       });
 
@@ -509,7 +509,7 @@ export function registerRoutes(app: Express): Server {
       await storage.logActivity({
         userId: req.user._id,
         type: "PENALTY_UPDATED",
-        description: `Updated penalty ${penaltyId}`,
+        description: `Updated ${updatedPenalty.type} penalty of ₹${updatedPenalty.amount} for ${(await storage.getUser(String(updatedPenalty.userId)))?.name ?? String(updatedPenalty.userId)}`,
         timestamp: new Date(),
       });
 
@@ -584,7 +584,7 @@ export function registerRoutes(app: Express): Server {
       await storage.logActivity({
         userId: req.user._id,
         type: "PENALTY_DELETED",
-        description: `Deleted penalty ${penaltyId}`,
+        description: `Removed ${penalty.type} penalty of ₹${penalty.amount} for ${(await storage.getUser(String(penalty.userId)))?.name ?? String(penalty.userId)}`,
         timestamp: new Date(),
       });
 

@@ -489,9 +489,9 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
   const queryClient = useQueryClient();
   const handleDelete = () => {
     showLoader();
-    fetch(`/api/penalties/${penalty._id}`, {
-      method: "DELETE",
-    }).then(() => {
+    apiRequest("DELETE", `/api/penalties/${penalty._id}`)
+    .then(res => {
+      if (!res.ok) throw new Error("Delete failed");
       queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
       showSuccess("Penalty has been deleted successfully.");
       setDeleteDialogOpen(false);
@@ -719,13 +719,8 @@ export default function PenaltiesPage() {
   };
   const confirmBulkDelete = () => {
     showLoader();
-    Promise.all(selectedPenalties.map(id => {
-      return fetch(`/api/penalties/${id}`, {
-        method: "DELETE",
-      });
-    }))
+    Promise.all(selectedPenalties.map(id => apiRequest("DELETE", `/api/penalties/${id}`)))
       .then(responses => {
-        // Check if any response is not ok
         const failedResponses = responses.filter(response => !response.ok);
         if (failedResponses.length > 0) {
           throw new Error(`${failedResponses.length} deletions failed`);

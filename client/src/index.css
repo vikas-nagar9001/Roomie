@@ -84,3 +84,12 @@ body {
 .modal-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(159, 91, 247, 0.6);
 }
+
+/* Hide scrollbar for filter tabs */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
