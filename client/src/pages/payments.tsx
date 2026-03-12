@@ -5,8 +5,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Plus, Settings, Receipt, TrendingUp, TrendingDown,
   Bell, ChevronRight, ChevronDown, History,
-  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Download,
+  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Download, Share2, Link,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { showSuccess, showError } from "@/services/toastService";
@@ -138,6 +141,7 @@ export default function PaymentsPage() {
   const [isDeleteBillOpen, setIsDeleteBillOpen] = useState(false);
   const [billToDeleteId, setBillToDeleteId] = useState<string | null>(null);
   const [isDeleteAllBillsOpen, setIsDeleteAllBillsOpen] = useState(false);
+  const [isBackupConfirmOpen, setIsBackupConfirmOpen] = useState(false);
   const [filterYear, setFilterYear] = useState<string>("");
   const [filterMonth, setFilterMonth] = useState<string>("");
 
@@ -191,6 +195,16 @@ export default function PaymentsPage() {
   useEffect(() => {
     if (!billsLoading) hideLoader();
   }, [billsLoading]);
+
+  // Listen for share-copy-link toast events from BillDetailView (no direct showSuccess access there)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ev = e as CustomEvent<{ type: string; message: string }>;
+      if (ev.detail?.type === "success") showSuccess(ev.detail.message);
+    };
+    window.addEventListener("roomie:toast", handler);
+    return () => window.removeEventListener("roomie:toast", handler);
+  }, []);
 
   // Sync settings from server
   useEffect(() => {
@@ -409,6 +423,8 @@ export default function PaymentsPage() {
     }
   };
 
+  const [billUpdateSuccessCallback, setBillUpdateSuccessCallback] = useState<(() => void) | null>(null);
+
   const updateBillMutation = useMutation({
     mutationFn: async ({ billId, data }: { billId: string; data: any }) => {
       showLoader();
@@ -417,29 +433,25 @@ export default function PaymentsPage() {
       return res.json();
     },
     onSuccess: (data: BillDetail) => {
-      // Immediately update the bill detail cache so the members table refreshes instantly
+      // 1. Immediately populate the cache with fresh data from PATCH response (includes recalculated payments)
       queryClient.setQueryData(["/api/bills", data._id], data);
-      // Also update the bills list to reflect new totalAmount/month/dueDate
+      // 2. Update the bills list summary
       queryClient.setQueryData<BillSummary[]>(["/api/bills"], (old) =>
         old
           ? old.map((b) =>
               b._id === data._id
-                ? {
-                    ...b,
-                    month: data.month,
-                    year: data.year,
-                    totalAmount: data.totalAmount,
-                    splitAmount: data.splitAmount,
-                    dueDate: data.dueDate,
-                    entryDeductionEnabled: data.entryDeductionEnabled,
-                    items: data.items,
-                  }
+                ? { ...b, month: data.month, year: data.year, totalAmount: data.totalAmount, splitAmount: data.splitAmount, dueDate: data.dueDate, entryDeductionEnabled: data.entryDeductionEnabled, items: data.items }
                 : b
             )
           : old
       );
-      queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
-      showSuccess("Bill updated!");
+      // 3. Force a background refetch of the detail so the members table always shows fresh server data
+      queryClient.invalidateQueries({ queryKey: ["/api/bills", data._id], exact: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/bills"], exact: true });
+      // 4. Exit edit mode now that data is fresh
+      billUpdateSuccessCallback?.();
+      setBillUpdateSuccessCallback(null);
+      showSuccess("Bill updated! Member payments recalculated.");
       hideLoader();
     },
     onError: (err: any) => {
@@ -516,7 +528,7 @@ export default function PaymentsPage() {
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={handleBackupBills}
+                      onClick={() => setIsBackupConfirmOpen(true)}
                       className="flex items-center gap-2 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
                       title="Download all bills data as CSV backup (month-wise)"
                     >
@@ -639,7 +651,10 @@ export default function PaymentsPage() {
                     onRecordPayment={(p) => { setRecordPayment(p); setRecordPaymentAmount(""); }}
                     onSendReminder={(id) => sendReminderMutation.mutate(id)}
                     onDeleteBill={() => { setBillToDeleteId(billDetail._id); setIsDeleteBillOpen(true); }}
-                    onUpdateBill={(data) => updateBillMutation.mutate({ billId: billDetail._id, data })}
+                    onUpdateBill={(data, exitEditMode) => {
+                      setBillUpdateSuccessCallback(() => exitEditMode);
+                      updateBillMutation.mutate({ billId: billDetail._id, data });
+                    }}
                     onEditError={showError}
                   />
                 ) : null}
@@ -928,6 +943,23 @@ export default function PaymentsPage() {
         onConfirm={() => billToDeleteId && deleteBillMutation.mutate(billToDeleteId)}
       />
 
+      {/* ── Backup Confirm ── */}
+      <ConfirmDialog
+        open={isBackupConfirmOpen}
+        onOpenChange={setIsBackupConfirmOpen}
+        title="Download full bills backup?"
+        description={
+          <>
+            This will download a <strong>CSV file</strong> containing <strong>all bills</strong> for your flat:
+            bill summary, expense items and <strong>every member&apos;s payments</strong> (base share, entry deduction,
+            carry forward, penalty, paid and remaining amounts) for each month.
+          </>
+        }
+        confirmText="Download backup"
+        cancelText="Cancel"
+        onConfirm={() => handleBackupBills()}
+      />
+
       {/* ── Delete ALL Bills Confirm ── */}
       <ConfirmDialog
         open={isDeleteAllBillsOpen}
@@ -1050,7 +1082,7 @@ function BillDetailView({
   onRecordPayment: (p: PaymentRecord) => void;
   onSendReminder: (id: string) => void;
   onDeleteBill?: () => void;
-  onUpdateBill?: (data: { items: BillItem[]; totalAmount: number; month: string; year: number; dueDate: string; entryDeductionEnabled: boolean }) => void;
+  onUpdateBill?: (data: { items: BillItem[]; totalAmount: number; month: string; year: number; dueDate: string; entryDeductionEnabled: boolean }, exitEditMode: () => void) => void;
   onEditError?: (msg: string) => void;
 }) {
   const [expenseOpen, setExpenseOpen] = useState(true);
@@ -1077,15 +1109,11 @@ function BillDetailView({
       return;
     }
     const totalAmount = items.reduce((s, i) => s + i.amount, 0);
-    onUpdateBill?.({
-      items,
-      totalAmount,
-      month: bill.month,
-      year: bill.year,
-      dueDate: editDueDate ? new Date(editDueDate).toISOString() : bill.dueDate,
-      entryDeductionEnabled: editEntryDeduction,
-    });
-    setIsEditing(false);
+    // Pass exitEditMode as a callback; parent calls it AFTER fresh data is in cache
+    onUpdateBill?.(
+      { items, totalAmount, month: bill.month, year: bill.year, dueDate: editDueDate ? new Date(editDueDate).toISOString() : bill.dueDate, entryDeductionEnabled: editEntryDeduction },
+      () => setIsEditing(false)
+    );
   };
 
   const pendingCount = bill.payments.filter(p => {
@@ -1475,6 +1503,42 @@ function BillDetailView({
                     Print invoice
                   </TooltipContent>
                 </Tooltip>
+
+                {/* Share / link button — visible to all */}
+                <DropdownMenu>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-white/70 hover:bg-white/10 hover:text-white">
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="bg-[#1c1b2d] border-white/10 text-white">Share bill</TooltipContent>
+                  </Tooltip>
+                  <DropdownMenuContent align="end" className="bg-[#1c1b2d] border border-white/10 text-white min-w-[170px]">
+                    <DropdownMenuItem
+                      className="flex items-center gap-2 cursor-pointer hover:bg-white/10 focus:bg-white/10"
+                      onClick={() => {
+                        const origin =
+                          typeof window !== "undefined"
+                            ? (import.meta.env.PROD ? "https://roomie.koyeb.app" : window.location.origin)
+                            : "https://roomie.koyeb.app";
+                        const link = `${origin}/payments?billId=${bill._id}`;
+                        navigator.clipboard.writeText(link).then(() => {
+                          // brief visual feedback via title change — toast not available here, parent handles it
+                          const el = document.activeElement as HTMLElement;
+                          el?.blur();
+                        });
+                        const event = new CustomEvent("roomie:toast", { detail: { type: "success", message: "Link copied to clipboard!" } });
+                        window.dispatchEvent(event);
+                      }}
+                    >
+                      <Link className="w-4 h-4 text-[#9f5bf7]" />
+                      Copy link
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="text-right">
                 <p className="text-white/40 text-xs">Total</p>
