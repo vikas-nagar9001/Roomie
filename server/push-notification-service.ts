@@ -386,6 +386,13 @@ export class PushNotificationService {
           
           try {
             const result = await this.pushToUser(title, body, user._id.toString());
+            // Log in-app notification activity for the user so it appears in Notifications UI
+            await storage.logActivity({
+              userId: user._id.toString(),
+              type: "FLAT_MANAGEMENT",
+              description: `Low contribution warning: you are short by ₹${deficit.toFixed(2)} compared to recommended contribution (₹${finalFairShare.toFixed(2)}).`,
+              timestamp: new Date(),
+            });
             warningNotifications.push({
               userId: user._id.toString(),
               userName: user.name,

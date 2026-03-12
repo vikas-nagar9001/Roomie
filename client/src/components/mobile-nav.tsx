@@ -1,5 +1,8 @@
 import { FiHome, FiList, FiUser, FiCreditCard, FiAlertTriangle, FiBell } from "react-icons/fi";
 import { Link, useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
+import type { Activity } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 export function MobileNav() {
   const [location] = useLocation();
@@ -7,8 +10,17 @@ export function MobileNav() {
   // Utility to check active route
   const isActive = (path) => location === path;
 
-  // Replace this with your actual unread notification count
-  const unreadCount = 3;
+  const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
+    queryKey: ["/api/user/activities"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/user/activities");
+      if (!res.ok) throw new Error("Failed to fetch notifications");
+      return res.json();
+    },
+    refetchInterval: 20_000,
+    refetchOnWindowFocus: true,
+  });
+  const unreadCount = activities.filter((a) => !a.read).length;
 
   return (
     <>

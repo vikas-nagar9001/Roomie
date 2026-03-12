@@ -90,6 +90,7 @@ const activitySchema = new mongoose.Schema({
   },
   description: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
+  read: { type: Boolean, default: false },
 });
 
 const penaltySchema = new mongoose.Schema({
@@ -197,6 +198,8 @@ export interface IStorage {
   ): Promise<UserSchema | undefined>;
   logActivity(activity: InsertActivity): Promise<ActivitySchema>;
   getUserActivities(userId: string): Promise<ActivitySchema[]>;
+  markActivityRead(userId: string, activityId: string): Promise<void>;
+  markAllActivitiesRead(userId: string): Promise<void>;
   createBill(data: any): Promise<any>;
   getBillsByFlatId(flatId: string): Promise<any[]>;
   getBillById(billId: string): Promise<any>;
@@ -632,16 +635,44 @@ export class MongoStorage implements IStorage {
   async logActivity(activityData: InsertActivity): Promise<ActivitySchema> {
     const activity = new ActivityModel(activityData);
     await activity.save();
+
+    // Keep at most 30 most recent activities per user to avoid unbounded growth
+    try {
+      const userId = activity.userId;
+      const toDelete = await ActivityModel.find({ userId })
+        .sort({ read: 1, timestamp: -1 })
+        .skip(30) // everything after the newest 30
+        .select("_id")
+        .lean()
+        .exec();
+
+      if (toDelete.length > 0) {
+        const ids = toDelete.map((a: any) => a._id);
+        await ActivityModel.deleteMany({ _id: { $in: ids } });
+      }
+    } catch (e) {
+      console.error("Failed to prune old activities:", e);
+    }
+
     return this.convertId(activity.toObject());
   }
 
   async getUserActivities(userId: string): Promise<ActivitySchema[]> {
-    const activities = await ActivityModel.find({ userId }).sort({ timestamp: -1 });
+    const activities = await ActivityModel.find({ userId })
+      .sort({ read: 1, timestamp: -1 })
+      .limit(30); // keep only the most recent 30 per fetch
     return activities.map(activity => this.convertId(activity.toObject()));
   }
 
   async clearUserActivities(userId: string): Promise<void> {
     await ActivityModel.deleteMany({ userId });
+  }
+  async markActivityRead(userId: string, activityId: string): Promise<void> {
+    await ActivityModel.updateOne({ _id: activityId, userId }, { $set: { read: true } });
+  }
+
+  async markAllActivitiesRead(userId: string): Promise<void> {
+    await ActivityModel.updateMany({ userId, read: false }, { $set: { read: true } });
   }
   async getUserEntriesTotal(userId: string): Promise<number> {
     const entries = await EntryModel.find({ userId: userId });

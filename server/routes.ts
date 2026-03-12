@@ -79,7 +79,6 @@ export function registerRoutes(app: Express): Server {
   });
 
 
-
   // Bulk delete entries
   app.delete("/api/entries/bulk", async (req, res) => {
     if (!req.user) return res.sendStatus(401);
@@ -115,6 +114,30 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to clear activities:", error);
       res.status(500).json({ message: "Failed to clear activities" });
+    }
+  });
+
+  // Mark single activity as read
+  app.patch("/api/user/activities/:id/read", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      await storage.markActivityRead(req.user._id, req.params.id);
+      res.json({ message: "Activity marked as read" });
+    } catch (error) {
+      console.error("Failed to mark activity as read:", error);
+      res.status(500).json({ message: "Failed to mark activity as read" });
+    }
+  });
+
+  // Mark all activities as read
+  app.post("/api/user/activities/read-all", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      await storage.markAllActivitiesRead(req.user._id);
+      res.json({ message: "All activities marked as read" });
+    } catch (error) {
+      console.error("Failed to mark all activities as read:", error);
+      res.status(500).json({ message: "Failed to mark all activities as read" });
     }
   });
 

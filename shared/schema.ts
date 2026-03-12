@@ -135,9 +135,25 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export const insertActivitySchema = z.object({
   userId: z.string(),
-  type: z.enum(["LOGIN", "UPDATE_PROFILE", "CHANGE_PASSWORD", "FLAT_MANAGEMENT", "ENTRY_ADDED", "ENTRY_UPDATED", "ENTRY_DELETED", "ENTRY_RESTORED", "PAYMENT_ADDED", "PAYMENT_STATUS_UPDATED", "PENALTY_ADDED", "PENALTY_UPDATED", "PENALTY_DELETED", "USER_DELETED"]),
+  type: z.enum([
+    "LOGIN",
+    "UPDATE_PROFILE",
+    "CHANGE_PASSWORD",
+    "FLAT_MANAGEMENT",
+    "ENTRY_ADDED",
+    "ENTRY_UPDATED",
+    "ENTRY_DELETED",
+    "ENTRY_RESTORED",
+    "PAYMENT_ADDED",
+    "PAYMENT_STATUS_UPDATED",
+    "PENALTY_ADDED",
+    "PENALTY_UPDATED",
+    "PENALTY_DELETED",
+    "USER_DELETED",
+  ]),
   description: z.string(),
   timestamp: z.date().default(() => new Date()),
+  read: z.boolean().default(false),
 });
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 
@@ -179,6 +195,7 @@ export interface Activity {
   type: ActivityType;
   description: string;
   timestamp: Date;
+  read: boolean;
 }
 
 // Penalty settings interface for TypeScript type checking
