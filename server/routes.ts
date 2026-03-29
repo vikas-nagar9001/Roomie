@@ -90,6 +90,14 @@ export async function snapshotMonthForFlat(flatId: string, year: number, monthIn
   );
 }
 
+function memberUserIdString(m: { userId?: unknown }): string | null {
+  const u = m?.userId as { _id?: unknown } | string | undefined;
+  if (u == null) return null;
+  if (typeof u === "string") return u;
+  const id = (u as { _id?: unknown })._id ?? u;
+  return id != null ? String(id) : null;
+}
+
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
 
 
@@ -1197,29 +1205,72 @@ export function registerRoutes(app: Express): Server {
         members: Array.isArray(i.members) ? i.members.map(String) : []
       }));
 
-      // ── Auto-add "Entries" item from unapplied approved entries ──────────
+      let billMonthIndex = _MONTH_NAMES.indexOf(monthStr);
+      if (billMonthIndex < 0) billMonthIndex = due.getMonth();
+
+      // Optional: which MonthlyHistory row to use (defaults to same month/year as the bill)
+      let historyYear = req.body.historyYear != null && req.body.historyYear !== ""
+        ? Number(req.body.historyYear)
+        : undefined;
+      let historyMonthIndex = req.body.historyMonthIndex != null && req.body.historyMonthIndex !== ""
+        ? Number(req.body.historyMonthIndex)
+        : undefined;
+      // Default: same calendar month as the bill (current month’s monthly history snapshot)
+      if (historyYear == null || isNaN(historyYear) || historyMonthIndex == null || isNaN(historyMonthIndex)) {
+        historyYear = yearNum;
+        historyMonthIndex = billMonthIndex;
+      }
+
       const userEntryMap: Record<string, number> = {};
       const userEntryIds: Record<string, string[]> = {};
+      const userPenaltyMap: Record<string, number> = {};
       let totalEntriesAmount = 0;
+      let usedMonthlyHistorySnapshot = false;
+
       if (entryDeductionEnabled !== false) {
         try {
-          const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
-          for (const entry of unappliedEntries || []) {
-            const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-            const amt = Number(entry.amount) || 0;
-            if (uid && amt > 0) {
-              userEntryMap[uid] = (userEntryMap[uid] || 0) + amt;
-              if (!userEntryIds[uid]) userEntryIds[uid] = [];
-              userEntryIds[uid].push(String(entry._id));
-              totalEntriesAmount += amt;
+          const snapshot = await MonthlyHistoryModel.findOne({
+            flatId,
+            year: historyYear,
+            monthIndex: historyMonthIndex,
+          }).lean() as any;
+
+          if (snapshot && Array.isArray(snapshot.members) && snapshot.members.length > 0) {
+            usedMonthlyHistorySnapshot = true;
+            for (const m of snapshot.members) {
+              const uid = memberUserIdString(m);
+              if (!uid) continue;
+              const entryAmt = Number(m.entryAmount) || 0;
+              const penAmt = Number(m.penaltyAmount) || 0;
+              userEntryMap[uid] = (userEntryMap[uid] || 0) + entryAmt;
+              userPenaltyMap[uid] = (userPenaltyMap[uid] || 0) + penAmt;
+              totalEntriesAmount += entryAmt;
             }
           }
-        } catch (entryErr) {
-          console.warn("Entry fetch failed, continuing without:", entryErr);
+        } catch (histErr) {
+          console.warn("Monthly history lookup failed:", histErr);
         }
-        // Add as expense item so total reflects entries (split equally, recovered via deduction)
+
+        // Fallback: legacy behaviour — live unapplied entries + penalties collections
+        if (!usedMonthlyHistorySnapshot) {
+          try {
+            const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
+            for (const entry of unappliedEntries || []) {
+              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
+              const amt = Number(entry.amount) || 0;
+              if (uid && amt > 0) {
+                userEntryMap[uid] = (userEntryMap[uid] || 0) + amt;
+                if (!userEntryIds[uid]) userEntryIds[uid] = [];
+                userEntryIds[uid].push(String(entry._id));
+                totalEntriesAmount += amt;
+              }
+            }
+          } catch (entryErr) {
+            console.warn("Entry fetch failed, continuing without:", entryErr);
+          }
+        }
+
         if (totalEntriesAmount > 0) {
-          // Remove any existing "Entries" item the admin may have added manually
           const filtered = parsedItems.filter(i => i.name.toLowerCase() !== "entries");
           filtered.push({ name: "Entries", amount: totalEntriesAmount, members: [] });
           parsedItems.length = 0;
@@ -1263,18 +1314,21 @@ export function registerRoutes(app: Express): Server {
           console.warn("Carry-forward lookup failed for user", uid, e);
         }
 
-        // Collect unapplied penalties for this user
         let initialPenalty = 0;
         const userPenaltyIds: string[] = [];
-        try {
-          const unappliedPenalties = await storage.getUnappliedPenaltiesForUser(uid, flatId);
-          for (const p of unappliedPenalties) {
-            initialPenalty += Number(p.amount) || 0;
-            userPenaltyIds.push(String(p._id));
+        if (usedMonthlyHistorySnapshot) {
+          initialPenalty = parseFloat((userPenaltyMap[uid] || 0).toFixed(2));
+        } else {
+          try {
+            const unappliedPenalties = await storage.getUnappliedPenaltiesForUser(uid, flatId);
+            for (const p of unappliedPenalties) {
+              initialPenalty += Number(p.amount) || 0;
+              userPenaltyIds.push(String(p._id));
+            }
+            initialPenalty = parseFloat(initialPenalty.toFixed(2));
+          } catch (e) {
+            console.warn("Unapplied penalty lookup failed for user", uid, e);
           }
-          initialPenalty = parseFloat(initialPenalty.toFixed(2));
-        } catch (e) {
-          console.warn("Unapplied penalty lookup failed for user", uid, e);
         }
 
         const entryDeduction = parseFloat((userEntryMap[uid] || 0).toFixed(2));
@@ -1666,21 +1720,47 @@ export function registerRoutes(app: Express): Server {
         : bill.entryDeductionEnabled;
       const newDueDate = updates.dueDate ?? bill.dueDate;
 
-      // Build per-user entry totals using ONLY entries already locked to this bill
-      // (never re-scan by date — entries are immutable once applied to a bill)
+      // Per-user entry deductions:
+      // - If APPROVED entries are linked to this bill (billId set), sums are authoritative.
+      // - If none are linked (e.g. bill used monthly-history-only create), keep each payment's stored entryDeduction
+      //   so editing split/items does not wipe deductions.
+      const paymentUid = (p: { userId?: { _id?: unknown } | string | null }) =>
+        (p.userId && typeof p.userId === "object" && (p.userId as { _id?: unknown })._id != null
+          ? String((p.userId as { _id: unknown })._id)
+          : p.userId != null
+            ? String(p.userId)
+            : "");
+
       const userEntryMap: Record<string, number> = {};
       if (newEntryDeductionEnabled) {
         try {
           const billEntries = await storage.getEntriesByBillId(req.params.billId);
+          const fromLinkedEntries: Record<string, number> = {};
           for (const entry of billEntries) {
             const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-            if (uid) userEntryMap[uid] = (userEntryMap[uid] || 0) + (Number(entry.amount) || 0);
+            if (uid) {
+              fromLinkedEntries[uid] = (fromLinkedEntries[uid] || 0) + (Number(entry.amount) || 0);
+            }
+          }
+
+          if (billEntries.length > 0) {
+            for (const payment of payments) {
+              const uid = paymentUid(payment);
+              if (!uid) continue;
+              userEntryMap[uid] = parseFloat((fromLinkedEntries[uid] || 0).toFixed(2));
+            }
+          } else {
+            for (const payment of payments) {
+              const uid = paymentUid(payment);
+              if (!uid) continue;
+              userEntryMap[uid] = parseFloat((Number(payment.entryDeduction) || 0).toFixed(2));
+            }
           }
         } catch (e) {
-          // Fallback: keep existing entryDeduction from each payment record unchanged
           console.warn("Entry deduction lookup failed during bill update — keeping existing values:", e);
           for (const payment of payments) {
-            const uid = (payment.userId?._id ?? payment.userId)?.toString?.() ?? String(payment.userId);
+            const uid = paymentUid(payment);
+            if (!uid) continue;
             userEntryMap[uid] = Number(payment.entryDeduction) || 0;
           }
         }
@@ -1702,7 +1782,7 @@ export function registerRoutes(app: Express): Server {
       };
 
       for (const payment of payments) {
-        const uid = (payment.userId?._id ?? payment.userId)?.toString?.() ?? String(payment.userId);
+        const uid = paymentUid(payment);
         const entryDeduction = newEntryDeductionEnabled
           ? parseFloat((userEntryMap[uid] || 0).toFixed(2))
           : 0;
@@ -1721,6 +1801,8 @@ export function registerRoutes(app: Express): Server {
           totalDue,
           dueDate: newDueDate,
           status: newStatus,
+          penalty,
+          penaltyWaived,
         };
         // Set/clear paidAt based on new status
         if (newStatus === "PAID" && !payment.paidAt) {

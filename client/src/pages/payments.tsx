@@ -97,6 +97,27 @@ interface FormBillItem {
   members: string[]; // empty = all members
 }
 
+/** Matches server `_MONTH_NAMES` — used to resolve monthly history row for entry/penalty preview. */
+const CAL_MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+] as const;
+
+interface MonthlyHistoryRecord {
+  _id: string;
+  year: number;
+  monthIndex: number;
+  month: string;
+  members: Array<{
+    name: string;
+    userId?: string | { _id?: string };
+    entryAmount: number;
+    penaltyAmount: number;
+    netAmount?: number;
+  }>;
+  grandTotal?: number;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getInitials = (name: string) =>
@@ -168,6 +189,23 @@ export default function PaymentsPage() {
     queryKey: ["/api/users"],
     enabled: isAdmin,
   });
+
+  const { data: monthlyHistoryRecords = [] } = useQuery<MonthlyHistoryRecord[]>({
+    queryKey: ["/api/monthly-history"],
+    enabled: isAdmin && isCreateBillOpen,
+  });
+
+  /** Same rule as server: entry/penalty amounts from MonthlyHistory for the same month as this bill. */
+  const entryPenaltySource = useMemo(() => {
+    const now = new Date();
+    const billYear = now.getFullYear();
+    const billMonthIndex = now.getMonth();
+    const label = `${CAL_MONTH_NAMES[billMonthIndex]} ${billYear}`;
+    const snap = monthlyHistoryRecords.find(
+      (r) => r.year === billYear && r.monthIndex === billMonthIndex
+    );
+    return { hist: { year: billYear, monthIndex: billMonthIndex }, label, snap };
+  }, [monthlyHistoryRecords, isCreateBillOpen]);
 
   // When opened from notification (e.g. /payments?billId=xxx), select that bill
   const [location] = useLocation();
@@ -273,6 +311,8 @@ export default function PaymentsPage() {
         year: now.getFullYear(),
         dueDate: dueDate.toISOString(),
         entryDeductionEnabled,
+        historyYear: now.getFullYear(),
+        historyMonthIndex: now.getMonth(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -756,9 +796,11 @@ export default function PaymentsPage() {
             {/* Entry deduction toggle */}
             <div className="flex items-center justify-between bg-[#1c1b2d] rounded-lg p-3">
               <div className="pr-4">
-                <p className="text-white text-sm font-medium">Deduct approved entries</p>
+                <p className="text-white text-sm font-medium">Deduct entries &amp; apply penalties</p>
                 <p className="text-white/40 text-xs mt-0.5">
-                  Each member's approved expenses are subtracted from their share
+                  Uses saved <strong className="text-white/60">monthly history</strong> for{" "}
+                  <strong className="text-[#c49bff]">{entryPenaltySource.label}</strong> (same month as this
+                  bill). Entry totals reduce each member&apos;s share; penalty totals add to amount owed.
                 </p>
               </div>
               <Switch
@@ -767,6 +809,47 @@ export default function PaymentsPage() {
                 className="data-[state=checked]:bg-[#582c84] shrink-0"
               />
             </div>
+
+            {entryDeductionEnabled && (
+              <div className="rounded-lg border border-white/10 bg-black/25 overflow-hidden">
+                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between gap-2">
+                  <span className="text-white/70 text-xs font-medium">Entry &amp; penalty (from monthly history)</span>
+                  <span className="text-[10px] text-white/35 truncate">{entryPenaltySource.label}</span>
+                </div>
+                {entryPenaltySource.snap && entryPenaltySource.snap.members?.length ? (
+                  <div className="max-h-48 overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-white/40 border-b border-white/10">
+                          <th className="text-left font-medium py-2 pl-3 pr-2">Member</th>
+                          <th className="text-right font-medium py-2 px-2">Entry</th>
+                          <th className="text-right font-medium py-2 pl-2 pr-3">Penalty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {entryPenaltySource.snap.members.map((m, i) => (
+                          <tr key={i} className="border-b border-white/[0.06] last:border-0">
+                            <td className="py-2 pl-3 pr-2 text-white/90">{m.name}</td>
+                            <td className="py-2 px-2 text-right text-emerald-400/90">
+                              {(m.entryAmount ?? 0) > 0 ? `−${fmt(m.entryAmount ?? 0)}` : "—"}
+                            </td>
+                            <td className="py-2 pl-2 pr-3 text-right text-red-400/90">
+                              {(m.penaltyAmount ?? 0) > 0 ? `+${fmt(m.penaltyAmount ?? 0)}` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="px-3 py-3 text-amber-200/80 text-xs leading-relaxed">
+                    No snapshot found for <strong>{entryPenaltySource.label}</strong>. Create one from{" "}
+                    <strong>History</strong> (monthly snapshot), or the server will fall back to unapplied entries/penalties
+                    in the database (legacy).
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Due date */}
             <div className="space-y-1.5">
