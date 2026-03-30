@@ -1,6 +1,17 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, PaymentModel, BillModel } from "./storage";
+import { accountingMonthFromDate, accountingMonthFromBillFields, parseAccountingMonthKey } from "./lib/accounting-month";
+import {
+  assertEntryLedgerOpen,
+  assertBillLedgerOpen,
+  assertPaymentLedgerOpen,
+  assertPenaltyLedgerOpen,
+  assertMonthEditable,
+  resolveEntryMonthKey,
+  resolveBillMonthKey,
+} from "./month-guards";
+import { MONTH_LOCKED_DEFAULT_MESSAGE } from "./lib/month-ledger-error";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { sendInviteEmail, sendPasswordResetEmail } from "./email";
@@ -17,38 +28,33 @@ import { applyPenaltiesForFlat } from "./penalty-checker";
 import { clearPenaltyInterval } from "./penalty-checker";
 import { PushNotificationService } from "./push-notification-service";
 import mongoose from "mongoose";
+import {
+  MonthlyHistoryModel,
+  MONTH_LONG_NAMES,
+  accountingMonthKeyFromParts,
+} from "./schemas/monthly-history";
 
-// ─── MonthlyHistory Model (seeded summary data) ───────────────────────────────
-const _memberEntrySchema = new mongoose.Schema({
-  name:          String,
-  userId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-  entryAmount:   { type: Number, default: 0 },
-  penaltyAmount: { type: Number, default: 0 },
-  netAmount:     { type: Number, default: 0 },
-});
-const _monthlyHistorySchema = new mongoose.Schema({
-  flatId:     { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  month:      String,
-  year:       Number,
-  monthIndex: Number,
-  members:    [_memberEntrySchema],
-  grandTotal: { type: Number, default: 0 },
-  createdAt:  { type: Date, default: Date.now },
-});
-const MonthlyHistoryModel =
-  mongoose.models["MonthlyHistory"] ??
-  mongoose.model("MonthlyHistory", _monthlyHistorySchema);
+/** Defensive: same Mongo _id must not appear twice in history payloads (avoids duplicate timeline rows). */
+function dedupeLedgerById<T extends { _id?: unknown }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of rows) {
+    const id = r._id != null ? String(r._id) : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(r);
+  }
+  return out;
+}
 
 // ─── Standalone snapshot helper (also used by penalty-checker auto-snapshot) ──
-const _MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-
 export async function snapshotMonthForFlat(flatId: string, year: number, monthIndex: number) {
   const startOfMonth = new Date(year, monthIndex, 1);
   const endOfMonth   = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
 
   const [allEntries, allPenalties, users] = await Promise.all([
-    storage.getEntriesByFlatId(flatId),
-    storage.getPenaltiesByFlatId(flatId),
+    storage.getEntriesByFlatId(flatId, { includeArchived: true, includeDeleted: true }),
+    storage.getPenaltiesByFlatId(flatId, { includeArchived: true, includeDeleted: true }),
     storage.getUsersByFlatId(flatId),
   ]);
 
@@ -82,11 +88,27 @@ export async function snapshotMonthForFlat(flatId: string, year: number, monthIn
     netAmount: m.entryAmount - m.penaltyAmount,
   }));
   const grandTotal = members.reduce((s, m) => s + m.entryAmount, 0);
+  const accountingMonth = accountingMonthKeyFromParts(year, monthIndex);
+  const now = new Date();
 
   return MonthlyHistoryModel.findOneAndUpdate(
     { flatId, year, monthIndex },
-    { flatId, month: _MONTH_NAMES[monthIndex], year, monthIndex, members, grandTotal, createdAt: new Date() },
-    { upsert: true, new: true }
+    {
+      $set: {
+        flatId,
+        month: MONTH_LONG_NAMES[monthIndex],
+        year,
+        monthIndex,
+        members,
+        grandTotal,
+        accountingMonth,
+        lifecycleStatus: "active",
+        isDeleted: false,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true, new: true },
   );
 }
 
@@ -131,6 +153,48 @@ const upload = multer({
 export function registerRoutes(app: Express): Server {
   setupAuth(app);
 
+  /** Standard 403 MONTH_LOCKED, 404 guard misses, 400 invalid month key */
+  function ledgerWriteErrorResponse(res: express.Response, err: unknown): boolean {
+    const e = err as { statusCode?: number; code?: string; message?: string };
+    if (e?.statusCode === 403 && e?.code === "MONTH_LOCKED") {
+      res.status(403).json({
+        error: "MONTH_LOCKED",
+        message: e.message || MONTH_LOCKED_DEFAULT_MESSAGE,
+      });
+      return true;
+    }
+    if (e?.statusCode === 404 && typeof e.message === "string") {
+      res.status(404).json({ message: e.message });
+      return true;
+    }
+    if (e?.statusCode === 400 && e?.code === "INVALID_MONTH_KEY") {
+      res.status(400).json({ error: e.code, message: e.message });
+      return true;
+    }
+    if (
+      e?.statusCode === 400 &&
+      (e.code === "MISSING_DATETIME" ||
+        e.code === "INVALID_DATETIME" ||
+        typeof e.message === "string")
+    ) {
+      res
+        .status(400)
+        .json({
+          ...(e.code ? { error: e.code } : {}),
+          message: e.message || "Bad request",
+        });
+      return true;
+    }
+    if (e?.statusCode === 409 && e?.code === "NEWER_MONTH_ACTIVE") {
+      res.status(409).json({
+        error: "NEWER_MONTH_ACTIVE",
+        message: e.message || "A newer accounting month is still open",
+      });
+      return true;
+    }
+    return false;
+  }
+
   // Create uploads directory if it doesn't exist
   const uploadsDir = "./uploads/profiles";
   if (!existsSync(uploadsDir)) {
@@ -169,8 +233,16 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "entryIds must be an array" });
       }
 
-      // Delete all entries and log the activity
-      await Promise.all(entryIds.map(id => storage.deleteEntry(id)));
+      for (const id of entryIds) {
+        const ent = await storage.getEntryById(String(id));
+        if (!ent) continue;
+        try {
+          await assertEntryLedgerOpen(storage, req.user.flatId, ent);
+        } catch {
+          continue;
+        }
+        await storage.deleteEntry(String(id));
+      }
 
       await storage.logActivity({
         userId: req.user._id,
@@ -372,13 +444,115 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     try {
       const [entries, penalties] = await Promise.all([
-        storage.getEntriesByFlatId(req.user.flatId),
-        storage.getPenaltiesByFlatId(req.user.flatId),
+        storage.getEntriesByFlatId(req.user.flatId, { includeArchived: true, includeDeleted: true }),
+        storage.getPenaltiesByFlatId(req.user.flatId, { includeArchived: true, includeDeleted: true }),
       ]);
-      res.json({ entries, penalties });
+      res.json({
+        entries: dedupeLedgerById(entries),
+        penalties: dedupeLedgerById(penalties),
+      });
     } catch (error) {
       console.error("Failed to get history:", error);
       res.status(500).json({ message: "Failed to get history" });
+    }
+  });
+
+  // ─── Accounting month ledger (per flat, YYYY-MM) ───────────────────────────
+  app.get("/api/flat-months", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    try {
+      const rows = await storage.listFlatMonths(req.user.flatId);
+      res.json(rows);
+    } catch (error) {
+      console.error("Failed to list flat months:", error);
+      res.status(500).json({ message: "Failed to list months" });
+    }
+  });
+
+  /** Close month: writes MonthlyHistory snapshot (non-destructive), then archives ledger rows. */
+  app.post("/api/flat-months/:monthKey/close", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can close a month" });
+    }
+    const monthKey = req.params.monthKey;
+    const parsed = parseAccountingMonthKey(monthKey);
+    if (!parsed) {
+      return res.status(400).json({ message: "Invalid monthKey — use YYYY-MM" });
+    }
+    try {
+      try {
+        await snapshotMonthForFlat(req.user.flatId, parsed.year, parsed.monthIndex);
+      } catch (snapErr) {
+        console.warn("Monthly snapshot during close failed (continuing with archive):", snapErr);
+      }
+      const stats = await storage.closeFlatMonth(req.user.flatId, monthKey, req.user._id);
+      res.json({
+        message: stats.alreadyClosed
+          ? `Month ${monthKey} was already closed; ledger reconciled`
+          : `Month ${monthKey} closed and archived`,
+        stats,
+        alreadyClosed: stats.alreadyClosed,
+      });
+    } catch (error: any) {
+      console.error("Close month failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to close month" });
+    }
+  });
+
+  /**
+   * Same behaviour as POST /api/flat-months/:monthKey/close (explicit flatId in path).
+   * month must be YYYY-MM.
+   */
+  app.post("/api/months/:flatId/:month/close", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.status(403).json({ message: "Only admins can close a month" });
+    }
+    const { flatId, month: monthKey } = req.params;
+    if (String(flatId) !== String(req.user.flatId)) {
+      return res.status(403).json({ message: "Cannot close month for another flat" });
+    }
+    const parsed = parseAccountingMonthKey(monthKey);
+    if (!parsed) {
+      return res.status(400).json({ message: "Invalid month — use YYYY-MM" });
+    }
+    try {
+      try {
+        await snapshotMonthForFlat(req.user.flatId, parsed.year, parsed.monthIndex);
+      } catch (snapErr) {
+        console.warn("Monthly snapshot during close failed (continuing with archive):", snapErr);
+      }
+      const stats = await storage.closeFlatMonth(req.user.flatId, monthKey, req.user._id);
+      res.json({
+        message: stats.alreadyClosed
+          ? `Month ${monthKey} was already closed; ledger reconciled`
+          : `Month ${monthKey} closed and archived`,
+        stats,
+        alreadyClosed: stats.alreadyClosed,
+      });
+    } catch (error: any) {
+      console.error("Close month failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to close month" });
+    }
+  });
+
+  /** Re-open month (ADMIN only) — use sparingly; breaks immutability guarantees. */
+  app.post("/api/flat-months/:monthKey/reopen", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ message: "Only the primary admin can reopen a month" });
+    }
+    const monthKey = req.params.monthKey;
+    if (!parseAccountingMonthKey(monthKey)) {
+      return res.status(400).json({ message: "Invalid monthKey — use YYYY-MM" });
+    }
+    try {
+      await storage.reopenFlatMonth(req.user.flatId, monthKey, req.user._id);
+      res.json({ message: `Month ${monthKey} reopened for edits` });
+    } catch (error: any) {
+      console.error("Reopen month failed:", error);
+      res.status(500).json({ message: error?.message || "Failed to reopen month" });
     }
   });
 
@@ -487,7 +661,7 @@ export function registerRoutes(app: Express): Server {
       const targetMonth = req.body.monthIndex != null ? Number(req.body.monthIndex) : (now.getMonth() === 0 ? 11 : now.getMonth() - 1);
 
       const record = await snapshotMonthForFlat(req.user.flatId, targetYear, targetMonth);
-      res.json({ message: `Snapshot saved for ${_MONTH_NAMES[targetMonth]} ${targetYear}`, record });
+      res.json({ message: `Snapshot saved for ${MONTH_LONG_NAMES[targetMonth]} ${targetYear}`, record });
     } catch (error) {
       console.error("Failed to create monthly history snapshot:", error);
       res.status(500).json({ message: "Failed to create snapshot" });
@@ -623,7 +797,16 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const { userId, type, amount, description, image, adminMessage } = req.body;
+      const { userId, type, amount, description, image, incurredAt } = req.body;
+      const refDate =
+        incurredAt != null && incurredAt !== ""
+          ? new Date(incurredAt)
+          : new Date();
+      if (isNaN(refDate.getTime())) {
+        return res.status(400).json({ message: "Invalid incurredAt" });
+      }
+      const mk = accountingMonthFromDate(refDate);
+      await storage.assertAccountingMonthOpen(req.user.flatId, mk);
 
       const penalty = await storage.createPenalty({
         userId,
@@ -632,7 +815,8 @@ export function registerRoutes(app: Express): Server {
         description,
         image,
         flatId: req.user.flatId,
-        createdBy: req.user._id
+        createdBy: req.user._id,
+        incurredAt: refDate,
       });
 
       await storage.logActivity({
@@ -668,8 +852,9 @@ export function registerRoutes(app: Express): Server {
       }
 
       res.status(201).json(penalty);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create penalty:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to create penalty" });
     }
   });
@@ -683,19 +868,47 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { penaltyId } = req.params;
-      const { type, amount, description, image } = req.body;
+      const { type, amount, description, image, incurredAt } = req.body;
 
       // Get the original penalty to know the old amount and user
       const originalPenalty = await storage.getPenalty(penaltyId);
       if (!originalPenalty) {
         return res.status(404).json({ message: "Penalty not found" });
       }
+      try {
+        await assertPenaltyLedgerOpen(storage, req.user.flatId, originalPenalty as any);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
+
+      if (incurredAt != null && incurredAt !== "") {
+        const nd = new Date(incurredAt);
+        if (isNaN(nd.getTime())) {
+          return res.status(400).json({ message: "Invalid incurredAt" });
+        }
+        const newMk = accountingMonthFromDate(nd);
+        const op = originalPenalty as { incurredAt?: Date; createdAt?: Date };
+        const oldRef = op.incurredAt || op.createdAt;
+        const oldMk = accountingMonthFromDate(new Date(oldRef || Date.now()));
+        if (newMk !== oldMk) {
+          try {
+            await assertMonthEditable(storage, req.user.flatId, newMk);
+          } catch (monthErr: any) {
+            if (ledgerWriteErrorResponse(res, monthErr)) return;
+            throw monthErr;
+          }
+        }
+      }
 
       const updatedPenalty = await storage.updatePenalty(penaltyId, {
         type,
         amount: Number(amount),
         description,
-        image
+        image,
+        ...(incurredAt != null && incurredAt !== ""
+          ? { incurredAt: new Date(incurredAt) }
+          : {}),
       });
 
       if (!updatedPenalty) {
@@ -752,6 +965,7 @@ export function registerRoutes(app: Express): Server {
       res.json(updatedPenalty);
     } catch (error) {
       console.error("Failed to update penalty:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to update penalty" });
     }
   });
@@ -771,6 +985,12 @@ export function registerRoutes(app: Express): Server {
       if (!penalty) {
         return res.status(404).json({ message: "Penalty not found" });
       }
+      try {
+        await assertPenaltyLedgerOpen(storage, req.user.flatId, penalty as any);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
 
       const success = await storage.deletePenalty(penaltyId);
 
@@ -778,35 +998,51 @@ export function registerRoutes(app: Express): Server {
         return res.status(404).json({ message: "Penalty not found" });
       }
 
+      const penaltyUserId =
+        typeof penalty.userId === "object" && penalty.userId !== null
+          ? String((penalty.userId as { _id?: unknown })._id ?? "")
+          : String(penalty.userId);
+
       // 🔗 Reverse penalty amount only if this penalty was already applied to a specific bill
       try {
-        const penaltyUserId = typeof penalty.userId === 'object' && penalty.userId !== null
-          ? (penalty.userId as any)._id?.toString() ?? String(penalty.userId)
-          : String(penalty.userId);
-        if (penalty.billId) {
-          await storage.adjustPaymentPenalty(penaltyUserId, req.user.flatId, -Number(penalty.amount), String(penalty.billId));
+        if (penalty.billId && penaltyUserId) {
+          await storage.adjustPaymentPenalty(
+            penaltyUserId,
+            req.user.flatId,
+            -Number(penalty.amount),
+            String(penalty.billId),
+          );
         }
       } catch (syncErr) {
         console.warn("Failed to sync penalty deletion to payment record:", syncErr);
       }
 
-      await storage.logActivity({
-        userId: req.user._id,
-        type: "PENALTY_DELETED",
-        description: `Removed ${penalty.type} penalty of ₹${penalty.amount} for ${(await storage.getUser(String(penalty.userId)))?.name ?? String(penalty.userId)}`,
-        timestamp: new Date(),
-      });
+      // Non-blocking: failures here must not undo a successful delete (client was getting 500 while row was soft-deleted)
+      try {
+        const victimName =
+          (penaltyUserId ? (await storage.getUser(penaltyUserId))?.name : undefined) ??
+          penaltyUserId;
+        await storage.logActivity({
+          userId: req.user._id,
+          type: "PENALTY_DELETED",
+          description: `Removed ${penalty.type} penalty of ₹${penalty.amount} for ${victimName}`,
+          timestamp: new Date(),
+          read: false,
+        });
+      } catch (logErr) {
+        console.warn("Penalty deleted but activity log failed:", logErr);
+      }
 
       // Send penalty deleted notification
       try {
         const { PushNotificationService } = await import('./push-notification-service.js');
-        const notificationService = new PushNotificationService(penalty.flatId);
+        const notificationService = new PushNotificationService(String(penalty.flatId));
         await notificationService.notifyPenaltyDeleted(
-          { id: penalty.userId },
-          { 
-            desc: penalty.description || 'Penalty',
-            amount: penalty.amount
-          }
+          { id: penaltyUserId },
+          {
+            desc: penalty.description || "Penalty",
+            amount: penalty.amount,
+          },
         );
 
         // ⚠️ Check and notify users with low contribution warnings after penalty deleted
@@ -826,6 +1062,7 @@ export function registerRoutes(app: Express): Server {
       res.json({ message: "Penalty deleted successfully" });
     } catch (error) {
       console.error("Failed to delete penalty:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to delete penalty" });
     }
   });
@@ -996,14 +1233,20 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
 
     try {
-      const { name, amount } = req.body;
+      const { name, amount, dateTime: bodyDate } = req.body;
       const flat = await storage.getFlat(req.user.flatId);
+      const dateTime = bodyDate ? new Date(bodyDate) : new Date();
+      if (isNaN(dateTime.getTime())) {
+        return res.status(400).json({ message: "Invalid dateTime" });
+      }
+      const monthKey = accountingMonthFromDate(dateTime);
+      await storage.assertAccountingMonthOpen(req.user.flatId, monthKey);
 
       const entry = await storage.createEntry({
         name,
         amount,
-        dateTime: new Date(),        status:
-          amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
+        dateTime,
+        status: amount > (flat.minApprovalAmount || 200) ? "PENDING" : "APPROVED",
         userId: req.user._id,
         flatId: req.user.flatId,
       });
@@ -1039,8 +1282,9 @@ export function registerRoutes(app: Express): Server {
       }
 
       res.status(201).json(entry);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create entry:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to create entry" });
     }
   });
@@ -1205,9 +1449,13 @@ export function registerRoutes(app: Express): Server {
         members: Array.isArray(i.members) ? i.members.map(String) : []
       }));
 
-      let billMonthIndex = _MONTH_NAMES.indexOf(monthStr);
+      let billMonthIndex = [...MONTH_LONG_NAMES].indexOf(monthStr);
       if (billMonthIndex < 0) billMonthIndex = due.getMonth();
 
+      const billAccountingMonthKey = `${yearNum}-${String(billMonthIndex + 1).padStart(2, "0")}`;
+      await storage.assertAccountingMonthOpen(flatId, billAccountingMonthKey);
+
+      // Optional cache: MonthlyHistory snapshot (non-authoritative). If missing or unusable, live Entry/Penalty data is used below.
       // Optional: which MonthlyHistory row to use (defaults to same month/year as the bill)
       let historyYear = req.body.historyYear != null && req.body.historyYear !== ""
         ? Number(req.body.historyYear)
@@ -1230,9 +1478,21 @@ export function registerRoutes(app: Express): Server {
       if (entryDeductionEnabled !== false) {
         try {
           const snapshot = await MonthlyHistoryModel.findOne({
-            flatId,
-            year: historyYear,
-            monthIndex: historyMonthIndex,
+            $and: [
+              { flatId, year: historyYear, monthIndex: historyMonthIndex },
+              {
+                $or: [
+                  { isDeleted: { $ne: true } },
+                  { isDeleted: { $exists: false } },
+                ],
+              },
+              {
+                $or: [
+                  { lifecycleStatus: { $ne: "archived" } },
+                  { lifecycleStatus: { $exists: false } },
+                ],
+              },
+            ],
           }).lean() as any;
 
           if (snapshot && Array.isArray(snapshot.members) && snapshot.members.length > 0) {
@@ -1385,6 +1645,7 @@ export function registerRoutes(app: Express): Server {
       res.status(201).json({ ...bill, payments });
     } catch (error: any) {
       console.error("Failed to create bill:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       const msg = error?.message || "Failed to create bill";
       res.status(500).json({ message: msg });
     }
@@ -1450,6 +1711,26 @@ export function registerRoutes(app: Express): Server {
         const dueDate = b.dueDate ? new Date(b.dueDate) : new Date(Number(b.year), mi >= 0 ? mi : 0, 5);
         const monthStr = String(b.month || dueDate.toLocaleString("default", { month: "long" })).trim();
         const yearNum = Number(b.year) || dueDate.getFullYear();
+        let billMk: string;
+        try {
+          billMk = accountingMonthFromBillFields(monthStr, yearNum);
+        } catch {
+          errors.push(`${b.month} ${b.year}: invalid month name`);
+          continue;
+        }
+        try {
+          await assertMonthEditable(storage, flatId, billMk);
+        } catch (err: any) {
+          if (err?.statusCode === 403 && err?.code === "MONTH_LOCKED") {
+            errors.push(`${b.month} ${b.year}: month is locked`);
+            continue;
+          }
+          if (err?.statusCode === 400) {
+            errors.push(`${b.month} ${b.year}: ${err.message}`);
+            continue;
+          }
+          throw err;
+        }
         const bill = await storage.createBill({
           items: items.map(i => ({ name: String(i.name || "").trim(), amount: Number(i.amount) || 0 })),
           totalAmount,
@@ -1565,6 +1846,12 @@ export function registerRoutes(app: Express): Server {
       const bill = await storage.getBillById(req.params.billId);
       if (!bill) return res.status(404).json({ message: "Bill not found" });
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
+      try {
+        await assertBillLedgerOpen(storage, req.user.flatId, bill);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
       const payments = await storage.getPaymentsByBillId(bill._id);
       let updated = 0;
       for (const p of payments) {
@@ -1628,6 +1915,12 @@ export function registerRoutes(app: Express): Server {
             return uid === (user._id && typeof user._id === "string" ? user._id : String(user._id));
           });
           if (!payment) continue;
+          try {
+            await assertPaymentLedgerOpen(storage, flatId, payment as any);
+          } catch (guardErr: any) {
+            if (ledgerWriteErrorResponse(res, guardErr)) return;
+            throw guardErr;
+          }
           await storage.updatePayment(payment._id, { penalty: Number(penalty), penaltyWaived: false });
           applied++;
         }
@@ -1687,6 +1980,12 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
+      try {
+        await assertBillLedgerOpen(storage, req.user.flatId, bill);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
       const { items, totalAmount, month, year, dueDate, entryDeductionEnabled } = req.body;
       const updates: any = {};
       if (items != null && Array.isArray(items)) {
@@ -1706,10 +2005,29 @@ export function registerRoutes(app: Express): Server {
       }
       if (entryDeductionEnabled !== undefined) updates.entryDeductionEnabled = !!entryDeductionEnabled;
 
+      const mergedBill = {
+        month: String(updates.month ?? bill.month),
+        year: Number(updates.year ?? bill.year),
+        dueDate: updates.dueDate ?? bill.dueDate,
+      };
+      let effectiveMk: string;
+      try {
+        effectiveMk = resolveBillMonthKey(mergedBill);
+      } catch (monthErr: any) {
+        if (ledgerWriteErrorResponse(res, monthErr)) return;
+        throw monthErr;
+      }
+      try {
+        await assertMonthEditable(storage, req.user.flatId, effectiveMk);
+      } catch (monthErr: any) {
+        if (ledgerWriteErrorResponse(res, monthErr)) return;
+        throw monthErr;
+      }
+
       const payments = await storage.getPaymentsByBillId(req.params.billId);
       const userCount = Math.max(1, payments.length);
-      // splitAmount = average (for display); always derived from the new totalAmount
-      updates.splitAmount = parseFloat((updates.totalAmount / userCount).toFixed(2));
+      const nextTotal = updates.totalAmount ?? bill.totalAmount;
+      updates.splitAmount = parseFloat((nextTotal / userCount).toFixed(2));
 
       const updated = await storage.updateBill(req.params.billId, updates);
       if (!updated) return res.status(500).json({ message: "Failed to update bill" });
@@ -1819,6 +2137,7 @@ export function registerRoutes(app: Express): Server {
       res.json({ ...updated, payments: updatedPayments });
     } catch (error: any) {
       console.error("Failed to update bill:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: error?.message || "Failed to update bill" });
     }
   });
@@ -1835,11 +2154,18 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
+      try {
+        await assertBillLedgerOpen(storage, req.user.flatId, bill);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
       const ok = await storage.deleteBill(req.params.billId);
       if (!ok) return res.status(500).json({ message: "Failed to delete bill" });
       res.status(200).json({ message: "Bill deleted" });
     } catch (error: any) {
       console.error("Failed to delete bill:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to delete bill" });
     }
   });
@@ -1852,9 +2178,15 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const existing = await PaymentModel.findById(req.params.id);
+      const existing = await PaymentModel.findById(req.params.id).lean();
       if (!existing) return res.status(404).json({ message: "Payment not found" });
       if (existing.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
+      try {
+        await assertPaymentLedgerOpen(storage, req.user.flatId, existing as any);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
 
       const newPaidAmount = req.body.paidAmount !== undefined
         ? parseFloat(req.body.paidAmount)
@@ -1899,6 +2231,7 @@ export function registerRoutes(app: Express): Server {
       res.json(updated);
     } catch (error) {
       console.error("Failed to update payment:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to update payment" });
     }
   });
@@ -2060,15 +2393,33 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     try {
       const { id } = req.params;
-      
-      // Get the original entry to know the owner
-      const originalEntry = await storage.getEntriesByFlatId(req.user.flatId)
-        .then(entries => entries.find(e => e && e._id.toString() === id));
-      
+      const originalEntry = await storage.getEntryById(id);
       if (!originalEntry) {
         return res.status(404).json({ message: "Entry not found" });
       }
-      
+      try {
+        await assertEntryLedgerOpen(storage, req.user.flatId, originalEntry);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
+
+      if (req.body.dateTime != null) {
+        const nd = new Date(req.body.dateTime);
+        if (!isNaN(nd.getTime())) {
+          const newMk = accountingMonthFromDate(nd);
+          const oldMk = resolveEntryMonthKey(originalEntry);
+          if (newMk !== oldMk) {
+            try {
+              await assertMonthEditable(storage, req.user.flatId, newMk);
+            } catch (monthErr: any) {
+              if (ledgerWriteErrorResponse(res, monthErr)) return;
+              throw monthErr;
+            }
+          }
+        }
+      }
+
       const entry = await storage.updateEntry(id, req.body);
       
       // 📢 Send notification to entry owner if someone else updated their entry
@@ -2111,6 +2462,7 @@ export function registerRoutes(app: Express): Server {
       res.json(entry);
     } catch (error) {
       console.error("Failed to update entry:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to update entry" });
     }
   });
@@ -2120,11 +2472,17 @@ export function registerRoutes(app: Express): Server {
     if (!req.user) return res.sendStatus(401);
     try {
       const { id } = req.params;
-      
-      // Get entry details before deletion for notification
-      const entryToDelete = await storage.getEntriesByFlatId(req.user.flatId)
-        .then(entries => entries.find(e => e._id.toString() === id));
-      
+      const entryToDelete = await storage.getEntryById(id);
+      if (!entryToDelete) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      try {
+        await assertEntryLedgerOpen(storage, req.user.flatId, entryToDelete);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
+
       const success = await storage.deleteEntry(id);
 
       if (!success) {
@@ -2178,6 +2536,7 @@ export function registerRoutes(app: Express): Server {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete entry:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to delete entry" });
     }
   });
@@ -2191,6 +2550,15 @@ export function registerRoutes(app: Express): Server {
 
     try {
       const { id, action } = req.params;
+      const existing = await storage.getEntryById(id);
+      if (!existing) return res.status(404).json({ message: "Entry not found" });
+      try {
+        await assertEntryLedgerOpen(storage, req.user.flatId, existing);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
+
       const entry = await storage.updateEntry(id, {
         status: action.toUpperCase(),
       });
@@ -2198,6 +2566,7 @@ export function registerRoutes(app: Express): Server {
       res.json(entry);
     } catch (error) {
       console.error("Failed to update entry status:", error);
+      if (ledgerWriteErrorResponse(res, error)) return;
       res.status(500).json({ message: "Failed to update entry status" });
     }
   });
@@ -2249,14 +2618,23 @@ export function registerRoutes(app: Express): Server {
     }
 
     try {
-      const payment = await PaymentModel.findByIdAndUpdate(
-        req.params.id,
-        { penaltyWaived: req.body.waived },
-        { new: true }
-      );
+      const existing = await PaymentModel.findById(req.params.id).lean();
+      if (!existing) return res.status(404).json({ message: "Payment not found" });
+      if (existing.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
+      try {
+        await assertPaymentLedgerOpen(storage, req.user.flatId, existing as any);
+      } catch (guardErr: any) {
+        if (ledgerWriteErrorResponse(res, guardErr)) return;
+        throw guardErr;
+      }
+
+      const payment = await storage.updatePayment(req.params.id, {
+        penaltyWaived: req.body.waived,
+      });
       res.json(payment);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update penalty" });
+      if (ledgerWriteErrorResponse(res, error)) return;
+      res.status(500).json({ message: "Failed to update payment penalty waiver" });
     }
   });
 

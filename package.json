@@ -8,7 +8,11 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "cross-env NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "migrate:ledger": "tsx server/scripts/migrate-accounting-ledger.ts",
+    "migrate:consistency": "tsx server/scripts/migrate-ledger-consistency.ts",
+    "migrate:monthly-history": "tsx server/scripts/migrate-monthly-history-ledger-fields.ts",
+    "migrate:schema-alignment": "tsx server/scripts/migrate-schema-alignment.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

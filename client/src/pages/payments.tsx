@@ -29,6 +29,23 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
+import {
+  usePaymentsMonthLock,
+  usePaymentsIsMonthLocked,
+} from "@/hooks/use-payments-month-lock";
+import { monthLockActionAria, monthLockBlockTooltip } from "@/constants/month-lock";
+import {
+  MonthLockIcon,
+  MonthLockedBanner,
+  MonthLockStatusSkeleton,
+  MonthLockUnavailableBanner,
+  lockedRowClassName,
+  monthLockWaitCursor,
+} from "@/components/month-lock-ui";
+import {
+  accountingMonthKeyFromBillMonth,
+  accountingMonthKeyFromDate,
+} from "@/lib/accounting-month";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -136,6 +153,14 @@ const getEffectiveTotalDue = (p: PaymentRecord) => {
 export default function PaymentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN" || user?.role === "CO_ADMIN";
+  const {
+    interactionDisabled,
+    monthStatus,
+    gateReason,
+    isLocked,
+  } = usePaymentsMonthLock();
+  const currentMonthKey = accountingMonthKeyFromDate(new Date());
+  const createBillMonthLocked = interactionDisabled(currentMonthKey);
 
   useEffect(() => {
     showLoader();
@@ -253,6 +278,11 @@ export default function PaymentsPage() {
   }, [paymentSettings]);
 
   // ─── Derived Stats ───────────────────────────────────────────────────────────
+  const selectedBillMonthKey = billDetail
+    ? accountingMonthKeyFromBillMonth(billDetail.year, billDetail.month)
+    : null;
+  const selectedBillActionsLocked = interactionDisabled(selectedBillMonthKey);
+
   const stats = useMemo(() => {
     if (!billDetail?.payments) return { total: 0, received: 0, pending: 0 };
     const payments = billDetail.payments;
@@ -292,6 +322,10 @@ export default function PaymentsPage() {
   // ─── Mutations ───────────────────────────────────────────────────────────────
   const createBillMutation = useMutation({
     mutationFn: async () => {
+      if (createBillMonthLocked) {
+        throw new Error(monthLockBlockTooltip(gateReason(currentMonthKey)));
+      }
+
       const items = billItems
         .filter(i => i.name.trim() && parseFloat(i.amount) > 0)
         .map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount), members: i.members }));
@@ -339,6 +373,9 @@ export default function PaymentsPage() {
   const recordPaymentMutation = useMutation({
     mutationFn: async () => {
       if (!recordPayment) throw new Error("No payment selected");
+      if (selectedBillActionsLocked) {
+        throw new Error(monthLockBlockTooltip(gateReason(selectedBillMonthKey)));
+      }
       const amount = parseFloat(recordPaymentAmount);
       if (isNaN(amount) || amount <= 0) throw new Error("Enter a valid amount");
       const totalDue = getEffectiveTotalDue(recordPayment);
@@ -555,17 +592,53 @@ export default function PaymentsPage() {
                 <p className="text-white/40 text-xs mt-1.5">
                   {isAdmin ? "You can create, edit, record payments & print. Others can view & print." : "You can view bills and print your invoice."}
                 </p>
+                {isAdmin && (
+                  <>
+                    {monthStatus === "unavailable" && (
+                      <MonthLockUnavailableBanner className="mt-3 max-w-xl" />
+                    )}
+                    {monthStatus === "loading" && (
+                      <MonthLockStatusSkeleton className="mt-3" />
+                    )}
+                    {monthStatus === "ready" && isLocked(currentMonthKey) && (
+                      <MonthLockedBanner className="mt-3 max-w-xl" />
+                    )}
+                  </>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 {isAdmin && (
                   <>
-                    <Button
-                      onClick={() => setIsCreateBillOpen(true)}
-                      className="flex items-center gap-2 bg-[#582c84] hover:bg-[#6b35a0] text-white"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Create Bill
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={
+                            createBillMonthLocked
+                              ? `inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                              : "inline-block"
+                          }
+                        >
+                          <Button
+                            disabled={createBillMonthLocked}
+                            onClick={() => !createBillMonthLocked && setIsCreateBillOpen(true)}
+                            aria-label={
+                              createBillMonthLocked
+                                ? monthLockActionAria("Create bill", gateReason(currentMonthKey))
+                                : "Create bill"
+                            }
+                            className="flex items-center gap-2 bg-[#582c84] hover:bg-[#6b35a0] text-white disabled:opacity-40"
+                          >
+                            <Plus className="h-4 w-4" aria-hidden />
+                            Create Bill
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {createBillMonthLocked && (
+                        <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+                          {monthLockBlockTooltip(gateReason(currentMonthKey))}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                     <Button
                       variant="outline"
                       onClick={() => setIsBackupConfirmOpen(true)}
@@ -625,7 +698,18 @@ export default function PaymentsPage() {
 
           {/* ── Main Content ── */}
           {bills.length === 0 ? (
-            <EmptyState isAdmin={isAdmin} onCreateBill={() => setIsCreateBillOpen(true)} />
+            <EmptyState
+              isAdmin={isAdmin}
+              monthLockLoading={monthStatus === "loading"}
+              createBillDisabled={createBillMonthLocked}
+              createBillTooltip={monthLockBlockTooltip(gateReason(currentMonthKey))}
+              createBillAriaLabel={
+                createBillMonthLocked
+                  ? monthLockActionAria("Create first bill", gateReason(currentMonthKey))
+                  : "Create first bill"
+              }
+              onCreateBill={() => setIsCreateBillOpen(true)}
+            />
           ) : (
             <div className="flex flex-col lg:flex-row gap-4">
 
@@ -715,6 +799,7 @@ export default function PaymentsPage() {
           </DialogHeader>
 
           <div className="modal-scroll flex-1 overflow-y-auto min-h-0 space-y-4 py-2 pr-1">
+            {createBillMonthLocked && <MonthLockedBanner />}
             <div className="space-y-2">
               <Label className="text-white/50 text-xs uppercase tracking-wide">Expense Items</Label>
               {billItems.map((item, index) => (
@@ -876,7 +961,14 @@ export default function PaymentsPage() {
             </Button>
             <Button
               onClick={() => createBillMutation.mutate()}
-              disabled={createBillMutation.isPending || billTotal === 0}
+              disabled={createBillMutation.isPending || billTotal === 0 || createBillMonthLocked}
+              aria-label={
+                createBillMonthLocked
+                  ? monthLockActionAria("Create bill", gateReason(currentMonthKey))
+                  : billTotal === 0
+                    ? "Create bill, add at least one expense item"
+                    : "Create bill"
+              }
               className="bg-[#582c84] hover:bg-[#6b35a0] text-white"
             >
               {createBillMutation.isPending ? "Creating…" : "Create Bill"}
@@ -949,7 +1041,18 @@ export default function PaymentsPage() {
             </Button>
             <Button
               onClick={() => recordPaymentMutation.mutate()}
-              disabled={recordPaymentMutation.isPending || !recordPaymentAmount}
+              disabled={
+                recordPaymentMutation.isPending ||
+                !recordPaymentAmount ||
+                selectedBillActionsLocked
+              }
+              aria-label={
+                selectedBillActionsLocked
+                  ? monthLockActionAria("Record payment", gateReason(selectedBillMonthKey))
+                  : !recordPaymentAmount
+                    ? "Record payment, enter amount received"
+                    : "Record payment"
+              }
               className="bg-[#582c84] hover:bg-[#6b35a0] text-white"
             >
               {recordPaymentMutation.isPending ? "Saving…" : "Record Payment"}
@@ -1095,7 +1198,22 @@ function StatCard({
   );
 }
 
-function EmptyState({ isAdmin, onCreateBill }: { isAdmin: boolean; onCreateBill: () => void }) {
+function EmptyState({
+  isAdmin,
+  monthLockLoading = false,
+  createBillDisabled,
+  createBillTooltip,
+  createBillAriaLabel = "Create first bill",
+  onCreateBill,
+}: {
+  isAdmin: boolean;
+  /** Used for wait cursor on gated create button */
+  monthLockLoading?: boolean;
+  createBillDisabled?: boolean;
+  createBillTooltip?: string;
+  createBillAriaLabel?: string;
+  onCreateBill: () => void;
+}) {
   return (
     <div className="bg-[#151525] rounded-xl border border-white/5 py-20 flex flex-col items-center gap-4 text-center px-6">
       <div className="w-16 h-16 rounded-full bg-[#582c84]/20 flex items-center justify-center">
@@ -1110,10 +1228,32 @@ function EmptyState({ isAdmin, onCreateBill }: { isAdmin: boolean; onCreateBill:
         </p>
       </div>
       {isAdmin && (
-        <Button onClick={onCreateBill} className="bg-[#582c84] hover:bg-[#6b35a0] text-white">
-          <Plus className="w-4 h-4 mr-2" />
-          Create First Bill
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className={
+                createBillDisabled
+                  ? `inline-block ${monthLockWaitCursor(monthLockLoading)}`
+                  : "inline-block"
+              }
+            >
+              <Button
+                disabled={createBillDisabled}
+                onClick={() => !createBillDisabled && onCreateBill()}
+                aria-label={createBillAriaLabel}
+                className="bg-[#582c84] hover:bg-[#6b35a0] text-white disabled:opacity-40"
+              >
+                <Plus className="w-4 h-4 mr-2" aria-hidden />
+                Create First Bill
+              </Button>
+            </span>
+          </TooltipTrigger>
+          {createBillDisabled && createBillTooltip && (
+            <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+              {createBillTooltip}
+            </TooltipContent>
+          )}
+        </Tooltip>
       )}
     </div>
   );
@@ -1124,6 +1264,8 @@ function BillListItem({
 }: {
   bill: BillSummary; isSelected: boolean; onClick: () => void;
 }) {
+  const billMonthKey = accountingMonthKeyFromBillMonth(bill.year, bill.month);
+  const { rowLooksLocked } = usePaymentsIsMonthLocked(billMonthKey);
   const dueStr = bill.dueDate ? format(new Date(bill.dueDate), "d MMM yyyy") : "";
   const status = bill.paymentStatus ?? "Pending";
   const isPaid = status === "Paid";
@@ -1134,11 +1276,15 @@ function BillListItem({
         "w-full text-left px-4 py-3 flex items-center justify-between gap-2 transition-colors group",
         isSelected
           ? "bg-[#582c84]/30 text-white border-l-2 border-[#9f5bf7]"
-          : "text-white/60 hover:bg-white/5 hover:text-white border-l-2 border-transparent"
+          : "text-white/60 hover:bg-white/5 hover:text-white border-l-2 border-transparent",
+        lockedRowClassName(rowLooksLocked)
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="font-medium text-sm truncate">{bill.month} {bill.year}</p>
+        <p className="font-medium text-sm truncate flex items-center gap-1.5">
+          {rowLooksLocked && <MonthLockIcon decorative className="text-[13px]" />}
+          <span className="truncate">{bill.month} {bill.year}</span>
+        </p>
         <p className="text-xs opacity-50 mt-0.5">₹{bill.totalAmount.toLocaleString()}</p>
         {dueStr && <p className="text-[10px] opacity-40 mt-0.5">Due {dueStr}</p>}
       </div>
@@ -1156,7 +1302,15 @@ function BillListItem({
 }
 
 function BillDetailView({
-  bill, isAdmin, currentUserId, flatMembers = [], onRecordPayment, onSendReminder, onDeleteBill, onUpdateBill, onEditError,
+  bill,
+  isAdmin,
+  currentUserId,
+  flatMembers = [],
+  onRecordPayment,
+  onSendReminder,
+  onDeleteBill,
+  onUpdateBill,
+  onEditError,
 }: {
   bill: BillDetail;
   isAdmin: boolean;
@@ -1168,13 +1322,28 @@ function BillDetailView({
   onUpdateBill?: (data: { items: BillItem[]; totalAmount: number; month: string; year: number; dueDate: string; entryDeductionEnabled: boolean }, exitEditMode: () => void) => void;
   onEditError?: (msg: string) => void;
 }) {
+  const billMonthKey = useMemo(
+    () => accountingMonthKeyFromBillMonth(bill.year, bill.month),
+    [bill.year, bill.month]
+  );
+  const {
+    interactionDisabled: actionsLocked,
+    rowLooksLocked: showLockedBanner,
+    gateReason,
+  } = usePaymentsIsMonthLocked(billMonthKey);
+
   const [expenseOpen, setExpenseOpen] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editItems, setEditItems] = useState<FormBillItem[]>([]);
   const [editDueDate, setEditDueDate] = useState("");
   const [editEntryDeduction, setEditEntryDeduction] = useState(true);
 
+  useEffect(() => {
+    if (actionsLocked && isEditing) setIsEditing(false);
+  }, [actionsLocked, isEditing]);
+
   const startEdit = () => {
+    if (actionsLocked) return;
     setEditItems(bill.items?.length ? bill.items.map(i => ({ name: i.name, amount: String(i.amount), members: i.members || [] })) : [{ name: "", amount: "", members: [] }]);
     setEditDueDate(bill.dueDate ? format(new Date(bill.dueDate), "yyyy-MM-dd") : "");
     setEditEntryDeduction(bill.entryDeductionEnabled !== false);
@@ -1186,6 +1355,7 @@ function BillDetailView({
   };
 
   const saveEdit = () => {
+    if (actionsLocked) return;
     const items = editItems.filter(i => i.name.trim() && parseFloat(i.amount) > 0).map(i => ({ name: i.name.trim(), amount: parseFloat(i.amount), members: i.members || [] }));
     if (items.length === 0) {
       onEditError?.("Add at least one expense item with amount");
@@ -1439,7 +1609,9 @@ function BillDetailView({
   };
 
   return (
-    <div className="space-y-4">
+    <div className={cn("space-y-4", lockedRowClassName(showLockedBanner))}>
+      {showLockedBanner && <MonthLockedBanner />}
+
       {/* ── Bill Header card (or edit form) ── */}
       <div className="bg-[#151525] rounded-xl border border-white/5 p-4">
         {isEditing ? (
@@ -1534,36 +1706,42 @@ function BillDetailView({
                     {onUpdateBill && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={startEdit}
-                            className="h-9 w-9 text-[#9f5bf7] hover:bg-[#582c84]/20 hover:text-[#9f5bf7]"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
+                          <span className={actionsLocked ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={actionsLocked}
+                              onClick={startEdit}
+                              className="h-9 w-9 text-[#9f5bf7] hover:bg-[#582c84]/20 hover:text-[#9f5bf7] disabled:opacity-40"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </span>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="bg-[#1c1b2d] border-white/10 text-white">
-                          Edit bill (Admin)
+                        <TooltipContent side="bottom" className="max-w-xs bg-[#1c1b2d] border-white/10 text-white text-xs">
+                          {actionsLocked ? monthLockBlockTooltip(gateReason) : "Edit bill (Admin)"}
                         </TooltipContent>
                       </Tooltip>
                     )}
                     {onDeleteBill && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={onDeleteBill}
-                            className="h-9 w-9 text-red-400 hover:bg-red-500/20 hover:text-red-400"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <span className={actionsLocked ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={actionsLocked}
+                              onClick={() => !actionsLocked && onDeleteBill()}
+                              className="h-9 w-9 text-red-400 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-40"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </span>
                         </TooltipTrigger>
-                        <TooltipContent side="bottom" className="bg-[#1c1b2d] border-white/10 text-white">
-                          Delete bill (Admin)
+                        <TooltipContent side="bottom" className="max-w-xs bg-[#1c1b2d] border-white/10 text-white text-xs">
+                          {actionsLocked ? monthLockBlockTooltip(gateReason) : "Delete bill (Admin)"}
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -1814,6 +1992,11 @@ function BillDetailView({
                       <td className="px-3 py-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1.5 min-w-[120px]">
                           {remaining > 0 ? (
+                            actionsLocked ? (
+                              <span className="text-[10px] text-amber-200/80 px-2 py-1 rounded border border-amber-500/20 bg-amber-500/5">
+                                Locked
+                              </span>
+                            ) : (
                             <>
                               <Button
                                 size="sm"
@@ -1834,6 +2017,7 @@ function BillDetailView({
                               </Button>
 
                             </>
+                            )
                           ) : (
                             <span className="text-xs font-medium text-green-400/90 bg-green-500/10 px-2 py-1 rounded-md border border-green-500/20">
                               All paid
@@ -1935,6 +2119,14 @@ function BillDetailView({
               {isAdmin && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {remaining > 0 ? (
+                    actionsLocked ? (
+                      <p
+                        role="status"
+                        className="w-full text-center text-[11px] text-amber-200/85 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5"
+                      >
+                        {monthLockBlockTooltip(gateReason)}
+                      </p>
+                    ) : (
                     <>
                       <Button
                         size="sm"
@@ -1954,6 +2146,7 @@ function BillDetailView({
                       </Button>
 
                     </>
+                    )
                   ) : (
                     <span className="text-xs font-medium text-green-400/90 bg-green-500/10 px-3 py-1.5 rounded-md border border-green-500/20 w-full text-center">
                       All paid

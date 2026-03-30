@@ -1,5 +1,4 @@
 import { z } from "zod";
-import mongoose, { Schema, Document } from "mongoose";
 
 export type Role = "ADMIN" | "CO_ADMIN" | "USER";
 export type UserStatus = "PENDING" | "ACTIVE" | "DEACTIVATED";
@@ -29,6 +28,10 @@ export interface Payment {
   dueDate: Date;
   paidAt?: Date;
   createdAt: Date;
+  accountingMonth?: string;
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
+  updatedAt?: Date;
 }
 
 export interface Bill {
@@ -46,6 +49,27 @@ export interface Bill {
   dueDate: Date;
   entryDeductionEnabled: boolean;
   createdAt: Date;
+  accountingMonth?: string;
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
+  updatedAt?: Date;
+}
+
+/** Per-flat accounting period lock (maps to API `flat-months`). */
+export interface FlatMonth {
+  _id: string;
+  flatId: string;
+  monthKey: string;
+  /** Same as monthKey ("YYYY-MM"); aligned with ledger accountingMonth. */
+  accountingMonth?: string;
+  status: "active" | "locked";
+  closedAt?: Date;
+  closedBy?: string;
+  reopenedAt?: Date;
+  reopenedBy?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  isDeleted?: boolean;
 }
 
 export type EntryStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -58,6 +82,13 @@ export interface Entry {
   status: EntryStatus;  userId: string;
   flatId: string;
   billId?: string; // Set when this entry has been counted in a specific bill
+  /** Canonical period "YYYY-MM" (calendar month of dateTime). */
+  accountingMonth?: string;
+  /** Accounting period lifecycle (not approval status). */
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export type PenaltyType = "LATE_PAYMENT" | "DAMAGE" | "RULE_VIOLATION" | "OTHER" | "MINIMUM_ENTRY";
@@ -70,36 +101,16 @@ export interface Penalty {
   amount: number;
   description: string;
   image?: string;
+  /** Month the penalty applies to; accountingMonth is always derived from this (or createdAt). */
+  incurredAt?: Date;
   createdAt: Date;  createdBy: string;
   nextPenaltyDate?: Date; // Date when the next penalty will be applied if contribution deficit persists
   billId?: string; // Set when this penalty has been applied to a specific bill
+  accountingMonth?: string;
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
+  updatedAt?: Date;
 }
-
-
-export interface PenaltySettingsDocument extends Document {
-  flatId: mongoose.Types.ObjectId;
-  contributionPenaltyPercentage: number;
-  warningPeriodDays: number;
-  updatedAt: Date;
-  updatedBy: mongoose.Types.ObjectId;
-  lastPenaltyAppliedAt: Date; // Ensure this is included
-  selectedUsers: mongoose.Types.ObjectId[]; // Array of user IDs who should receive penalties
-}
-
-const PenaltySettingsSchema = new Schema<PenaltySettingsDocument>({
-  flatId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  contributionPenaltyPercentage: { type: Number, required: true, default: 3 },
-  warningPeriodDays: { type: Number, required: true, default: 3 },
-  updatedAt: { type: Date, required: true, default: Date.now },
-  updatedBy: { type: mongoose.Schema.Types.ObjectId, required: true },
-  lastPenaltyAppliedAt: { type: Date, default: Date.now }, // ✅ Default value ensures it gets stored
-  selectedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Array of user IDs who should receive penalties
-});
-
-export const PenaltySettingsModel = mongoose.model<PenaltySettingsDocument>(
-  "PenaltySettings",
-  PenaltySettingsSchema
-);
 
 export const insertPenaltySchema = z.object({
   userId: z.string(),
@@ -108,6 +119,8 @@ export const insertPenaltySchema = z.object({
   description: z.string().min(1, "Description is required"),
   image: z.string().optional(),
   nextPenaltyDate: z.date().optional(),
+  /** If omitted, server uses current time; accountingMonth is always derived from this. */
+  incurredAt: z.coerce.date().optional(),
 });
 
 export const insertPenaltySettingsSchema = z.object({
@@ -135,6 +148,7 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export const insertActivitySchema = z.object({
   userId: z.string(),
+  flatId: z.string().optional(),
   type: z.enum([
     "LOGIN",
     "UPDATE_PROFILE",
@@ -192,10 +206,13 @@ export interface User {
 export interface Activity {
   _id: string;
   userId: string;
+  flatId?: string | null;
   type: ActivityType;
   description: string;
   timestamp: Date;
   read: boolean;
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
 }
 
 // Penalty settings interface for TypeScript type checking
@@ -204,10 +221,13 @@ export interface PenaltySettings {
   flatId: string;
   contributionPenaltyPercentage: number;
   warningPeriodDays: number;
+  createdAt?: Date;
   updatedAt: Date;
   updatedBy: string;
   lastPenaltyAppliedAt: Date;
   selectedUsers: string[];
+  lifecycleStatus?: "active" | "archived";
+  isDeleted?: boolean;
 }
 
 export type InsertPenalty = z.infer<typeof insertPenaltySchema>;

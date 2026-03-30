@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,23 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributionStatus } from "@/components/contribution-status";
-import { LuMoreHorizontal } from "react-icons/lu";
 import { BsThreeDots } from "react-icons/bs";
+import { useMonthLock } from "@/hooks/use-month-lock";
+import {
+  MONTH_LOCKED_MESSAGE,
+  monthLockActionAria,
+  monthLockBlockTooltip,
+} from "@/constants/month-lock";
+import {
+  MonthLockIcon,
+  MonthLockedBanner,
+  MonthLockStatusSkeleton,
+  MonthLockUnavailableBanner,
+  lockedRowClassName,
+  monthLockWaitCursor,
+} from "@/components/month-lock-ui";
+import { cn } from "@/lib/utils";
+import { accountingMonthKeyFromDate, entryAccountingMonthKey } from "@/lib/accounting-month";
 
 const getInitials = (name: string | undefined) => {
   if (!name) return "U";
@@ -57,26 +72,42 @@ const getInitials = (name: string | undefined) => {
 };
 
 // Create a separate component for editing an entry.
-function EditEntryDialog({ entry }: { entry: Entry }) {
+function EditEntryDialog({ entry, ledgerLocked }: { entry: Entry; ledgerLocked: boolean }) {
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const handleDelete = () => {
-    showLoader(); // Show loader before deleting
-    fetch(`/api/entries/${entry._id}`, {
-      method: "DELETE",
-    })
-      .then(() => {
-        queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-        queryClient.invalidateQueries({ queryKey: ["/api/history"] });
-        showSuccess(`Entry "${entry.name}" has been deleted successfully.`);
-        hideLoader(); // Hide loader after successful deletion
-      })
-      .catch((error) => {
-        console.error(error);
-        showError(`Failed to delete entry: ${error.message}`);
-        hideLoader(); // Hide loader on error
-      });
+  const handleDelete = async () => {
+    showLoader();
+    try {
+      await apiRequest("DELETE", `/api/entries/${entry._id}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/history"] });
+      showSuccess(`Entry "${entry.name}" has been deleted successfully.`);
+      setDeleteDialogOpen(false);
+    } catch (error: unknown) {
+      console.error(error);
+      const msg = error instanceof Error ? error.message : "Failed to delete entry";
+      showError(msg);
+    } finally {
+      hideLoader();
+    }
   };
+
+  if (ledgerLocked) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-[11px] text-white/40 cursor-default">
+            <MonthLockIcon className="text-[13px]" />
+            <FaEdit className="text-sm opacity-50" />
+            Locked
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-[240px] bg-[#1c1b2d] border border-white/10 text-white text-xs">
+          {MONTH_LOCKED_MESSAGE}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <>
@@ -103,30 +134,27 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
         <DialogContent className="top-[60vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Entry</DialogTitle>
-          </DialogHeader>          <form onSubmit={(e) => {
+          </DialogHeader>          <form onSubmit={async (e) => {
             e.preventDefault();
-            showLoader(); // Show loader before updating the entry
+            showLoader();
             const formData = new FormData(e.currentTarget);
-            fetch(`/api/entries/${entry._id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+            try {
+              await apiRequest("PATCH", `/api/entries/${entry._id}`, {
                 name: formData.get("name"),
                 amount: parseFloat(formData.get("amount") as string),
-              }),
-            })
-              .then(() => {
-                queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/history"] });
-                showSuccess(`Entry "${entry.name}" has been updated successfully.`);
-                setOpen(false); // Close the dialog on success
-                hideLoader(); // Hide loader after successful update
-              })
-              .catch((error) => {
-                console.error(error);
-                showError(`Failed to update entry: ${error.message}`);
-                hideLoader(); // Hide loader on error
               });
+              queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/history"] });
+              showSuccess(`Entry "${entry.name}" has been updated successfully.`);
+              setOpen(false);
+            } catch (error: unknown) {
+              console.error(error);
+              const msg = error instanceof Error ? error.message : "Failed to update entry";
+              showError(msg);
+            } finally {
+              hideLoader();
+            }
           }}
             className="space-y-4"
           >
@@ -172,6 +200,13 @@ function EditEntryDialog({ entry }: { entry: Entry }) {
 
 export default function EntriesPage() {
   const { user, logoutMutation } = useAuth();
+  const {
+    isLocked,
+    monthStatus,
+    gateReason,
+    interactionDisabled,
+    rowLooksLocked,
+  } = useMonthLock();
   const [newEntry, setNewEntry] = useState({ name: "", amount: "" });
   const [openAddDialog, setOpenAddDialog] = useState(false); // State for controlling the Add Entry dialog
   const [currentPage, setCurrentPage] = useState(1);
@@ -316,8 +351,9 @@ export default function EntriesPage() {
   // Function to handle selecting/deselecting all entries
   const handleSelectAll = (checked: boolean) => {
     if (checked && filteredEntries) {
-      // Only select IDs from filtered entries
-      const filteredIds = filteredEntries.map((entry: Entry) => entry._id);
+      const filteredIds = filteredEntries
+        .filter((entry: Entry) => !interactionDisabled(entryAccountingMonthKey(entry)))
+        .map((entry: Entry) => entry._id);
       setSelectedEntries(filteredIds);
     } else {
       setSelectedEntries([]);
@@ -327,7 +363,8 @@ export default function EntriesPage() {
   // Function to handle selecting/deselecting a single entry
   const handleSelectEntry = (entryId: string, checked: boolean) => {
     if (checked) {
-      // Only allow selection if the entry is in the filtered entries
+      const row = filteredEntries?.find((entry: Entry) => entry._id === entryId);
+      if (row && interactionDisabled(entryAccountingMonthKey(row))) return;
       if (filteredEntries?.some((entry: Entry) => entry._id === entryId)) {
         setSelectedEntries((prev) => [...prev, entryId]);
       }
@@ -343,7 +380,12 @@ export default function EntriesPage() {
     if (selectedEntries.length === 0) return;
 
     setBulkDeleteDialogOpen(true);
-  }; const confirmBulkDelete = () => {
+  };   const confirmBulkDelete = () => {
+    if (anySelectedIncludesLockedMonth) {
+      showWarning(MONTH_LOCKED_MESSAGE);
+      setBulkDeleteDialogOpen(false);
+      return;
+    }
     showLoader();
     setDataLoading(true);
 
@@ -395,6 +437,26 @@ export default function EntriesPage() {
     );
   });
 
+  const selectableFilteredEntries = useMemo(
+    () =>
+      (filteredEntries ?? []).filter(
+        (entry: Entry) => !interactionDisabled(entryAccountingMonthKey(entry))
+      ),
+    [filteredEntries, interactionDisabled]
+  );
+
+  const currentCalendarMonthKey = accountingMonthKeyFromDate(new Date());
+  const addEntryBlocked = interactionDisabled(currentCalendarMonthKey);
+
+  const anySelectedIncludesLockedMonth = useMemo(() => {
+    if (!entries?.length || !selectedEntries.length) return false;
+    for (const id of selectedEntries) {
+      const e = entries.find((x) => x._id === id);
+      if (e && isLocked(entryAccountingMonthKey(e))) return true;
+    }
+    return false;
+  }, [entries, selectedEntries, isLocked]);
+
   // Reverse filtered entries and apply pagination
   const paginatedEntries = filteredEntries?.slice().reverse().slice(
     (currentPage - 1) * entriesPerPage,
@@ -415,6 +477,10 @@ export default function EntriesPage() {
       showLoader();
 
       try {
+        const mk = accountingMonthKeyFromDate(new Date());
+        if (interactionDisabled(mk)) {
+          throw new Error(monthLockBlockTooltip(gateReason(mk)));
+        }
         // First check if user can add entry
         await refetchCanAddEntry();
 
@@ -476,9 +542,20 @@ export default function EntriesPage() {
 
             {/* Main content */}
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
-              <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
+                {monthStatus === "unavailable" && (
+                  <MonthLockUnavailableBanner className="mt-2 max-w-xl" />
+                )}
+                {monthStatus === "loading" && (
+                  <MonthLockStatusSkeleton className="mt-2 max-w-xl" />
+                )}
+                {monthStatus === "ready" && isLocked(currentCalendarMonthKey) && (
+                  <MonthLockedBanner className="mt-2 max-w-xl" />
+                )}
+              </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap justify-end">
                 {/* Contribution Check Button for Admins */}
                 {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
                   <Button
@@ -522,15 +599,49 @@ export default function EntriesPage() {
                   </Button>
                 )}
 
-                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-                  <DialogTrigger asChild>
-                    <Button
-                      className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87]"
-                    >
-                      <LuUserPlus className="h-5 w-5" />
-                      <span>Add Entry</span>
-                    </Button>
-                  </DialogTrigger>
+                <Dialog
+                  open={openAddDialog}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setOpenAddDialog(false);
+                      return;
+                    }
+                    if (!addEntryBlocked) {
+                      setOpenAddDialog(true);
+                    }
+                  }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={
+                          addEntryBlocked
+                            ? `inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                            : "inline-block"
+                        }
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            disabled={addEntryBlocked}
+                            aria-label={
+                              addEntryBlocked
+                                ? monthLockActionAria("Add entry", gateReason(currentCalendarMonthKey))
+                                : "Add entry"
+                            }
+                            className="flex items-center gap-2 px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87] disabled:opacity-40 disabled:pointer-events-none"
+                          >
+                            <LuUserPlus className="h-5 w-5" aria-hidden />
+                            <span>Add Entry</span>
+                          </Button>
+                        </DialogTrigger>
+                      </span>
+                    </TooltipTrigger>
+                    {addEntryBlocked && (
+                      <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+                        {monthLockBlockTooltip(gateReason(currentCalendarMonthKey))}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
 
                   <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
                     <DialogHeader>
@@ -597,7 +708,7 @@ export default function EntriesPage() {
 
                       <Button
                         type="submit"
-                        disabled={addEntryMutation.isPending}
+                        disabled={addEntryMutation.isPending || addEntryBlocked}
                         className="w-full bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg"
                       >
                         Add Entry
@@ -1185,6 +1296,7 @@ export default function EntriesPage() {
                     variant="destructive"
                     size="sm"
                     onClick={handleBulkDelete}
+                    disabled={monthStatus !== "ready" || anySelectedIncludesLockedMonth}
                     className="flex items-center gap-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <FaTrash className="text-sm" />
@@ -1220,8 +1332,12 @@ export default function EntriesPage() {
                     <TableHead className="w-10 text-center text-indigo-200/80 font-semibold py-3 border-[#582c84]">
                       <input
                         type="checkbox"
-                        checked={filteredEntries?.length > 0 && selectedEntries.length === filteredEntries?.length && selectedEntries.every(id => filteredEntries.some(entry => entry._id === id))}
+                        checked={
+                          selectableFilteredEntries.length > 0 &&
+                          selectableFilteredEntries.every((entry) => selectedEntries.includes(entry._id))
+                        }
                         onChange={(e) => handleSelectAll(e.target.checked)}
+                        aria-label="Select all entries on this page"
                         className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
                       />
 
@@ -1234,13 +1350,24 @@ export default function EntriesPage() {
 
 
             <TableBody>
-              {paginatedEntries?.map((entry) => (
+              {paginatedEntries?.map((entry) => {
+                const entryMonthKey = entryAccountingMonthKey(entry);
+                const entryActionsLocked = interactionDisabled(entryMonthKey);
+                const entryRowLooksLocked = rowLooksLocked(entryMonthKey);
+                return (
                 <TableRow
                   key={entry._id}
-                  className="transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none"
+                  className={cn(
+                    "transition duration-200 hover:bg-[#1f1f2e] hover:shadow-inner border-none",
+                    lockedRowClassName(entryRowLooksLocked)
+                  )}
                 >
                   <TableCell className="min-w-[200px] py-4 px-3">
-                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
+                    <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm">
+                      {entryRowLooksLocked && (
+                        <MonthLockIcon decorative className="shrink-0 text-[13px]" />
+                      )}
+                      <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
                         <AvatarImage
                           src={
                             typeof entry.userId === 'object' && entry.userId?.profilePicture
@@ -1332,26 +1459,60 @@ export default function EntriesPage() {
                     <TableCell className="text-center py-4 px-3">
                       {entry.status === "PENDING" ? (
                         <div className="flex justify-center sm:justify-start gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white"
-                            onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "APPROVED" })}
-                          >
-                            Approve
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={entryActionsLocked ? "inline-block cursor-not-allowed" : "inline-block"}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={entryActionsLocked}
+                                  aria-label={
+                                    entryActionsLocked
+                                      ? monthLockActionAria("Approve entry", gateReason(entryMonthKey))
+                                      : "Approve entry"
+                                  }
+                                  className="text-white bg-[#582c84] border-[#582c84] hover:bg-[#8e4be4] hover:text-white disabled:opacity-40"
+                                  onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "APPROVED" })}
+                                >
+                                  Approve
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {entryActionsLocked && (
+                              <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+                                {MONTH_LOCKED_MESSAGE}
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
 
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500"
-                            onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "REJECTED" })}
-                          >
-                            Decline
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className={entryActionsLocked ? "inline-block cursor-not-allowed" : "inline-block"}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={entryActionsLocked}
+                                  aria-label={
+                                    entryActionsLocked
+                                      ? monthLockActionAria("Decline entry", gateReason(entryMonthKey))
+                                      : "Decline entry"
+                                  }
+                                  className="bg-red text-red-400 border-red-500 hover:bg-red-600/10 hover:text-red-500 disabled:opacity-40"
+                                  onClick={() => approveRejectMutation.mutate({ entryId: entry._id, status: "REJECTED" })}
+                                >
+                                  Decline
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            {entryActionsLocked && (
+                              <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+                                {MONTH_LOCKED_MESSAGE}
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
                         </div>
                       ) : (
-                        <EditEntryDialog entry={entry} />
+                        <EditEntryDialog entry={entry} ledgerLocked={entryActionsLocked} />
                       )}
                     </TableCell>
                   )}
@@ -1360,15 +1521,23 @@ export default function EntriesPage() {
                     <TableCell className="text-center py-4 px-3">
                       <input
                         type="checkbox"
+                        disabled={entryActionsLocked}
+                        title={entryActionsLocked ? monthLockBlockTooltip(gateReason(entryMonthKey)) : undefined}
+                        aria-label={
+                          entryActionsLocked
+                            ? monthLockActionAria("Select entry for bulk delete", gateReason(entryMonthKey))
+                            : "Select entry for bulk delete"
+                        }
                         checked={selectedEntries.includes(entry._id)}
                         onChange={(e) => handleSelectEntry(entry._id, e.target.checked)}
-                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                        className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                       />
 
                     </TableCell>
                   )}
                 </TableRow>
-              ))}
+              );
+              })}
             </TableBody>
           </Table>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -24,6 +24,21 @@ import { apiRequest } from "@/lib/queryClient";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { MobileNav } from "@/components/mobile-nav";
 import { CustomPagination } from "@/components/custom-pagination";
+import { useMonthLock, useIsMonthLocked } from "@/hooks/use-month-lock";
+import { monthLockActionAria, monthLockBlockTooltip } from "@/constants/month-lock";
+import {
+  MonthLockIcon,
+  MonthLockedBanner,
+  MonthLockStatusSkeleton,
+  MonthLockUnavailableBanner,
+  lockedRowClassName,
+  monthLockWaitCursor,
+} from "@/components/month-lock-ui";
+import { cn } from "@/lib/utils";
+import {
+  accountingMonthKeyFromDate,
+  penaltyAccountingMonthKey,
+} from "@/lib/accounting-month";
 
 // Interfaces
 interface PenaltySettings {
@@ -56,6 +71,8 @@ interface Penalty {
   description: string;
   createdAt: string;
   image?: string;
+  accountingMonth?: string;
+  incurredAt?: string;
 }
 
 interface PenaltyTimerData {
@@ -485,9 +502,19 @@ export function PenaltySettingsForm() {
 function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
   const [open, setOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const {
+    interactionDisabled: actionsLocked,
+    gateReason,
+    monthStatus,
+  } = useIsMonthLocked(penaltyAccountingMonthKey(penalty));
 
   const queryClient = useQueryClient();
   const handleDelete = () => {
+    if (actionsLocked) {
+      showError(monthLockBlockTooltip(gateReason));
+      setDeleteDialogOpen(false);
+      return;
+    }
     showLoader();
     apiRequest("DELETE", `/api/penalties/${penalty._id}`)
     .then(res => {
@@ -503,6 +530,26 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
         hideLoader();
       });
   };
+
+  if (actionsLocked) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            className={`inline-flex items-center gap-1 opacity-45 ${monthLockWaitCursor(monthStatus === "loading")}`}
+            aria-label={monthLockActionAria("Edit or delete penalty", gateReason)}
+          >
+            <MonthLockIcon decorative className="text-[15px]" />
+            <FaEdit className="text-lg text-[#582c84]" aria-hidden />
+            <FaTrash className="text-lg text-red-500/80" aria-hidden />
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs bg-[#1f1f2e] border border-[#582c84] text-white text-xs">
+          {monthLockBlockTooltip(gateReason)}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
 
   return (
     <>
@@ -530,35 +577,31 @@ function EditPenaltyDialog({ penalty }: { penalty: Penalty }) {
           <DialogHeader>
             <DialogTitle className="text-lg font-semibold text-white">Edit Penalty</DialogTitle>
           </DialogHeader>          <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
+              if (actionsLocked) {
+                showError(monthLockBlockTooltip(gateReason));
+                return;
+              }
               showLoader();
               const formData = new FormData(e.currentTarget);
-              fetch(`/api/penalties/${penalty._id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
+              try {
+                await apiRequest("PATCH", `/api/penalties/${penalty._id}`, {
                   type: formData.get("type"),
                   amount: parseFloat(formData.get("amount") as string),
                   description: formData.get("description"),
-                }),
-              })
-                .then((response) => {
-                  if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                  }
-                  return response.json();
-                }).then((data) => {
-                  queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-                  showSuccess("Penalty has been updated successfully.");
-                  setOpen(false); // Close the dialog on success
-                  hideLoader();
-                })
-                .catch((error) => {
-                  console.error("Update error:", error);
-                  showError("Failed to update penalty. Please try again.");
-                  hideLoader();
                 });
+                queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+                queryClient.invalidateQueries({ queryKey: ["/api/history"] });
+                showSuccess("Penalty has been updated successfully.");
+                setOpen(false);
+              } catch (error: unknown) {
+                console.error("Update error:", error);
+                const msg = error instanceof Error ? error.message : "Failed to update penalty.";
+                showError(msg);
+              } finally {
+                hideLoader();
+              }
             }}
             className="space-y-4"
           >
@@ -685,6 +728,17 @@ export default function PenaltiesPage() {
   }, [penaltiesLoading, totalsLoading, usersLoading]);
   // Users query is already defined above
 
+  const {
+    isLocked,
+    monthStatus,
+    gateReason,
+    interactionDisabled,
+    rowLooksLocked,
+  } = useMonthLock();
+  const penaltyCurrentMonthKey = accountingMonthKeyFromDate(new Date());
+  const addPenaltyMonthLocked = interactionDisabled(penaltyCurrentMonthKey);
+  const addPenaltyGateReason = gateReason(penaltyCurrentMonthKey);
+
   // Effect to reset selected penalties when search query is cleared or changed
   useEffect(() => {
     setSelectedPenalties([]);
@@ -693,7 +747,11 @@ export default function PenaltiesPage() {
   // Function to handle selecting/deselecting all penalties (filtered only)
   const handleSelectAll = (checked: boolean) => {
     if (checked && filteredPenalties) {
-      setSelectedPenalties(filteredPenalties.map(penalty => penalty._id));
+      setSelectedPenalties(
+        filteredPenalties
+          .filter(p => !interactionDisabled(penaltyAccountingMonthKey(p)))
+          .map(penalty => penalty._id)
+      );
     } else {
       setSelectedPenalties([]);
     }
@@ -702,6 +760,8 @@ export default function PenaltiesPage() {
   // Function to handle selecting/deselecting a single penalty (filtered only)
   const handleSelectPenalty = (penaltyId: string, checked: boolean) => {
     if (checked) {
+      const row = filteredPenalties?.find((penalty) => penalty._id === penaltyId);
+      if (row && interactionDisabled(penaltyAccountingMonthKey(row))) return;
       if (filteredPenalties?.some((penalty) => penalty._id === penaltyId)) {
         setSelectedPenalties(prev => [...prev, penaltyId]);
       }
@@ -718,15 +778,26 @@ export default function PenaltiesPage() {
     setBulkDeleteDialogOpen(true);
   };
   const confirmBulkDelete = () => {
+    if (monthStatus !== "ready") {
+      showError(
+        monthLockBlockTooltip(monthStatus === "loading" ? "loading" : "unavailable")
+      );
+      setBulkDeleteDialogOpen(false);
+      return;
+    }
+    const includesLocked = selectedPenalties.some(id => {
+      const p = penalties.find(x => x._id === id);
+      return p ? isLocked(penaltyAccountingMonthKey(p)) : false;
+    });
+    if (includesLocked) {
+      showError(monthLockBlockTooltip("locked"));
+      setBulkDeleteDialogOpen(false);
+      return;
+    }
     showLoader();
-    Promise.all(selectedPenalties.map(id => apiRequest("DELETE", `/api/penalties/${id}`)))
-      .then(responses => {
-        const failedResponses = responses.filter(response => !response.ok);
-        if (failedResponses.length > 0) {
-          throw new Error(`${failedResponses.length} deletions failed`);
-        }
-        return responses;
-      }).then(() => {
+    // apiRequest already throws on non-OK responses; no need to re-check response.ok
+    Promise.all(selectedPenalties.map((id) => apiRequest("DELETE", `/api/penalties/${id}`)))
+      .then(() => {
         queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
         showSuccess(`${selectedPenalties.length} penalties have been deleted successfully.`);
         setSelectedPenalties([]);
@@ -788,6 +859,28 @@ export default function PenaltiesPage() {
     currentPage * penaltiesPerPage
   ) || [];
 
+  const selectableFilteredPenalties = useMemo(
+    () => filteredPenalties.filter(p => !interactionDisabled(penaltyAccountingMonthKey(p))),
+    [filteredPenalties, interactionDisabled]
+  );
+
+  const anySelectedIncludesLockedMonth = useMemo(
+    () =>
+      selectedPenalties.some(id => {
+        const p = penalties.find(x => x._id === id);
+        return p ? isLocked(penaltyAccountingMonthKey(p)) : false;
+      }),
+    [selectedPenalties, penalties, isLocked]
+  );
+
+  const bulkDeleteDisabled =
+    monthStatus !== "ready" || anySelectedIncludesLockedMonth;
+  const bulkDeleteTooltip = bulkDeleteDisabled
+    ? monthStatus !== "ready"
+      ? monthLockBlockTooltip(monthStatus === "loading" ? "loading" : "unavailable")
+      : monthLockBlockTooltip("locked")
+    : "";
+
   const queryClient = useQueryClient();
   const addPenaltyMutation = useMutation({
     mutationFn: async (data: {
@@ -797,6 +890,9 @@ export default function PenaltiesPage() {
       description: string;
       image?: string;
     }) => {
+      if (addPenaltyMonthLocked) {
+        throw new Error(monthLockBlockTooltip(gateReason(penaltyCurrentMonthKey)));
+      }
       showLoader();
       try {
         const res = await apiRequest("POST", "/api/penalties", data);
@@ -821,12 +917,17 @@ export default function PenaltiesPage() {
     },
     onError: (error) => {
       console.error("Add penalty error:", error);
-      showError("Failed to add penalty. Please try again.");
+      const msg = error instanceof Error ? error.message : "";
+      showError(msg || "Failed to add penalty. Please try again.");
       hideLoader();
     },
   });
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (addPenaltyMonthLocked) {
+      showError(monthLockBlockTooltip(gateReason(penaltyCurrentMonthKey)));
+      return;
+    }
     if (!newPenalty.userId || !newPenalty.amount || !newPenalty.description) {
       showError("Please fill in all required fields.");
       return;
@@ -839,7 +940,9 @@ export default function PenaltiesPage() {
       description: newPenalty.description,
       image: newPenalty.image,
     });
-  }; const getInitials = (name?: string | null) => {
+  };
+
+  const getInitials = (name?: string | null) => {
     if (!name) return "U";
     // Split by spaces and filter out empty strings
     const words = name.split(" ").filter(word => word.length > 0);
@@ -860,7 +963,18 @@ export default function PenaltiesPage() {
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 sm:p-6 border border-white/10 flex flex-wrap justify-between items-center gap-4 mb-6 sm:mb-8 mt-8">
-              <h1 className="text-xl sm:text-2xl md:text-3xl text-white font-bold">Penalties</h1>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl md:text-3xl text-white font-bold">Penalties</h1>
+                {monthStatus === "unavailable" && (
+                  <MonthLockUnavailableBanner className="mt-2 max-w-xl" />
+                )}
+                {monthStatus === "loading" && (
+                  <MonthLockStatusSkeleton className="mt-2 max-w-xl" />
+                )}
+                {monthStatus === "ready" && isLocked(penaltyCurrentMonthKey) && (
+                  <MonthLockedBanner className="mt-2 max-w-xl" />
+                )}
+              </div>
 
               {/* Desktop buttons only */}
               <div className="hidden sm:flex gap-2 w-auto">
@@ -890,19 +1004,64 @@ export default function PenaltiesPage() {
                   </Dialog>
                 )}
 
-                <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-                  <DialogTrigger asChild>
-                    <Button className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87] flex-1 sm:flex-none justify-center">
-                      <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="text-sm sm:text-base">Add Penalty</span>
-                    </Button>
-                  </DialogTrigger>
+                <Dialog
+                  open={openAddDialog}
+                  onOpenChange={(open) => {
+                    if (!open) {
+                      setOpenAddDialog(false);
+                      return;
+                    }
+                    if (!addPenaltyMonthLocked) {
+                      setOpenAddDialog(true);
+                    }
+                  }}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className={
+                          addPenaltyMonthLocked
+                            ? `inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                            : "inline-block"
+                        }
+                      >
+                        <DialogTrigger asChild>
+                          <Button
+                            disabled={addPenaltyMonthLocked}
+                            aria-label={
+                              addPenaltyMonthLocked
+                                ? monthLockActionAria("Add penalty", addPenaltyGateReason)
+                                : "Add penalty"
+                            }
+                            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-[#582c84] text-white rounded-lg shadow-md transition hover:bg-[#542d87] flex-1 sm:flex-none justify-center disabled:opacity-40 disabled:pointer-events-none"
+                          >
+                            <Plus className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden />
+                            <span className="text-sm sm:text-base">Add Penalty</span>
+                          </Button>
+                        </DialogTrigger>
+                      </span>
+                    </TooltipTrigger>
+                    {addPenaltyMonthLocked && (
+                      <TooltipContent className="max-w-xs bg-[#1f1f2e] border border-[#582c84] text-white text-xs">
+                        {monthLockBlockTooltip(addPenaltyGateReason)}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
 
                   <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
                     <DialogHeader>
                       <DialogTitle className="text-lg font-semibold text-white">Add New Penalty</DialogTitle>
                     </DialogHeader>
                     <form onSubmit={handleSubmit} className="space-y-4">
+                      {addPenaltyMonthLocked && addPenaltyGateReason === "unavailable" && (
+                        <MonthLockUnavailableBanner />
+                      )}
+                      {addPenaltyMonthLocked && addPenaltyGateReason === "loading" && (
+                        <MonthLockStatusSkeleton className="min-h-[52px]" />
+                      )}
+                      {addPenaltyMonthLocked &&
+                        monthStatus === "ready" &&
+                        isLocked(penaltyCurrentMonthKey) && <MonthLockedBanner />}
                       {/* Select User */}
                       <div className="space-y-2">
                         <Label className="text-white/90" htmlFor="userId">Select User</Label>
@@ -976,7 +1135,7 @@ export default function PenaltiesPage() {
                       {/* Submit Button */}
                       <Button
                         type="submit"
-                        disabled={addPenaltyMutation.isPending}
+                        disabled={addPenaltyMutation.isPending || addPenaltyMonthLocked}
                         className="flex items-center justify-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
                       >
                         <span>Add Penalty</span>
@@ -1280,19 +1439,64 @@ export default function PenaltiesPage() {
                     </Dialog>
                   )}
 
-                  <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
-                    <DialogTrigger asChild>
-                      <Button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#582c84] to-[#ab6cff] hover:from-[#542d87] hover:to-[#9f5bf7] text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 flex-1 justify-center text-sm font-medium backdrop-blur-sm border border-[#582c84]/30">
-                        <Plus className="h-4 w-4" />
-                        <span>Add Penalty</span>
-                      </Button>
-                    </DialogTrigger>
+                  <Dialog
+                    open={openAddDialog}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setOpenAddDialog(false);
+                        return;
+                      }
+                      if (!addPenaltyMonthLocked) {
+                        setOpenAddDialog(true);
+                      }
+                    }}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={
+                            addPenaltyMonthLocked
+                              ? `flex-1 min-w-0 ${monthLockWaitCursor(monthStatus === "loading")}`
+                              : "flex-1 min-w-0"
+                          }
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              disabled={addPenaltyMonthLocked}
+                              aria-label={
+                                addPenaltyMonthLocked
+                                  ? monthLockActionAria("Add penalty", addPenaltyGateReason)
+                                  : "Add penalty"
+                              }
+                              className="w-full flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#582c84] to-[#ab6cff] hover:from-[#542d87] hover:to-[#9f5bf7] text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 justify-center text-sm font-medium backdrop-blur-sm border border-[#582c84]/30 disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                              <Plus className="h-4 w-4" aria-hidden />
+                              <span>Add Penalty</span>
+                            </Button>
+                          </DialogTrigger>
+                        </span>
+                      </TooltipTrigger>
+                      {addPenaltyMonthLocked && (
+                        <TooltipContent className="max-w-xs bg-[#1f1f2e] border border-[#582c84] text-white text-xs">
+                          {monthLockBlockTooltip(addPenaltyGateReason)}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
 
                     <DialogContent className="max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
                       <DialogHeader>
                         <DialogTitle className="text-lg font-semibold text-white">Add New Penalty</DialogTitle>
                       </DialogHeader>
                       <form onSubmit={handleSubmit} className="space-y-4">
+                        {addPenaltyMonthLocked && addPenaltyGateReason === "unavailable" && (
+                          <MonthLockUnavailableBanner />
+                        )}
+                        {addPenaltyMonthLocked && addPenaltyGateReason === "loading" && (
+                          <MonthLockStatusSkeleton className="min-h-[52px]" />
+                        )}
+                        {addPenaltyMonthLocked &&
+                          monthStatus === "ready" &&
+                          isLocked(penaltyCurrentMonthKey) && <MonthLockedBanner />}
                         {/* Select User */}
                         <div className="space-y-2">
                           <Label className="text-white/90" htmlFor="userId">Select User</Label>
@@ -1366,7 +1570,7 @@ export default function PenaltiesPage() {
                         {/* Submit Button */}
                         <Button
                           type="submit"
-                          disabled={addPenaltyMutation.isPending}
+                          disabled={addPenaltyMutation.isPending || addPenaltyMonthLocked}
                           className="flex items-center justify-center gap-2 px-4 py-2 bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg shadow-md transition"
                         >
                           <span>Add Penalty</span>
@@ -1560,15 +1764,45 @@ export default function PenaltiesPage() {
 
             {/* Bulk Delete Button */}
             {selectedPenalties.length > 0 && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
-              >
-                <FaTrash className="text-sm" />
-                Delete Selected ({selectedPenalties.length})
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={
+                      bulkDeleteDisabled
+                        ? `w-full md:w-auto inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                        : "w-full md:w-auto inline-block"
+                    }
+                  >
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={bulkDeleteDisabled}
+                      onClick={handleBulkDelete}
+                      aria-label={
+                        bulkDeleteDisabled
+                          ? monthLockActionAria(
+                              `Delete ${selectedPenalties.length} selected penalties`,
+                              monthStatus !== "ready"
+                                ? monthStatus === "loading"
+                                  ? "loading"
+                                  : "unavailable"
+                                : "locked"
+                            )
+                          : `Delete ${selectedPenalties.length} selected penalties`
+                      }
+                      className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed w-full md:w-auto justify-center"
+                    >
+                      <FaTrash className="text-sm" aria-hidden />
+                      Delete Selected ({selectedPenalties.length})
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {bulkDeleteDisabled && (
+                  <TooltipContent className="max-w-xs bg-[#1f1f2e] border border-[#582c84] text-white text-xs">
+                    {bulkDeleteTooltip}
+                  </TooltipContent>
+                )}
+              </Tooltip>
             )}
           </div>
 
@@ -1632,8 +1866,24 @@ export default function PenaltiesPage() {
                           <input
                             type="checkbox"
                             onChange={(e) => handleSelectAll(e.target.checked)}
-                            checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
-                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                            checked={
+                              selectableFilteredPenalties.length > 0 &&
+                              selectableFilteredPenalties.every(p => selectedPenalties.includes(p._id))
+                            }
+                            disabled={
+                              selectableFilteredPenalties.length === 0 || monthStatus !== "ready"
+                            }
+                            aria-label={
+                              monthStatus !== "ready"
+                                ? monthLockActionAria(
+                                    "Select all penalties on this page",
+                                    monthStatus === "loading" ? "loading" : "unavailable"
+                                  )
+                                : selectableFilteredPenalties.length === 0
+                                  ? "No penalties on this page can be selected for bulk delete"
+                                  : "Select all penalties on this page that can be deleted"
+                            }
+                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                         </TableHead>}
                     </TableRow>
@@ -1641,10 +1891,16 @@ export default function PenaltiesPage() {
 
                   <TableBody>
                     {paginatedPenalties.map((penalty) => (
-                      <TableRow key={penalty._id} className="transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group"
+                      <TableRow key={penalty._id} className={cn(
+                        "transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group",
+                        lockedRowClassName(rowLooksLocked(penaltyAccountingMonthKey(penalty)))
+                      )}
                       >
                         <TableCell className="min-w-[200px] py-4 px-3">
                           <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm group-hover:border-[#582c84]/50 group-hover:bg-[#1e1d30] transition-all duration-300">
+                            {rowLooksLocked(penaltyAccountingMonthKey(penalty)) && (
+                              <MonthLockIcon decorative className="shrink-0 text-[13px]" />
+                            )}
                             <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
                               <AvatarImage
                                 src={
@@ -1740,9 +1996,25 @@ export default function PenaltiesPage() {
                           <TableCell className="text-center py-4 px-3">
                             <input
                               type="checkbox"
+                              disabled={interactionDisabled(penaltyAccountingMonthKey(penalty))}
+                              title={
+                                interactionDisabled(penaltyAccountingMonthKey(penalty))
+                                  ? monthLockBlockTooltip(
+                                      gateReason(penaltyAccountingMonthKey(penalty))
+                                    )
+                                  : undefined
+                              }
+                              aria-label={
+                                interactionDisabled(penaltyAccountingMonthKey(penalty))
+                                  ? monthLockActionAria(
+                                      "Select penalty for bulk delete",
+                                      gateReason(penaltyAccountingMonthKey(penalty))
+                                    )
+                                  : "Select penalty for bulk delete"
+                              }
                               onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
                               checked={selectedPenalties.includes(penalty._id)}
-                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                             />
                           </TableCell>
                         )}
@@ -1778,8 +2050,24 @@ export default function PenaltiesPage() {
                           <input
                             type="checkbox"
                             onChange={(e) => handleSelectAll(e.target.checked)}
-                            checked={filteredPenalties?.length > 0 && selectedPenalties.length === filteredPenalties.length && selectedPenalties.every(id => filteredPenalties.some(penalty => penalty._id === id))}
-                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                            checked={
+                              selectableFilteredPenalties.length > 0 &&
+                              selectableFilteredPenalties.every(p => selectedPenalties.includes(p._id))
+                            }
+                            disabled={
+                              selectableFilteredPenalties.length === 0 || monthStatus !== "ready"
+                            }
+                            aria-label={
+                              monthStatus !== "ready"
+                                ? monthLockActionAria(
+                                    "Select all penalties on this page",
+                                    monthStatus === "loading" ? "loading" : "unavailable"
+                                  )
+                                : selectableFilteredPenalties.length === 0
+                                  ? "No penalties on this page can be selected for bulk delete"
+                                  : "Select all penalties on this page that can be deleted"
+                            }
+                            className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                         </TableHead>}
                     </TableRow>
@@ -1787,10 +2075,16 @@ export default function PenaltiesPage() {
 
                   <TableBody>
                     {paginatedPenalties.map((penalty) => (
-                      <TableRow key={penalty._id} className="transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group"
+                      <TableRow key={penalty._id} className={cn(
+                        "transition-all duration-300 hover:bg-gradient-to-r hover:from-[#1f1f2e] hover:to-[#252540] hover:shadow-lg hover:shadow-[#582c84]/10 border-none group",
+                        lockedRowClassName(rowLooksLocked(penaltyAccountingMonthKey(penalty)))
+                      )}
                       >
                         <TableCell className="min-w-[200px] py-4 px-3">
                           <div className="flex items-center gap-3 p-2 rounded-lg border border-[#582c84]/30 bg-[#1c1b2d] shadow-sm group-hover:border-[#582c84]/50 group-hover:bg-[#1e1d30] transition-all duration-300">
+                            {rowLooksLocked(penaltyAccountingMonthKey(penalty)) && (
+                              <MonthLockIcon decorative className="shrink-0 text-[13px]" />
+                            )}
                             <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-[#582c84]/50">
                               <AvatarImage
                                 src={
@@ -1886,9 +2180,25 @@ export default function PenaltiesPage() {
                           <TableCell className="text-center py-4 px-3">
                             <input
                               type="checkbox"
+                              disabled={interactionDisabled(penaltyAccountingMonthKey(penalty))}
+                              title={
+                                interactionDisabled(penaltyAccountingMonthKey(penalty))
+                                  ? monthLockBlockTooltip(
+                                      gateReason(penaltyAccountingMonthKey(penalty))
+                                    )
+                                  : undefined
+                              }
+                              aria-label={
+                                interactionDisabled(penaltyAccountingMonthKey(penalty))
+                                  ? monthLockActionAria(
+                                      "Select penalty for bulk delete",
+                                      gateReason(penaltyAccountingMonthKey(penalty))
+                                    )
+                                  : "Select penalty for bulk delete"
+                              }
                               onChange={(e) => handleSelectPenalty(penalty._id, e.target.checked)}
                               checked={selectedPenalties.includes(penalty._id)}
-                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150"
+                              className="h-5 w-5 rounded-md bg-gray-300 border-gray-400 checked:bg-[#582c84] checked:border-[#582c84] accent-[#582c84] focus:ring-2 focus:ring-[#582c84] transition duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                             />
                           </TableCell>
                         )}

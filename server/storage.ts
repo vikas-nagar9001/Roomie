@@ -1,6 +1,23 @@
 import mongoose from "mongoose";
 import dotenv from 'dotenv';
-import { InsertPenaltySettings, PenaltySettingsDocument } from "../shared/schema"; // Import both interfaces
+import { InsertPenaltySettings } from "../shared/schema";
+import {
+  accountingMonthFromDate,
+  accountingMonthFromBillFields,
+  parseAccountingMonthKey,
+  compareAccountingMonthKeys,
+} from "./lib/accounting-month";
+import {
+  createMonthLockedError,
+  MONTH_LOCKED_DEFAULT_MESSAGE,
+  createNewerMonthActiveError,
+} from "./lib/month-ledger-error";
+import {
+  ledgerPeriodSchemaFields,
+  FLAT_MONTH_STATUS_ENUM,
+  LEDGER_LIFECYCLE_ENUM,
+} from "./schemas/mongoose-ledger";
+import { MonthlyHistoryModel } from "./schemas/monthly-history";
 dotenv.config();
 import {
   InsertUser as InsertUserSchema,
@@ -68,6 +85,7 @@ const userSchema = new mongoose.Schema({
 
 const activitySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", default: null },
   type: {
     type: String,
     enum: [
@@ -91,7 +109,23 @@ const activitySchema = new mongoose.Schema({
   description: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
   read: { type: Boolean, default: false },
+  lifecycleStatus: {
+    type: String,
+    enum: [...LEDGER_LIFECYCLE_ENUM],
+    default: "active",
+  },
+  isDeleted: { type: Boolean, default: false },
 });
+activitySchema.index({ flatId: 1, timestamp: -1 });
+activitySchema.index({ userId: 1, read: 1, timestamp: -1 });
+
+const _activityTtlSec = Number(process.env.ACTIVITY_LOG_RETENTION_SECONDS);
+if (Number.isFinite(_activityTtlSec) && _activityTtlSec >= 3600) {
+  activitySchema.index({ timestamp: 1 }, { expireAfterSeconds: _activityTtlSec });
+  console.log(
+    `[storage] Activity TTL index: expireAfterSeconds=${_activityTtlSec} (ACTIVITY_LOG_RETENTION_SECONDS)`,
+  );
+}
 
 const penaltySchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -104,20 +138,32 @@ const penaltySchema = new mongoose.Schema({
   amount: { type: Number, required: true },
   description: { type: String, required: true },
   image: { type: String },
-  createdAt: { type: Date, default: Date.now }, createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  createdAt: { type: Date, default: Date.now },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   nextPenaltyDate: { type: Date },
-  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null } // null = not yet applied to any bill
+  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null },
+  incurredAt: { type: Date },
+  ...ledgerPeriodSchemaFields(),
 });
 
+/** Per-flat automation config (not ledger rows). `accountingMonth` omitted — settings apply to the flat, not one period. */
 const penaltySettingsSchema = new mongoose.Schema({
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  contributionPenaltyPercentage: { type: Number, default: 3 }, // Default 3%
-  warningPeriodDays: { type: Number, default: 3 }, // Default 3 days
+  contributionPenaltyPercentage: { type: Number, default: 3 },
+  warningPeriodDays: { type: Number, default: 3 },
+  createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  lastPenaltyAppliedAt: { type: Date, default: Date.now }, // Initialize with current date
-  selectedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] // Array of selected users for penalties, empty array by default
+  lastPenaltyAppliedAt: { type: Date, default: Date.now },
+  selectedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  lifecycleStatus: {
+    type: String,
+    enum: [...LEDGER_LIFECYCLE_ENUM],
+    default: "active",
+  },
+  isDeleted: { type: Boolean, default: false },
 });
+penaltySettingsSchema.index({ flatId: 1, isDeleted: 1 });
 
 const entrySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -128,8 +174,11 @@ const entrySchema = new mongoose.Schema({
     enum: ["PENDING", "APPROVED", "REJECTED"],
     default: "PENDING",
   },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null } // null = not yet counted in any bill
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
+  billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null },
+  createdAt: { type: Date, default: Date.now },
+  ...ledgerPeriodSchemaFields(),
 });
 
 // MongoDB Models
@@ -145,41 +194,128 @@ const billSchema = new mongoose.Schema({
   items: [{
     name: { type: String, required: true },
     amount: { type: Number, required: true },
-    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }] // empty = all members
+    members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   }],
   totalAmount: { type: Number, required: true },
   splitAmount: { type: Number, required: true },
   dueDate: { type: Date, required: true },
   entryDeductionEnabled: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  ...ledgerPeriodSchemaFields(),
 });
 
 const paymentSchema = new mongoose.Schema({
   billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", required: true },
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
-  amount: { type: Number, required: true },        // base split amount per person
-  paidAmount: { type: Number, default: 0 },        // how much has been received
-  carryForwardAmount: { type: Number, default: 0 }, // unpaid balance from previous bill
-  entryDeduction: { type: Number, default: 0 },    // approved entries deducted from share
-  totalDue: { type: Number, default: 0 },          // amount + carryForward - entryDeduction
+  amount: { type: Number, required: true },
+  paidAmount: { type: Number, default: 0 },
+  carryForwardAmount: { type: Number, default: 0 },
+  entryDeduction: { type: Number, default: 0 },
+  totalDue: { type: Number, default: 0 },
   penalty: { type: Number, default: 0 },
   penaltyWaived: { type: Boolean, default: false },
   status: { type: String, enum: ["PAID", "PENDING"], default: "PENDING" },
   dueDate: { type: Date, required: true },
   paidAt: { type: Date },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
+  ...ledgerPeriodSchemaFields(),
 });
+
+entrySchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
+entrySchema.index({ flatId: 1, isDeleted: 1 });
+penaltySchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
+penaltySchema.index({ flatId: 1, isDeleted: 1 });
+billSchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
+billSchema.index({ flatId: 1, isDeleted: 1 });
+paymentSchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
+paymentSchema.index({ flatId: 1, isDeleted: 1 });
+
+/**
+ * Per-flat accounting month lock. `monthKey` is canonical "YYYY-MM" (same meaning as ledger `accountingMonth`).
+ * `status` is lock pointer state (active | locked), not the same enum as ledger row lifecycleStatus.
+ */
+const flatMonthSchema = new mongoose.Schema({
+  flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
+  monthKey: { type: String, required: true },
+  /** Denormalized copy of monthKey for compound indexes aligned with other collections. */
+  accountingMonth: { type: String, index: true },
+  status: {
+    type: String,
+    enum: [...FLAT_MONTH_STATUS_ENUM],
+    default: "active",
+  },
+  closedAt: { type: Date },
+  closedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  reopenedAt: { type: Date },
+  reopenedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  isDeleted: { type: Boolean, default: false },
+});
+flatMonthSchema.index({ flatId: 1, monthKey: 1 }, { unique: true });
+flatMonthSchema.index({ flatId: 1, isDeleted: 1 });
+flatMonthSchema.index({ flatId: 1, accountingMonth: 1 });
+/** At most one "active" FlatMonth row per flat (enforced at DB level when index builds). */
+flatMonthSchema.index(
+  { flatId: 1, status: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: "active" },
+  },
+);
+
+function notDeletedMatch(): Record<string, unknown> {
+  return { $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] };
+}
+
+function flatIdQuery(flatId: string) {
+  return { flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] } };
+}
+
+/** Extra match for period lifecycle + soft delete (backward compatible with docs missing fields). */
+function ledgerExtraMatch(opts?: LedgerQueryOptions): Record<string, unknown> {
+  const includeArchived = opts?.includeArchived === true;
+  const includeDeleted = opts?.includeDeleted === true;
+  const clauses: Record<string, unknown>[] = [];
+  if (!includeArchived) {
+    clauses.push({
+      $or: [
+        { lifecycleStatus: { $ne: "archived" } },
+        { lifecycleStatus: { $exists: false } },
+      ],
+    });
+  }
+  if (!includeDeleted) {
+    clauses.push({
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+    });
+  }
+  if (clauses.length === 0) return {};
+  if (clauses.length === 1) return clauses[0]!;
+  return { $and: clauses };
+}
 
 export const EntryModel = mongoose.model("Entry", entrySchema);
 export const BillModel = mongoose.model("Bill", billSchema);
 export const PaymentModel = mongoose.model("Payment", paymentSchema);
-const PenaltyModel = mongoose.model("Penalty", penaltySchema);
-const PenaltySettingsModel = mongoose.model("PenaltySettings", penaltySettingsSchema);
+export const PenaltyModel = mongoose.model("Penalty", penaltySchema);
+export const FlatMonthModel = mongoose.model("FlatMonth", flatMonthSchema);
+export const PenaltySettingsModel = mongoose.model(
+  "PenaltySettings",
+  penaltySettingsSchema,
+);
+
+export type LedgerQueryOptions = {
+  /** When false (default), archived period rows are hidden (current workspace). */
+  includeArchived?: boolean;
+  /** When false (default), soft-deleted rows are hidden. */
+  includeDeleted?: boolean;
+};
 
 export interface IStorage {
   connect(): Promise<void>;
-  getEntriesByFlatId(flatId: string): Promise<any[]>;
+  getEntriesByFlatId(flatId: string, opts?: LedgerQueryOptions): Promise<any[]>;
   getFlat(flatId: string): Promise<Flat | undefined>;
   getFlatById(flatId: string): Promise<Flat | undefined>;
   createEntry(entryData: Partial<Entry>): Promise<Entry>;
@@ -216,10 +352,11 @@ export interface IStorage {
   getEntriesByBillId(billId: string): Promise<any[]>;
   getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]>;
   markPenaltiesAppliedToBill(penaltyIds: string[], billId: string): Promise<void>;
+  getEntryById(id: string): Promise<any | null>;
   deleteEntry(id: string): Promise<boolean>;
   // Penalty methods
   createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty>;
-  getPenaltiesByFlatId(flatId: string): Promise<Penalty[]>;
+  getPenaltiesByFlatId(flatId: string, opts?: LedgerQueryOptions): Promise<Penalty[]>;
   getPenaltiesByUserId(userId: string): Promise<Penalty[]>;
   getPenalty(id: string): Promise<Penalty | undefined>;
   updatePenalty(id: string, data: Partial<Penalty>): Promise<Penalty | undefined>;
@@ -238,6 +375,22 @@ export interface IStorage {
   getPushSubscriptionsByUserIds(userIds: string[]): Promise<PushSubscription[]>;
   getPushSubscriptionsExceptUser(flatId: string, excludedUserId: string): Promise<PushSubscription[]>;
   cleanupPushSubscriptionByEndpoint(endpoint: string): Promise<boolean>;
+  /** Month ledger (per flat + YYYY-MM) */
+  isAccountingMonthLocked(flatId: string, monthKey: string): Promise<boolean>;
+  assertAccountingMonthOpen(flatId: string, monthKey: string): Promise<void>;
+  listFlatMonths(flatId: string): Promise<any[]>;
+  closeFlatMonth(
+    flatId: string,
+    monthKey: string,
+    closedByUserId?: string,
+  ): Promise<{
+    entries: number;
+    penalties: number;
+    bills: number;
+    payments: number;
+    alreadyClosed: boolean;
+  }>;
+  reopenFlatMonth(flatId: string, monthKey: string, reopenedByUserId: string): Promise<void>;
   sessionStore: session.Store;
 }
 import type { MongoClient } from 'mongodb';
@@ -251,6 +404,8 @@ export class MongoStorage implements IStorage {
       throw new Error('MONGODB_URI environment variable is required');
     }
 
+    // express-session documents in `sessions` collection; TTL handled by connect-mongo (autoRemove: native).
+    // Per-user cleanup: destroySessionsByUserId() regex-deletes rows when a user is removed.
     this.sessionStore = MongoStore.create({
       mongoUrl: process.env.MONGODB_URI,
       ttl: 30 * 24 * 60 * 60, // 30 days
@@ -298,24 +453,56 @@ export class MongoStorage implements IStorage {
 
   // Penalty methods implementation
   async createPenalty(penaltyData: InsertPenalty & { flatId: string, createdBy: string }): Promise<Penalty> {
-    const penalty = await PenaltyModel.create(penaltyData);
+    const now = new Date();
+    const pd = penaltyData as InsertPenalty & {
+      flatId: string;
+      createdBy: string;
+    } & Record<string, unknown>;
+    const rest = { ...pd };
+    delete rest.accountingMonth;
+    const rawIncurred = rest.incurredAt;
+    delete rest.incurredAt;
+    const refDate =
+      rawIncurred != null ? new Date(rawIncurred as Date) : now;
+    if (isNaN(refDate.getTime())) {
+      const e = new Error("Invalid incurredAt");
+      (e as { statusCode?: number }).statusCode = 400;
+      (e as { code?: string }).code = "INVALID_DATETIME";
+      throw e;
+    }
+    const accountingMonth = accountingMonthFromDate(refDate);
+    const penalty = await PenaltyModel.create({
+      ...rest,
+      incurredAt: refDate,
+      accountingMonth,
+      lifecycleStatus: (pd.lifecycleStatus as string | undefined) ?? "active",
+      isDeleted: (pd.isDeleted as boolean | undefined) ?? false,
+      updatedAt: now,
+    });
     return this.convertId(penalty.toObject());
   }
-  async getPenaltiesByFlatId(flatId: string): Promise<Penalty[]> {
-    const penalties = await PenaltyModel.find({ flatId })
+  async getPenaltiesByFlatId(flatId: string, opts?: LedgerQueryOptions): Promise<Penalty[]> {
+    const extra = ledgerExtraMatch(opts);
+    const q = Object.keys(extra).length
+      ? { ...flatIdQuery(flatId), ...extra }
+      : flatIdQuery(flatId);
+    const penalties = await PenaltyModel.find(q)
       .populate('userId', 'name email profilePicture')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
       .lean();
-
-    // console.log('Raw penalties from database:', JSON.stringify(penalties.slice(0, 2)));
 
     const convertedPenalties = penalties.map(this.convertId);
 
     return convertedPenalties;
   }
   async getPenaltiesByUserId(userId: string): Promise<Penalty[]> {
-    const penalties = await PenaltyModel.find({ userId })
+    const life = ledgerExtraMatch({ includeArchived: false });
+    const parts = [
+      { userId: { $in: [userId, new mongoose.Types.ObjectId(userId)] } },
+      ...(Object.keys(life).length ? [life] : []),
+    ];
+    const penalties = await PenaltyModel.find({ $and: parts })
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
       .lean();
@@ -331,9 +518,34 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePenalty(id: string, data: Partial<Penalty>): Promise<Penalty | undefined> {
+    const existing = await PenaltyModel.findById(id).lean();
+    if (!existing) return undefined;
+    const d = { ...(data as Record<string, unknown>) };
+    delete d.accountingMonth;
+    let refDate: Date;
+    if (d.incurredAt !== undefined) {
+      refDate = new Date(d.incurredAt as Date);
+      if (isNaN(refDate.getTime())) {
+        const e = new Error("Invalid incurredAt");
+        (e as { statusCode?: number }).statusCode = 400;
+        (e as { code?: string }).code = "INVALID_DATETIME";
+        throw e;
+      }
+    } else {
+      const ex = existing as { incurredAt?: Date; createdAt?: Date };
+      refDate = new Date(ex.incurredAt || ex.createdAt || Date.now());
+    }
+    const accountingMonth = accountingMonthFromDate(refDate);
     const penalty = await PenaltyModel.findByIdAndUpdate(
       id,
-      { $set: data },
+      {
+        $set: {
+          ...d,
+          incurredAt: refDate,
+          accountingMonth,
+          updatedAt: new Date(),
+        },
+      },
       { new: true }
     )
       .populate('userId', 'name email profilePicture')
@@ -342,9 +554,14 @@ export class MongoStorage implements IStorage {
     return penalty ? this.convertId(penalty) : undefined;
   }
 
+  /** Soft delete — row kept for audit */
   async deletePenalty(id: string): Promise<boolean> {
     try {
-      const result = await PenaltyModel.findByIdAndDelete(id);
+      const result = await PenaltyModel.findByIdAndUpdate(
+        id,
+        { $set: { isDeleted: true, updatedAt: new Date() } },
+        { new: true },
+      );
       return !!result;
     } catch (error) {
       console.error("Failed to delete penalty:", error);
@@ -352,7 +569,8 @@ export class MongoStorage implements IStorage {
     }
   }
   async getPenaltyTotalsByFlatId(flatId: string, userId?: string): Promise<{ userTotal: number; flatTotal: number }> {
-    const penalties = await PenaltyModel.find({ flatId }).lean();
+    const q = { ...flatIdQuery(flatId), ...ledgerExtraMatch({ includeArchived: false }) };
+    const penalties = await PenaltyModel.find(q).lean();
 
     // Calculate total penalties for the flat
     const flatTotal = penalties.reduce((sum, penalty) => sum + penalty.amount, 0);
@@ -367,21 +585,26 @@ export class MongoStorage implements IStorage {
 
   // Penalty Settings methods
   async getPenaltySettings(flatId: string): Promise<PenaltySettings | undefined> {
-    const settings = await PenaltySettingsModel.findOne({ flatId }).lean();
+    const settings = await PenaltySettingsModel.findOne({
+      flatId,
+      ...notDeletedMatch(),
+    }).lean();
     return settings ? this.convertId(settings) : undefined;
   }
 
 
 
-  async createPenaltySettings(data: InsertPenaltySettings & { updatedBy: mongoose.Types.ObjectId }): Promise<PenaltySettingsDocument> {
+  async createPenaltySettings(
+    data: InsertPenaltySettings & { updatedBy: mongoose.Types.ObjectId },
+  ): Promise<PenaltySettings> {
     const settings = new PenaltySettingsModel({
       ...data,
       updatedAt: new Date(),
-      lastPenaltyAppliedAt: new Date(), // ✅ Store the current date instead of null
+      lastPenaltyAppliedAt: new Date(),
     });
 
     await settings.save();
-    return settings.toObject(); // Ensure it returns the correct structure
+    return this.convertId(settings.toObject()) as unknown as PenaltySettings;
   }
 
 
@@ -390,7 +613,7 @@ export class MongoStorage implements IStorage {
 
   async updatePenaltySettings(flatId: string, data: Partial<PenaltySettings>): Promise<PenaltySettings | undefined> {
     const settings = await PenaltySettingsModel.findOneAndUpdate(
-      { flatId },
+      { flatId, ...notDeletedMatch() },
       {
         $set: {
           ...data,
@@ -411,7 +634,7 @@ export class MongoStorage implements IStorage {
     console.log("Flat ID:", flatId);
 
     const result = await PenaltySettingsModel.updateOne(
-      { flatId: new mongoose.Types.ObjectId(flatId) },
+      { flatId: new mongoose.Types.ObjectId(flatId), ...notDeletedMatch() },
       { $set: { lastPenaltyAppliedAt: date } }
     );
 
@@ -636,10 +859,10 @@ export class MongoStorage implements IStorage {
     const activity = new ActivityModel(activityData);
     await activity.save();
 
-    // Keep at most 30 most recent activities per user to avoid unbounded growth
+    // Keep at most 30 most recent activities per user (plus optional Mongo TTL via ACTIVITY_LOG_RETENTION_SECONDS)
     try {
       const userId = activity.userId;
-      const toDelete = await ActivityModel.find({ userId })
+      const toDelete = await ActivityModel.find({ userId, ...notDeletedMatch() })
         .sort({ read: 1, timestamp: -1 })
         .skip(30) // everything after the newest 30
         .select("_id")
@@ -658,7 +881,7 @@ export class MongoStorage implements IStorage {
   }
 
   async getUserActivities(userId: string): Promise<ActivitySchema[]> {
-    const activities = await ActivityModel.find({ userId })
+    const activities = await ActivityModel.find({ userId, ...notDeletedMatch() })
       .sort({ read: 1, timestamp: -1 })
       .limit(30); // keep only the most recent 30 per fetch
     return activities.map(activity => this.convertId(activity.toObject()));
@@ -675,7 +898,13 @@ export class MongoStorage implements IStorage {
     await ActivityModel.updateMany({ userId, read: false }, { $set: { read: true } });
   }
   async getUserEntriesTotal(userId: string): Promise<number> {
-    const entries = await EntryModel.find({ userId: userId });
+    const life = ledgerExtraMatch({ includeArchived: false });
+    const entries = await EntryModel.find({
+      $and: [
+        { userId: { $in: [userId, new mongoose.Types.ObjectId(userId)] } },
+        ...(Object.keys(life).length ? [life] : []),
+      ],
+    });
     return entries.reduce((total, entry) => {
       // Ensure we're comparing the correct userId
       const entryUserId = typeof entry.userId === 'object' ? entry.userId._id?.toString() : entry.userId?.toString();
@@ -686,10 +915,12 @@ export class MongoStorage implements IStorage {
     }, 0);
   }
 
-  async getEntriesByFlatId(flatId: string) {
-    const entries = await EntryModel.find({
-      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] }
-    }).populate('userId', 'name email profilePicture');
+  async getEntriesByFlatId(flatId: string, opts?: LedgerQueryOptions) {
+    const extra = ledgerExtraMatch(opts);
+    const q = Object.keys(extra).length
+      ? { ...flatIdQuery(flatId), ...extra }
+      : flatIdQuery(flatId);
+    const entries = await EntryModel.find(q).populate('userId', 'name email profilePicture');
     return entries.map((entry) => this.convertId(entry.toObject()));
   }
 
@@ -702,27 +933,103 @@ export class MongoStorage implements IStorage {
   }
 
   async createEntry(entryData: Partial<Entry>): Promise<Entry> {
-    const entry = new EntryModel(entryData);
+    const ed = { ...(entryData as Record<string, unknown>) };
+    delete ed.accountingMonth;
+    const dateTime =
+      ed.dateTime != null ? new Date(ed.dateTime as Date) : new Date();
+    if (isNaN(dateTime.getTime())) {
+      const e = new Error("Invalid dateTime");
+      (e as { statusCode?: number }).statusCode = 400;
+      (e as { code?: string }).code = "INVALID_DATETIME";
+      throw e;
+    }
+    const accountingMonth = accountingMonthFromDate(dateTime);
+    const payload = {
+      ...ed,
+      dateTime,
+      accountingMonth,
+      lifecycleStatus: (ed.lifecycleStatus as string | undefined) ?? "active",
+      isDeleted: (ed.isDeleted as boolean | undefined) ?? false,
+      updatedAt: new Date(),
+    };
+    const entry = new EntryModel(payload);
     await entry.save();
     return this.convertId(entry.toObject());
+  }
+
+  async getEntryById(id: string): Promise<any | null> {
+    const e = await EntryModel.findById(id).populate("userId", "name email profilePicture");
+    return e ? this.convertId(e.toObject()) : null;
   }
 
   async updateEntry(
     id: string,
     data: Partial<Entry>,
   ): Promise<Entry | undefined> {
-    const entry = await EntryModel.findByIdAndUpdate(id, data, { new: true });
+    const existing = await EntryModel.findById(id).lean();
+    if (!existing) return undefined;
+    const d = { ...(data as Record<string, unknown>) };
+    delete d.accountingMonth;
+    const dateTime =
+      d.dateTime !== undefined
+        ? new Date(d.dateTime as Date)
+        : new Date((existing as { dateTime?: Date }).dateTime || Date.now());
+    if (isNaN(dateTime.getTime())) {
+      const e = new Error("Invalid dateTime");
+      (e as { statusCode?: number }).statusCode = 400;
+      (e as { code?: string }).code = "INVALID_DATETIME";
+      throw e;
+    }
+    const accountingMonth = accountingMonthFromDate(dateTime);
+    const entry = await EntryModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          ...d,
+          dateTime,
+          accountingMonth,
+          updatedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
     return this.convertId(entry?.toObject());
   }
 
   async createBill(data: any): Promise<any> {
-    const bill = new BillModel(data);
+    const payload = { ...data };
+    delete payload.accountingMonth;
+    let accountingMonth: string;
+    try {
+      accountingMonth = accountingMonthFromBillFields(
+        String(payload.month),
+        Number(payload.year),
+      );
+    } catch {
+      if (payload.dueDate) {
+        const due = new Date(payload.dueDate);
+        if (isNaN(due.getTime())) {
+          throw new Error("Bill requires valid month/year or a valid dueDate");
+        }
+        accountingMonth = accountingMonthFromDate(due);
+      } else {
+        throw new Error("Bill requires valid month/year or dueDate to derive accounting period");
+      }
+    }
+    payload.accountingMonth = accountingMonth;
+    payload.lifecycleStatus = payload.lifecycleStatus ?? "active";
+    payload.updatedAt = new Date();
+    const bill = new BillModel(payload);
     await bill.save();
     return this.convertId(bill.toObject());
   }
 
   async getBillsByFlatId(flatId: string): Promise<any[]> {
-    const bills = await BillModel.find({ flatId }).sort({ createdAt: -1 });
+    const life = ledgerExtraMatch({ includeArchived: true, includeDeleted: false });
+    const q = Object.keys(life).length
+      ? { $and: [flatIdQuery(flatId), life] }
+      : flatIdQuery(flatId);
+    const bills = await BillModel.find(q).sort({ createdAt: -1 });
     return bills.map(bill => this.convertId(bill.toObject()));
   }
 
@@ -732,7 +1039,39 @@ export class MongoStorage implements IStorage {
   }
 
   async updateBill(billId: string, data: any): Promise<any> {
-    const bill = await BillModel.findByIdAndUpdate(billId, { $set: data }, { new: true });
+    const existing = await BillModel.findById(billId).lean();
+    if (!existing) return null;
+    const next = { ...data };
+    delete next.accountingMonth;
+    const month =
+      next.month !== undefined ? next.month : (existing as { month: string }).month;
+    const year =
+      next.year !== undefined ? next.year : (existing as { year: number }).year;
+    const dueRaw =
+      next.dueDate !== undefined
+        ? next.dueDate
+        : (existing as { dueDate?: Date }).dueDate;
+    let accountingMonth: string;
+    try {
+      accountingMonth = accountingMonthFromBillFields(String(month), Number(year));
+    } catch {
+      const due = new Date(dueRaw);
+      if (isNaN(due.getTime())) {
+        throw new Error("Bill update cannot derive accounting month from month/year or dueDate");
+      }
+      accountingMonth = accountingMonthFromDate(due);
+    }
+    const bill = await BillModel.findByIdAndUpdate(
+      billId,
+      {
+        $set: {
+          ...next,
+          accountingMonth,
+          updatedAt: new Date(),
+        },
+      },
+      { new: true },
+    );
     return bill ? this.convertId(bill.toObject()) : null;
   }
 
@@ -763,13 +1102,39 @@ export class MongoStorage implements IStorage {
   }
 
   async createPayment(data: any): Promise<any> {
-    const payment = new PaymentModel(data);
+    const payload = { ...data, updatedAt: new Date() };
+    delete payload.accountingMonth;
+    const bill = await BillModel.findById(payload.billId).lean();
+    if (!bill) {
+      throw new Error("Bill not found for payment");
+    }
+    let accountingMonth: string;
+    try {
+      accountingMonth = accountingMonthFromBillFields(
+        String((bill as { month: string }).month),
+        Number((bill as { year: number }).year),
+      );
+    } catch {
+      const due = new Date((bill as { dueDate: Date }).dueDate);
+      if (isNaN(due.getTime())) {
+        throw new Error("Cannot derive payment accounting month from bill");
+      }
+      accountingMonth = accountingMonthFromDate(due);
+    }
+    payload.accountingMonth = accountingMonth;
+    if (!payload.lifecycleStatus) payload.lifecycleStatus = "active";
+    const payment = new PaymentModel(payload);
     await payment.save();
     return this.convertId(payment.toObject());
   }
 
   async getPaymentsByBillId(billId: string): Promise<any[]> {
-    const payments = await PaymentModel.find({ billId })
+    const life = ledgerExtraMatch({ includeArchived: true, includeDeleted: false });
+    const parts = [
+      { billId: { $in: [billId, new mongoose.Types.ObjectId(billId)] } },
+      ...(Object.keys(life).length ? [life] : []),
+    ];
+    const payments = await PaymentModel.find({ $and: parts })
       .populate({ path: 'userId', select: 'name email profilePicture' })
       .sort({ createdAt: 1 });
     return payments.map(payment => {
@@ -782,7 +1147,65 @@ export class MongoStorage implements IStorage {
   }
 
   async updatePayment(id: string, data: any): Promise<any> {
-    const payment = await PaymentModel.findByIdAndUpdate(id, data, { new: true })
+    const now = new Date();
+    const existingPay = await PaymentModel.findById(id).lean();
+    let billAccountingMonth: string | undefined;
+    if (existingPay?.billId) {
+      const bill = await BillModel.findById(existingPay.billId).lean();
+      if (bill) {
+        try {
+          billAccountingMonth = accountingMonthFromBillFields(
+            String((bill as { month: string }).month),
+            Number((bill as { year: number }).year),
+          );
+        } catch {
+          const due = new Date((bill as { dueDate: Date }).dueDate);
+          if (!isNaN(due.getTime())) {
+            billAccountingMonth = accountingMonthFromDate(due);
+          }
+        }
+      }
+    }
+    let updateDoc: Record<string, unknown>;
+    if (data && typeof data === "object") {
+      const topKeys = Object.keys(data);
+      const hasMongoOp = topKeys.some((k) => k.startsWith("$"));
+      if (hasMongoOp) {
+        updateDoc = { ...data };
+        const prevSet = (updateDoc.$set as Record<string, unknown> | undefined) || {};
+        const mergedSet: Record<string, unknown> = { ...prevSet, updatedAt: now };
+        delete mergedSet.accountingMonth;
+        const amOp =
+          billAccountingMonth ??
+          (existingPay as { accountingMonth?: string }).accountingMonth;
+        if (amOp) mergedSet.accountingMonth = amOp;
+        updateDoc.$set = mergedSet;
+      } else {
+        const plain = { ...data };
+        delete plain.accountingMonth;
+        const am =
+          billAccountingMonth ??
+          (existingPay as { accountingMonth?: string }).accountingMonth;
+        updateDoc = {
+          $set: {
+            ...plain,
+            ...(am ? { accountingMonth: am } : {}),
+            updatedAt: now,
+          },
+        };
+      }
+    } else {
+      const am =
+        billAccountingMonth ??
+        (existingPay as { accountingMonth?: string } | null)?.accountingMonth;
+      updateDoc = {
+        $set: {
+          ...(am ? { accountingMonth: am } : {}),
+          updatedAt: now,
+        },
+      };
+    }
+    const payment = await PaymentModel.findByIdAndUpdate(id, updateDoc, { new: true })
       .populate({ path: 'userId', select: 'name email profilePicture' });
     if (!payment) return null;
     const obj = payment.toObject();
@@ -825,7 +1248,7 @@ export class MongoStorage implements IStorage {
         updateData.paidAt = null;
       }
 
-      await PaymentModel.findByIdAndUpdate(payment._id, updateData);
+      await this.updatePayment(String(payment._id), updateData);
       return true;
     } catch (error) {
       console.error("Failed to adjust payment penalty:", error);
@@ -837,18 +1260,27 @@ export class MongoStorage implements IStorage {
    * Returns all APPROVED entries for a flat that have not yet been counted in any bill (billId = null).
    */
   async getUnappliedEntriesByFlatId(flatId: string): Promise<any[]> {
-    const entries = await EntryModel.find({
-      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] },
-      status: "APPROVED",
-      $or: [{ billId: null }, { billId: { $exists: false } }]
-    });
+    const life = ledgerExtraMatch({ includeArchived: false });
+    const parts = [
+      flatIdQuery(flatId),
+      { status: "APPROVED" as const },
+      { $or: [{ billId: null }, { billId: { $exists: false } }] },
+      ...(Object.keys(life).length ? [life] : []),
+    ];
+    const entries = await EntryModel.find({ $and: parts });
     return entries.map(e => this.convertId(e.toObject()));
   }
 
   async getEntriesByBillId(billId: string): Promise<any[]> {
+    const life = ledgerExtraMatch({ includeArchived: true, includeDeleted: false });
     const entries = await EntryModel.find({
-      billId: { $in: [billId, new mongoose.Types.ObjectId(billId)] },
-      status: "APPROVED"
+      $and: [
+        {
+          billId: { $in: [billId, new mongoose.Types.ObjectId(billId)] },
+          status: "APPROVED",
+        },
+        ...(Object.keys(life).length ? [life] : []),
+      ],
     });
     return entries.map(e => this.convertId(e.toObject()));
   }
@@ -865,11 +1297,14 @@ export class MongoStorage implements IStorage {
    * Returns all penalties for a user/flat that have not yet been applied to any bill (billId = null).
    */
   async getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]> {
-    const penalties = await PenaltyModel.find({
-      userId: { $in: [userId, new mongoose.Types.ObjectId(userId)] },
-      flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] },
-      $or: [{ billId: null }, { billId: { $exists: false } }]
-    });
+    const life = ledgerExtraMatch({ includeArchived: false });
+    const parts = [
+      flatIdQuery(flatId),
+      { userId: { $in: [userId, new mongoose.Types.ObjectId(userId)] } },
+      { $or: [{ billId: null }, { billId: { $exists: false } }] },
+      ...(Object.keys(life).length ? [life] : []),
+    ];
+    const penalties = await PenaltyModel.find({ $and: parts });
     return penalties.map(p => this.convertId(p.toObject()));
   }
 
@@ -882,7 +1317,11 @@ export class MongoStorage implements IStorage {
   }
 
   async getPaymentsByFlatId(flatId: string): Promise<any[]> {
-    const payments = await PaymentModel.find({ flatId })
+    const life = ledgerExtraMatch({ includeArchived: true, includeDeleted: false });
+    const q = Object.keys(life).length
+      ? { $and: [flatIdQuery(flatId), life] }
+      : flatIdQuery(flatId);
+    const payments = await PaymentModel.find(q)
       .populate({
         path: 'userId',
         select: 'name email profilePicture'
@@ -897,9 +1336,14 @@ export class MongoStorage implements IStorage {
     });
   }
 
+  /** Soft delete — row kept for audit / no data loss */
   async deleteEntry(id: string): Promise<boolean> {
     try {
-      const result = await EntryModel.findByIdAndDelete(id);
+      const result = await EntryModel.findByIdAndUpdate(
+        id,
+        { $set: { isDeleted: true, updatedAt: new Date() } },
+        { new: true },
+      );
       return !!result;
     } catch (error) {
       console.error("Failed to delete entry:", error);
@@ -1246,6 +1690,249 @@ export class MongoStorage implements IStorage {
     } catch (error) {
       console.error("Failed to cleanup push subscription by endpoint:", error);
       return false;
+    }
+  }
+
+  async isAccountingMonthLocked(flatId: string, monthKey: string): Promise<boolean> {
+    const row = await FlatMonthModel.findOne({
+      ...flatIdQuery(flatId),
+      monthKey,
+      status: "locked",
+      ...notDeletedMatch(),
+    }).lean();
+    return !!row;
+  }
+
+  /**
+   * Ensures target month is not locked, only one FlatMonth is `active` per flat (DB + logic),
+   * and auto-closes an older active month when advancing to a later YYYY-MM.
+   */
+  async prepareFlatMonthForWrite(flatId: string, monthKey: string): Promise<void> {
+    if (!parseAccountingMonthKey(monthKey)) {
+      const e = new Error("Invalid month key (YYYY-MM required)");
+      (e as { statusCode?: number }).statusCode = 400;
+      (e as { code?: string }).code = "INVALID_MONTH_KEY";
+      throw e;
+    }
+    if (await this.isAccountingMonthLocked(flatId, monthKey)) {
+      throw createMonthLockedError(MONTH_LOCKED_DEFAULT_MESSAGE);
+    }
+
+    const fid = new mongoose.Types.ObjectId(flatId);
+    const now = new Date();
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const active = await FlatMonthModel.findOne({
+        flatId: fid,
+        status: "active",
+        ...notDeletedMatch(),
+      }).lean();
+
+      if (!active || active.monthKey === monthKey) {
+        try {
+          await FlatMonthModel.findOneAndUpdate(
+            { flatId: fid, monthKey },
+            {
+              $set: { status: "active", updatedAt: now, accountingMonth: monthKey },
+              $setOnInsert: { createdAt: now, flatId: fid, monthKey },
+            },
+            { upsert: true, new: true },
+          );
+          return;
+        } catch (err: unknown) {
+          const e = err as { code?: number };
+          if (e?.code === 11000) continue;
+          throw err;
+        }
+      }
+
+      const cmp = compareAccountingMonthKeys(active.monthKey, monthKey);
+      if (cmp < 0) {
+        await this.closeFlatMonth(flatId, active.monthKey);
+        continue;
+      }
+      throw createNewerMonthActiveError(active.monthKey, monthKey);
+    }
+
+    throw new Error("Could not settle active accounting month (too many conflicts); retry the request.");
+  }
+
+  async assertAccountingMonthOpen(flatId: string, monthKey: string): Promise<void> {
+    await this.prepareFlatMonthForWrite(flatId, monthKey);
+  }
+
+  async listFlatMonths(flatId: string): Promise<any[]> {
+    const rows = await FlatMonthModel.find({
+      ...flatIdQuery(flatId),
+      ...notDeletedMatch(),
+    })
+      .sort({ monthKey: -1 })
+      .lean();
+    return rows.map((r) => this.convertId(r as Record<string, unknown>));
+  }
+
+  async closeFlatMonth(
+    flatId: string,
+    monthKey: string,
+    closedByUserId?: string,
+  ): Promise<{
+    entries: number;
+    penalties: number;
+    bills: number;
+    payments: number;
+    alreadyClosed: boolean;
+  }> {
+    if (!parseAccountingMonthKey(monthKey)) {
+      throw new Error(`Invalid monthKey (use YYYY-MM): ${monthKey}`);
+    }
+    const now = new Date();
+    const fid = new mongoose.Types.ObjectId(flatId);
+    const ledgerFilter = { ...flatIdQuery(flatId), accountingMonth: monthKey };
+    const archived = { lifecycleStatus: "archived" as const, updatedAt: now };
+
+    const runClose = async (session?: mongoose.ClientSession) => {
+      const opts = session ? { session } : {};
+      const existing = await FlatMonthModel.findOne({ flatId: fid, monthKey }, null, opts).lean();
+      const alreadyClosed = existing?.status === "locked";
+
+      const $set: Record<string, unknown> = {
+        status: "locked",
+        accountingMonth: monthKey,
+        closedAt: now,
+        updatedAt: now,
+        reopenedAt: null,
+        reopenedBy: null,
+      };
+      if (closedByUserId) {
+        $set.closedBy = new mongoose.Types.ObjectId(closedByUserId);
+      }
+
+      await FlatMonthModel.findOneAndUpdate(
+        { flatId: fid, monthKey },
+        { $set, $setOnInsert: { createdAt: now, flatId: fid, monthKey } },
+        { upsert: true, new: true, ...opts },
+      );
+
+      await MonthlyHistoryModel.updateMany(
+        { flatId: fid, accountingMonth: monthKey },
+        { $set: { lifecycleStatus: "archived", updatedAt: now } },
+        opts,
+      );
+
+      const [e, p, b, pay] = await Promise.all([
+        EntryModel.updateMany(ledgerFilter, { $set: archived }, opts),
+        PenaltyModel.updateMany(ledgerFilter, { $set: archived }, opts),
+        BillModel.updateMany(ledgerFilter, { $set: archived }, opts),
+        PaymentModel.updateMany(ledgerFilter, { $set: archived }, opts),
+      ]);
+
+      return {
+        alreadyClosed,
+        entries: e.modifiedCount ?? 0,
+        penalties: p.modifiedCount ?? 0,
+        bills: b.modifiedCount ?? 0,
+        payments: pay.modifiedCount ?? 0,
+      };
+    };
+
+    try {
+      const session = await mongoose.startSession();
+      try {
+        session.startTransaction();
+        const out = await runClose(session);
+        await session.commitTransaction();
+        return out;
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
+    } catch (err: unknown) {
+      const e = err as { code?: number | string; message?: string };
+      const msg = String(e?.message || "");
+      if (
+        e?.code === 20 ||
+        e?.code === "IllegalOperation" ||
+        /Transaction numbers are only allowed|not supported on a standalone|replica set/i.test(msg)
+      ) {
+        return runClose();
+      }
+      throw err;
+    }
+  }
+
+  async reopenFlatMonth(flatId: string, monthKey: string, reopenedByUserId: string): Promise<void> {
+    if (!parseAccountingMonthKey(monthKey)) {
+      throw new Error(`Invalid monthKey (use YYYY-MM): ${monthKey}`);
+    }
+    const now = new Date();
+    const fid = new mongoose.Types.ObjectId(flatId);
+    const otherActive = await FlatMonthModel.find({
+      flatId: fid,
+      status: "active",
+      monthKey: { $ne: monthKey },
+      ...notDeletedMatch(),
+    }).lean();
+    for (const o of otherActive) {
+      await this.closeFlatMonth(flatId, o.monthKey, reopenedByUserId);
+    }
+    const ledgerFilter = { ...flatIdQuery(flatId), accountingMonth: monthKey };
+    const active = { lifecycleStatus: "active" as const, updatedAt: now };
+
+    const runReopen = async (session?: mongoose.ClientSession) => {
+      const opts = session ? { session } : {};
+      await FlatMonthModel.findOneAndUpdate(
+        { flatId: fid, monthKey },
+        {
+          $set: {
+            status: "active",
+            accountingMonth: monthKey,
+            updatedAt: now,
+            reopenedAt: now,
+            reopenedBy: new mongoose.Types.ObjectId(reopenedByUserId),
+          },
+          $setOnInsert: { createdAt: now, flatId: fid, monthKey },
+        },
+        { upsert: true, new: true, ...opts },
+      );
+      await MonthlyHistoryModel.updateMany(
+        { flatId: fid, accountingMonth: monthKey },
+        { $set: { lifecycleStatus: "active", updatedAt: now } },
+        opts,
+      );
+      await Promise.all([
+        EntryModel.updateMany(ledgerFilter, { $set: active }, opts),
+        PenaltyModel.updateMany(ledgerFilter, { $set: active }, opts),
+        BillModel.updateMany(ledgerFilter, { $set: active }, opts),
+        PaymentModel.updateMany(ledgerFilter, { $set: active }, opts),
+      ]);
+    };
+
+    try {
+      const session = await mongoose.startSession();
+      try {
+        session.startTransaction();
+        await runReopen(session);
+        await session.commitTransaction();
+      } catch (err) {
+        await session.abortTransaction();
+        throw err;
+      } finally {
+        session.endSession();
+      }
+    } catch (err: unknown) {
+      const e = err as { code?: number | string; message?: string };
+      const msg = String(e?.message || "");
+      if (
+        e?.code === 20 ||
+        e?.code === "IllegalOperation" ||
+        /Transaction numbers are only allowed|not supported on a standalone|replica set/i.test(msg)
+      ) {
+        await runReopen();
+        return;
+      }
+      throw err;
     }
   }
 }

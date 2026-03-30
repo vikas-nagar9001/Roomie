@@ -1,5 +1,7 @@
 import { storage } from "./storage";
 import mongoose from "mongoose";
+import { parseAccountingMonthKey } from "./lib/accounting-month";
+import { isAutoClosePreviousAccountingMonthEnabled } from "./auto-close-config";
 
 const penaltyIntervals = new Map<string, NodeJS.Timeout>(); // Store intervals per flat
 
@@ -20,16 +22,30 @@ async function maybeAutoSnapshot() {
   const prevMonth = month === 0 ? 11 : month - 1;
   const prevYear  = month === 0 ? year - 1 : year;
 
-  console.log(`📅 Month rollover detected → auto-snapshotting ${prevMonth + 1}/${prevYear} for all flats`);
+  const prevMonthKey = `${prevYear}-${String(prevMonth + 1).padStart(2, "0")}`;
+  if (!parseAccountingMonthKey(prevMonthKey)) return;
+
+  const autoClose = isAutoClosePreviousAccountingMonthEnabled();
+  console.log(
+    `📅 Month rollover detected → snapshot${autoClose ? " + close" : ""} ${prevMonthKey} for all flats`,
+  );
   try {
     const { snapshotMonthForFlat } = await import("./routes.js");
     const flats = await storage.getAllFlats();
     for (const flat of flats) {
+      const fid = flat._id.toString();
       try {
-        await snapshotMonthForFlat(flat._id.toString(), prevYear, prevMonth);
-        console.log(`✅ Auto-snapshot saved for flat ${flat._id} — ${prevMonth + 1}/${prevYear}`);
+        await snapshotMonthForFlat(fid, prevYear, prevMonth);
+        console.log(`✅ Auto-snapshot saved for flat ${flat._id} — ${prevMonthKey}`);
       } catch (e) {
         console.error(`❌ Auto-snapshot failed for flat ${flat._id}:`, e);
+      }
+      if (!autoClose) continue;
+      try {
+        const stats = await storage.closeFlatMonth(fid, prevMonthKey);
+        console.log(`🔒 Auto-closed ledger month ${prevMonthKey} for flat ${flat._id}:`, stats);
+      } catch (e) {
+        console.error(`❌ Auto-close month failed for flat ${flat._id}:`, e);
       }
     }
   } catch (e) {

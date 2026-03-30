@@ -20,6 +20,7 @@ import Loader from "@/components/common/Loader";
 import { useLoader } from "@/services/loaderService";
 import { apiRequest } from "@/lib/queryClient";
 import { useEffect } from "react";
+import { FlatMonthsWarmup } from "@/components/flat-months-warmup";
 
 function Router() {
   return (
@@ -73,6 +74,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <FlatMonthsWarmup />
         <Router />
 
         {/* ✅ React Hot Toast Only */}

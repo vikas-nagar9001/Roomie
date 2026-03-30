@@ -52,6 +52,18 @@ function dateLabel(d: Date) {
   return format(d, "d MMM, EEEE");
 }
 
+function dedupeLedgerById<T extends { _id?: string }>(rows: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const r of rows) {
+    const id = r._id != null ? String(r._id) : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(r);
+  }
+  return out;
+}
+
 // ─── Custom Chart Tooltip ────────────────────────────────────────────────────
 
 function ChartTooltip({ active, payload }: any) {
@@ -197,8 +209,14 @@ export default function HistoryPage() {
     },
   });
 
-  const entries   = historyData?.entries   ?? [];
-  const penalties = historyData?.penalties ?? [];
+  const entries   = useMemo(
+    () => dedupeLedgerById(historyData?.entries ?? []),
+    [historyData?.entries]
+  );
+  const penalties = useMemo(
+    () => dedupeLedgerById(historyData?.penalties ?? []),
+    [historyData?.penalties]
+  );
 
   // ── Monthly history summaries (seeded past months) ──────────────────
   const { data: monthlyHistories = [] } = useQuery<any[]>({
@@ -887,11 +905,12 @@ export default function HistoryPage() {
                       </span>
                     </p>
                     <div className="bg-[#111120] border border-white/[0.06] rounded-2xl overflow-hidden divide-y divide-white/[0.04]">
-                      {items.map((item, idx) => {
+                      {items.map((item) => {
+                        const rowKey = `${item.kind}-${String(item.data._id ?? item.date.getTime())}`;
                         const isEntry = item.kind === "entry";
                         const badge   = isEntry ? entryStatusBadge(item.data.status) : null;
                         return (
-                          <div key={idx} className="flex items-center gap-3 px-4 py-3.5">
+                          <div key={rowKey} className="flex items-center gap-3 px-4 py-3.5">
                             <div className={cn(
                               "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
                               isEntry ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-amber-500/10 border border-amber-500/20"

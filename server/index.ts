@@ -16,6 +16,9 @@ const server = registerRoutes(app);
     const { startPenaltyCheckers } = await import("./penalty-checker");
     startPenaltyCheckers().catch(e => console.error("Penalty checker init error:", e));
 
+    const { startAccountingMonthCloseCron } = await import("./month-close-cron");
+    startAccountingMonthCloseCron();
+
     // Static assets caching middleware
     app.use((req, res, next) => {
       // Cache static images for 1 week
