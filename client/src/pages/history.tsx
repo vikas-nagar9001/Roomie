@@ -237,17 +237,32 @@ export default function HistoryPage() {
   );
 
   // Saved snapshot for the visible month (if any) — used to merge members missing from live ledger
-  const monthlyHistoryRecord = useMemo(
-    () =>
+  const monthlyHistoryRecord = useMemo(() => {
+    const y = currentDate.getFullYear();
+    const idx0 = currentDate.getMonth(); // 0-based: Jan=0 ... Dec=11
+    const idx1 = idx0 + 1; // 1-based: Jan=1 ... Dec=12 (older records)
+
+    // Prefer correct 0-based match if both exist.
+    const exact0 =
       monthlyHistories.find(
-        (r: { year: number; monthIndex: number }) =>
-          r.year === currentDate.getFullYear() && r.monthIndex === currentDate.getMonth()
-      ) ?? null,
-    [monthlyHistories, currentDate]
-  );
+        (r: { year: number; monthIndex: number }) => r.year === y && r.monthIndex === idx0,
+      ) ?? null;
+    if (exact0) return exact0;
+
+    const exact1 =
+      monthlyHistories.find(
+        (r: { year: number; monthIndex: number }) => r.year === y && r.monthIndex === idx1,
+      ) ?? null;
+    return exact1;
+  }, [monthlyHistories, currentDate]);
+
+  /** This page shows MonthlyHistory snapshots only — no live ledger rollup unless a snapshot row exists for that month. */
+  const hasMonthlySnapshot = monthlyHistoryRecord !== null;
 
   // ── Per-user aggregated stats ─────────────────────────────────────────────
   const userStats: UserStat[] = useMemo(() => {
+    if (!monthlyHistoryRecord) return [];
+
     const map = new Map<string, UserStat>();
 
     filteredEntries.forEach((e: any) => {
@@ -362,8 +377,12 @@ export default function HistoryPage() {
   );
 
   // userStats merges MonthlyHistory snapshot; use max so summary + share % match the member list after purge.
-  const displayTotalEntryAmt   = Math.max(totalEntryAmt, userStatsEntrySum);
-  const displayTotalPenaltyAmt = Math.max(totalPenaltyAmt, userStatsPenaltySum);
+  const displayTotalEntryAmt = hasMonthlySnapshot
+    ? Math.max(totalEntryAmt, userStatsEntrySum)
+    : 0;
+  const displayTotalPenaltyAmt = hasMonthlySnapshot
+    ? Math.max(totalPenaltyAmt, userStatsPenaltySum)
+    : 0;
 
   // Chart data (live)
   const chartData = useMemo(() =>
@@ -1101,11 +1120,15 @@ export default function HistoryPage() {
                   {[
                     {
                       label: "Total Spent",
-                      value: isHistoricalSummary
-                        ? `₹${(monthlyHistoryRecord.grandTotal as number).toLocaleString("en-IN")}`
+                      value: !hasMonthlySnapshot
+                        ? "₹0"
+                        : isHistoricalSummary
+                        ? `₹${(monthlyHistoryRecord!.grandTotal as number).toLocaleString("en-IN")}`
                         : `₹${displayTotalEntryAmt.toLocaleString("en-IN")}`,
-                      sub: isHistoricalSummary
-                        ? `${(monthlyHistoryRecord.members as any[]).length} members`
+                      sub: !hasMonthlySnapshot
+                        ? "No monthly snapshot"
+                        : isHistoricalSummary
+                        ? `${(monthlyHistoryRecord!.members as any[]).length} members`
                         : filteredEntries.length === 0 && monthlyHistoryRecord
                           ? `${userStats.length} members (summary)`
                           : `${filteredEntries.length} entries`,
@@ -1114,20 +1137,26 @@ export default function HistoryPage() {
                     },
                     {
                       label: "Members",
-                      value: isHistoricalSummary
-                        ? String((monthlyHistoryRecord.members as any[]).length)
+                      value: !hasMonthlySnapshot
+                        ? "0"
+                        : isHistoricalSummary
+                        ? String((monthlyHistoryRecord!.members as any[]).length)
                         : String(userStats.length),
-                      sub:   "active this month",
+                      sub:   !hasMonthlySnapshot ? "—" : "active this month",
                       cls:  "border-[#7c3fbf]/25 bg-[#7c3fbf]/[0.07]",
                       vcls: "text-[#c49bff]",
                     },
                     {
                       label: "Penalties",
-                      value: isHistoricalSummary
-                        ? `₹${(monthlyHistoryRecord.members as any[]).reduce((s: number, m: any) => s + m.penaltyAmount, 0).toLocaleString("en-IN")}`
+                      value: !hasMonthlySnapshot
+                        ? "₹0"
+                        : isHistoricalSummary
+                        ? `₹${(monthlyHistoryRecord!.members as any[]).reduce((s: number, m: any) => s + m.penaltyAmount, 0).toLocaleString("en-IN")}`
                         : `₹${displayTotalPenaltyAmt.toLocaleString("en-IN")}`,
-                      sub: isHistoricalSummary
-                        ? `${(monthlyHistoryRecord.members as any[]).filter((m: any) => m.penaltyAmount > 0).length} penalised`
+                      sub: !hasMonthlySnapshot
+                        ? "—"
+                        : isHistoricalSummary
+                        ? `${(monthlyHistoryRecord!.members as any[]).filter((m: any) => m.penaltyAmount > 0).length} penalised`
                         : filteredPenalties.length === 0 && monthlyHistoryRecord
                           ? `${userStats.filter(u => u.penaltyAmount > 0).length} penalised (summary)`
                           : `${filteredPenalties.length} issued`,
@@ -1212,7 +1241,17 @@ export default function HistoryPage() {
                 )}
 
                 {/* Per-user cards */}
-                {!isHistoricalSummary && userStats.length === 0 ? (
+                {!hasMonthlySnapshot ? (
+                  <div className="bg-[#111120] border border-white/[0.05] rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
+                    <p className="text-3xl">📭</p>
+                    <p className="text-white/50 text-sm font-semibold">No monthly history saved</p>
+                    <p className="text-white/25 text-xs max-w-xs leading-relaxed">
+                      There is no <span className="text-white/40">MonthlyHistory</span> row in the database for{" "}
+                      {format(currentDate, "MMMM yyyy")}. This screen only shows saved monthly snapshots (not live entries).
+                      Save one from <span className="text-white/45">Admin Tools → Save to History</span>, or check the Entries page for current activity.
+                    </p>
+                  </div>
+                ) : !isHistoricalSummary && userStats.length === 0 ? (
                   <div className="bg-[#111120] border border-white/[0.05] rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
                     <div className="flex items-end gap-2 mb-1 opacity-[0.07]">
                       {[55, 80, 40, 70, 50, 65].map((h, i) => (

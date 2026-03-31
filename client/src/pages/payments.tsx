@@ -312,9 +312,15 @@ export default function PaymentsPage() {
   /** Preview: MonthlyHistory row for the selected snapshot month (matches POST historyYear / historyMonthIndex). */
   const entryPenaltySource = useMemo(() => {
     const label = `${CAL_MONTH_NAMES[entryHistoryMonthIndex]} ${entryHistoryYear}`;
-    const snap = monthlyHistoryRecords.find(
-      (r) => r.year === entryHistoryYear && r.monthIndex === entryHistoryMonthIndex
-    );
+    const idx0 = entryHistoryMonthIndex; // 0-based (Jan=0)
+    const idx1 = idx0 + 1; // 1-based (Jan=1)
+    const snap =
+      monthlyHistoryRecords.find(
+        (r) => r.year === entryHistoryYear && r.monthIndex === idx0,
+      ) ??
+      monthlyHistoryRecords.find(
+        (r) => r.year === entryHistoryYear && r.monthIndex === idx1,
+      );
     return {
       hist: { year: entryHistoryYear, monthIndex: entryHistoryMonthIndex },
       label,
