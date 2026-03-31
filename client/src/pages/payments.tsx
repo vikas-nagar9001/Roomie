@@ -6,6 +6,7 @@ import {
   Plus, Settings, Receipt, TrendingUp, TrendingDown,
   Bell, ChevronRight, ChevronDown, History,
   IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Download, Share2, Link,
+  Forward,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -102,6 +103,8 @@ interface PaymentRecord {
   status: "PAID" | "PENDING";
   dueDate: string;
   paidAt?: string;
+  /** Unpaid balance before auto-settlement when next month’s bill was created (for display on locked bills). */
+  carriedUnpaidToNextMonth?: number;
 }
 
 interface BillDetail extends BillSummary {
@@ -119,6 +122,18 @@ const CAL_MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ] as const;
+
+/** Current month + previous two calendar months (for bill creation). */
+function getAllowedBillPeriods(now: Date): { year: number; monthIndex: number }[] {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const out: { year: number; monthIndex: number }[] = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(y, m - i, 1);
+    out.push({ year: d.getFullYear(), monthIndex: d.getMonth() });
+  }
+  return out;
+}
 
 interface MonthlyHistoryRecord {
   _id: string;
@@ -160,7 +175,6 @@ export default function PaymentsPage() {
     isLocked,
   } = usePaymentsMonthLock();
   const currentMonthKey = accountingMonthKeyFromDate(new Date());
-  const createBillMonthLocked = interactionDisabled(currentMonthKey);
 
   useEffect(() => {
     showLoader();
@@ -177,7 +191,13 @@ export default function PaymentsPage() {
     DEFAULT_RECURRING_ITEMS.map(i => ({ name: i.name, amount: "", members: [] }))
   );
   const [entryDeductionEnabled, setEntryDeductionEnabled] = useState(true);
+  /** Which MonthlyHistory snapshot to use for entry deductions & penalties (server: historyYear + historyMonthIndex). */
+  const [entryHistoryYear, setEntryHistoryYear] = useState(() => new Date().getFullYear());
+  const [entryHistoryMonthIndex, setEntryHistoryMonthIndex] = useState(() => new Date().getMonth());
   const [dueDays, setDueDays] = useState(5);
+  /** Calendar month/year this new bill is for (server month + year; rolling window: now + 2 prior months). */
+  const [createBillYear, setCreateBillYear] = useState(() => new Date().getFullYear());
+  const [createBillMonthIndex, setCreateBillMonthIndex] = useState(() => new Date().getMonth());
   const [settings, setSettings] = useState({
     defaultDueDate: 5,
     penaltyAmount: 50,
@@ -195,6 +215,27 @@ export default function PaymentsPage() {
   const { data: bills = [], isLoading: billsLoading } = useQuery<BillSummary[]>({
     queryKey: ["/api/bills"],
   });
+
+  const canCreateAnyBill = useMemo(() => {
+    const periods = getAllowedBillPeriods(new Date());
+    return periods.some(
+      p => !bills.some(b => b.year === p.year && b.month === CAL_MONTH_NAMES[p.monthIndex])
+    );
+  }, [bills]);
+
+  const billExistsForSelectedPeriod = useMemo(
+    () =>
+      bills.some(
+        b => b.year === createBillYear && b.month === CAL_MONTH_NAMES[createBillMonthIndex]
+      ),
+    [bills, createBillYear, createBillMonthIndex]
+  );
+
+  const createBillBlocked = billsLoading || !canCreateAnyBill;
+  const createBillDuplicateTooltip =
+    "A bill for this month and year already exists. Choose another month or delete/edit the existing bill.";
+  const createBillAllSlotsFullTooltip =
+    "Bills already exist for this month and the previous two months.";
 
   const { data: billDetail, isLoading: detailLoading } = useQuery<BillDetail>({
     queryKey: ["/api/bills", selectedBillId],
@@ -220,17 +261,66 @@ export default function PaymentsPage() {
     enabled: isAdmin && isCreateBillOpen,
   });
 
-  /** Same rule as server: entry/penalty amounts from MonthlyHistory for the same month as this bill. */
-  const entryPenaltySource = useMemo(() => {
-    const now = new Date();
-    const billYear = now.getFullYear();
-    const billMonthIndex = now.getMonth();
-    const label = `${CAL_MONTH_NAMES[billMonthIndex]} ${billYear}`;
-    const snap = monthlyHistoryRecords.find(
-      (r) => r.year === billYear && r.monthIndex === billMonthIndex
+  useEffect(() => {
+    if (!isCreateBillOpen) return;
+    const periods = getAllowedBillPeriods(new Date());
+    const firstGap = periods.find(
+      p => !bills.some(b => b.year === p.year && b.month === CAL_MONTH_NAMES[p.monthIndex])
     );
-    return { hist: { year: billYear, monthIndex: billMonthIndex }, label, snap };
-  }, [monthlyHistoryRecords, isCreateBillOpen]);
+    const pick = firstGap ?? periods[0]!;
+    setCreateBillYear(pick.year);
+    setCreateBillMonthIndex(pick.monthIndex);
+    setEntryHistoryYear(pick.year);
+    setEntryHistoryMonthIndex(pick.monthIndex);
+  }, [isCreateBillOpen, bills]);
+
+  /** Only past + current calendar year — no future years (more years appear automatically each year). */
+  const entryHistoryYearOptions = useMemo(() => {
+    const now = new Date();
+    const cy = now.getFullYear();
+    const ys = new Set<number>();
+    monthlyHistoryRecords.forEach((r) => {
+      if (r.year <= cy) ys.add(r.year);
+    });
+    for (let y = cy; y >= cy - 6; y--) ys.add(y);
+    if (entryHistoryYear <= cy) ys.add(entryHistoryYear);
+    return Array.from(ys)
+      .filter((y) => y <= cy)
+      .sort((a, b) => b - a);
+  }, [monthlyHistoryRecords, entryHistoryYear]);
+
+  /** Through current month for this year; Jan–Dec for past years. No future months. */
+  const entryHistoryMonthIndices = useMemo(() => {
+    const now = new Date();
+    const cy = now.getFullYear();
+    const cm = now.getMonth();
+    let maxIdx: number;
+    if (entryHistoryYear < cy) maxIdx = 11;
+    else if (entryHistoryYear === cy) maxIdx = cm;
+    else maxIdx = -1; // year > today (should not appear in list)
+    if (maxIdx < 0) return [] as number[];
+    return Array.from({ length: maxIdx + 1 }, (_, i) => i);
+  }, [entryHistoryYear]);
+
+  useEffect(() => {
+    const maxIdx = entryHistoryMonthIndices.length
+      ? entryHistoryMonthIndices[entryHistoryMonthIndices.length - 1]!
+      : 0;
+    if (entryHistoryMonthIndex > maxIdx) setEntryHistoryMonthIndex(maxIdx);
+  }, [entryHistoryMonthIndices, entryHistoryMonthIndex]);
+
+  /** Preview: MonthlyHistory row for the selected snapshot month (matches POST historyYear / historyMonthIndex). */
+  const entryPenaltySource = useMemo(() => {
+    const label = `${CAL_MONTH_NAMES[entryHistoryMonthIndex]} ${entryHistoryYear}`;
+    const snap = monthlyHistoryRecords.find(
+      (r) => r.year === entryHistoryYear && r.monthIndex === entryHistoryMonthIndex
+    );
+    return {
+      hist: { year: entryHistoryYear, monthIndex: entryHistoryMonthIndex },
+      label,
+      snap,
+    };
+  }, [monthlyHistoryRecords, entryHistoryYear, entryHistoryMonthIndex]);
 
   // When opened from notification (e.g. /payments?billId=xxx), select that bill
   const [location] = useLocation();
@@ -281,7 +371,14 @@ export default function PaymentsPage() {
   const selectedBillMonthKey = billDetail
     ? accountingMonthKeyFromBillMonth(billDetail.year, billDetail.month)
     : null;
-  const selectedBillActionsLocked = interactionDisabled(selectedBillMonthKey);
+  const selectedBillHasOutstanding = billDetail
+    ? billDetail.payments.some((p) => {
+        const due = getEffectiveTotalDue(p);
+        return due - (p.paidAmount || 0) > 0.01;
+      })
+    : false;
+  const selectedBillActionsLocked =
+    interactionDisabled(selectedBillMonthKey) && !selectedBillHasOutstanding;
 
   const stats = useMemo(() => {
     if (!billDetail?.payments) return { total: 0, received: 0, pending: 0 };
@@ -322,8 +419,8 @@ export default function PaymentsPage() {
   // ─── Mutations ───────────────────────────────────────────────────────────────
   const createBillMutation = useMutation({
     mutationFn: async () => {
-      if (createBillMonthLocked) {
-        throw new Error(monthLockBlockTooltip(gateReason(currentMonthKey)));
+      if (billExistsForSelectedPeriod) {
+        throw new Error(createBillDuplicateTooltip);
       }
 
       const items = billItems
@@ -334,19 +431,24 @@ export default function PaymentsPage() {
 
       const totalAmount = items.reduce((s, i) => s + i.amount, 0);
       const now = new Date();
-      const dueDate = new Date(now.getFullYear(), now.getMonth(), dueDays);
-      if (dueDate <= now) dueDate.setMonth(dueDate.getMonth() + 1);
+      let dueDate = new Date(createBillYear, createBillMonthIndex, dueDays);
+      const isCurrentBillMonth =
+        createBillYear === now.getFullYear() && createBillMonthIndex === now.getMonth();
+      if (isCurrentBillMonth && dueDate <= now) {
+        dueDate = new Date(dueDate);
+        dueDate.setMonth(dueDate.getMonth() + 1);
+      }
 
       showLoader();
       const res = await apiRequest("POST", "/api/bills", {
         items,
         totalAmount,
-        month: now.toLocaleString("default", { month: "long" }),
-        year: now.getFullYear(),
+        month: CAL_MONTH_NAMES[createBillMonthIndex],
+        year: createBillYear,
         dueDate: dueDate.toISOString(),
         entryDeductionEnabled,
-        historyYear: now.getFullYear(),
-        historyMonthIndex: now.getMonth(),
+        historyYear: entryHistoryYear,
+        historyMonthIndex: entryHistoryMonthIndex,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -613,17 +715,19 @@ export default function PaymentsPage() {
                       <TooltipTrigger asChild>
                         <span
                           className={
-                            createBillMonthLocked
-                              ? `inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                            createBillBlocked
+                              ? `inline-block ${monthLockWaitCursor(billsLoading)}`
                               : "inline-block"
                           }
                         >
                           <Button
-                            disabled={createBillMonthLocked}
-                            onClick={() => !createBillMonthLocked && setIsCreateBillOpen(true)}
+                            disabled={createBillBlocked}
+                            onClick={() => !createBillBlocked && setIsCreateBillOpen(true)}
                             aria-label={
-                              createBillMonthLocked
-                                ? monthLockActionAria("Create bill", gateReason(currentMonthKey))
+                              createBillBlocked
+                                ? billsLoading
+                                  ? "Loading bills"
+                                  : createBillAllSlotsFullTooltip
                                 : "Create bill"
                             }
                             className="flex items-center gap-2 bg-[#582c84] hover:bg-[#6b35a0] text-white disabled:opacity-40"
@@ -633,9 +737,9 @@ export default function PaymentsPage() {
                           </Button>
                         </span>
                       </TooltipTrigger>
-                      {createBillMonthLocked && (
+                      {createBillBlocked && (
                         <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
-                          {monthLockBlockTooltip(gateReason(currentMonthKey))}
+                          {billsLoading ? "Loading…" : createBillAllSlotsFullTooltip}
                         </TooltipContent>
                       )}
                     </Tooltip>
@@ -700,12 +804,14 @@ export default function PaymentsPage() {
           {bills.length === 0 ? (
             <EmptyState
               isAdmin={isAdmin}
-              monthLockLoading={monthStatus === "loading"}
-              createBillDisabled={createBillMonthLocked}
-              createBillTooltip={monthLockBlockTooltip(gateReason(currentMonthKey))}
+              monthLockLoading={billsLoading}
+              createBillDisabled={createBillBlocked}
+              createBillTooltip={createBillAllSlotsFullTooltip}
               createBillAriaLabel={
-                createBillMonthLocked
-                  ? monthLockActionAria("Create first bill", gateReason(currentMonthKey))
+                createBillBlocked
+                  ? billsLoading
+                    ? "Loading bills"
+                    : createBillAllSlotsFullTooltip
                   : "Create first bill"
               }
               onCreateBill={() => setIsCreateBillOpen(true)}
@@ -799,7 +905,44 @@ export default function PaymentsPage() {
           </DialogHeader>
 
           <div className="modal-scroll flex-1 overflow-y-auto min-h-0 space-y-4 py-2 pr-1">
-            {createBillMonthLocked && <MonthLockedBanner />}
+            <div className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-black/25 to-black/40 overflow-hidden px-3 py-3 sm:px-4 space-y-2">
+              <Label className="text-white/55 text-xs uppercase tracking-wide">Bill period</Label>
+              <p className="text-[10px] text-white/35 leading-snug">
+                You can create a bill for <strong className="text-white/55">this month</strong> or the{" "}
+                <strong className="text-white/55">previous two</strong> calendar months. Each month can only have one bill.
+              </p>
+              <select
+                value={`${createBillYear}-${createBillMonthIndex}`}
+                onChange={(e) => {
+                  const [y, mi] = e.target.value.split("-").map(Number);
+                  setCreateBillYear(y);
+                  setCreateBillMonthIndex(mi);
+                  setEntryHistoryYear(y);
+                  setEntryHistoryMonthIndex(mi);
+                }}
+                className="w-full min-h-[44px] sm:min-h-0 sm:h-10 rounded-lg bg-black/50 border border-white/[0.1] text-white text-sm px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#582c84]/50"
+              >
+                {getAllowedBillPeriods(new Date()).map((p) => {
+                  const exists = bills.some(
+                    b => b.year === p.year && b.month === CAL_MONTH_NAMES[p.monthIndex]
+                  );
+                  const value = `${p.year}-${p.monthIndex}`;
+                  const label = `${CAL_MONTH_NAMES[p.monthIndex]} ${p.year}`;
+                  return (
+                    <option key={value} value={value} disabled={exists} className="bg-[#14141f] text-white">
+                      {label}{exists ? " — already created" : ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {billExistsForSelectedPeriod && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-sm text-amber-100/95 leading-relaxed">
+                {createBillDuplicateTooltip}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label className="text-white/50 text-xs uppercase tracking-wide">Expense Items</Label>
               {billItems.map((item, index) => (
@@ -883,9 +1026,10 @@ export default function PaymentsPage() {
               <div className="pr-4">
                 <p className="text-white text-sm font-medium">Deduct entries &amp; apply penalties</p>
                 <p className="text-white/40 text-xs mt-0.5">
-                  Uses saved <strong className="text-white/60">monthly history</strong> for{" "}
-                  <strong className="text-[#c49bff]">{entryPenaltySource.label}</strong> (same month as this
-                  bill). Entry totals reduce each member&apos;s share; penalty totals add to amount owed.
+                  Uses the <strong className="text-white/60">monthly history snapshot</strong> you pick below
+                  for entry totals and penalties. Entry totals reduce each member&apos;s share; penalty totals add
+                  to amount owed. Snapshot defaults to the <strong className="text-white/60">same month</strong> as the bill
+                  above — change it if you need a different history month.
                 </p>
               </div>
               <Switch
@@ -896,10 +1040,57 @@ export default function PaymentsPage() {
             </div>
 
             {entryDeductionEnabled && (
-              <div className="rounded-lg border border-white/10 bg-black/25 overflow-hidden">
-                <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between gap-2">
-                  <span className="text-white/70 text-xs font-medium">Entry &amp; penalty (from monthly history)</span>
-                  <span className="text-[10px] text-white/35 truncate">{entryPenaltySource.label}</span>
+              <div className="rounded-xl border border-white/[0.08] bg-gradient-to-b from-black/25 to-black/40 overflow-hidden shadow-sm shadow-black/20">
+                <div className="px-3 py-3 sm:px-4 sm:py-3.5 border-b border-white/[0.06] space-y-3">
+                  <div className="flex flex-col gap-0.5 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-white/75 text-xs font-semibold tracking-wide">Entry &amp; penalty snapshot</span>
+                    <p className="text-[11px] text-[#c49bff]/90 sm:text-right">
+                      <span className="text-white/35 font-normal">Using </span>
+                      <span className="font-semibold text-[#e9d5ff]">{entryPenaltySource.label}</span>
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-white/35 leading-snug">
+                    Only months up to today are listed. New months appear here automatically each month.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-white/45 text-[10px] uppercase tracking-wider font-medium">Month</Label>
+                      <select
+                        value={entryHistoryMonthIndex}
+                        onChange={(e) => setEntryHistoryMonthIndex(Number(e.target.value))}
+                        disabled={entryHistoryMonthIndices.length === 0}
+                        className="w-full min-h-[44px] sm:min-h-0 sm:h-10 rounded-lg bg-black/50 border border-white/[0.1] text-white text-sm px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#582c84]/50 disabled:opacity-40"
+                      >
+                        {entryHistoryMonthIndices.map((i) => (
+                          <option key={i} value={i} className="bg-[#14141f] text-white">
+                            {CAL_MONTH_NAMES[i]}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-white/45 text-[10px] uppercase tracking-wider font-medium">Year</Label>
+                      <select
+                        value={entryHistoryYear}
+                        onChange={(e) => {
+                          const y = Number(e.target.value);
+                          setEntryHistoryYear(y);
+                          const now = new Date();
+                          const cy = now.getFullYear();
+                          const cm = now.getMonth();
+                          const cap = y < cy ? 11 : y === cy ? cm : 0;
+                          setEntryHistoryMonthIndex((prev) => Math.min(prev, cap));
+                        }}
+                        className="w-full min-h-[44px] sm:min-h-0 sm:h-10 rounded-lg bg-black/50 border border-white/[0.1] text-white text-sm px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#582c84]/50"
+                      >
+                        {entryHistoryYearOptions.map((y) => (
+                          <option key={y} value={y} className="bg-[#14141f] text-white">
+                            {y}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 {entryPenaltySource.snap && entryPenaltySource.snap.members?.length ? (
                   <div className="max-h-48 overflow-y-auto">
@@ -947,7 +1138,16 @@ export default function PaymentsPage() {
                 onChange={e => setDueDays(parseInt(e.target.value) || 5)}
                 className="bg-black/30 border-white/10 text-white focus-visible:ring-[#582c84]"
               />
-              <p className="text-white/30 text-xs">Due date will be the {dueDays}{ordinal(dueDays)} of this month</p>
+              <p className="text-white/30 text-xs">
+                Due date: {dueDays}
+                {ordinal(dueDays)} of {CAL_MONTH_NAMES[createBillMonthIndex]} {createBillYear}
+                {createBillYear === new Date().getFullYear() &&
+                createBillMonthIndex === new Date().getMonth() && (
+                  <span className="block mt-0.5">
+                    If that day has already passed this month, the due date moves to the same day next month.
+                  </span>
+                )}
+              </p>
             </div>
           </div>
 
@@ -961,12 +1161,16 @@ export default function PaymentsPage() {
             </Button>
             <Button
               onClick={() => createBillMutation.mutate()}
-              disabled={createBillMutation.isPending || billTotal === 0 || createBillMonthLocked}
+              disabled={
+                createBillMutation.isPending ||
+                billTotal === 0 ||
+                billExistsForSelectedPeriod
+              }
               aria-label={
-                createBillMonthLocked
-                  ? monthLockActionAria("Create bill", gateReason(currentMonthKey))
+                billExistsForSelectedPeriod
+                  ? createBillDuplicateTooltip
                   : billTotal === 0
-                    ? "Create bill, add at least one expense item"
+                    ? "Create bill, add at least one expense item with an amount"
                     : "Create bill"
               }
               className="bg-[#582c84] hover:bg-[#6b35a0] text-white"
@@ -1269,6 +1473,8 @@ function BillListItem({
   const dueStr = bill.dueDate ? format(new Date(bill.dueDate), "d MMM yyyy") : "";
   const status = bill.paymentStatus ?? "Pending";
   const isPaid = status === "Paid";
+  /** Month lock UI only when the bill is fully paid — pending bills stay editable. */
+  const showMonthLockChrome = rowLooksLocked && isPaid;
   return (
     <button
       onClick={onClick}
@@ -1277,12 +1483,12 @@ function BillListItem({
         isSelected
           ? "bg-[#582c84]/30 text-white border-l-2 border-[#9f5bf7]"
           : "text-white/60 hover:bg-white/5 hover:text-white border-l-2 border-transparent",
-        lockedRowClassName(rowLooksLocked)
+        lockedRowClassName(showMonthLockChrome)
       )}
     >
       <div className="min-w-0 flex-1">
         <p className="font-medium text-sm truncate flex items-center gap-1.5">
-          {rowLooksLocked && <MonthLockIcon decorative className="text-[13px]" />}
+          {showMonthLockChrome && <MonthLockIcon decorative className="text-[13px]" />}
           <span className="truncate">{bill.month} {bill.year}</span>
         </p>
         <p className="text-xs opacity-50 mt-0.5">₹{bill.totalAmount.toLocaleString()}</p>
@@ -1327,10 +1533,25 @@ function BillDetailView({
     [bill.year, bill.month]
   );
   const {
-    interactionDisabled: actionsLocked,
-    rowLooksLocked: showLockedBanner,
+    interactionDisabled: monthLockWouldBlock,
+    rowLooksLocked: monthRowLooksLocked,
     gateReason,
   } = usePaymentsIsMonthLocked(billMonthKey);
+
+  const billHasOutstanding = useMemo(
+    () =>
+      bill.payments.some((p) => {
+        const due = getEffectiveTotalDue(p);
+        return due - (p.paidAmount || 0) > 0.01;
+      }),
+    [bill.payments]
+  );
+
+  /** Everyone has paid in full — delete is not allowed (pending/partial/or no payment rows yet can be removed). */
+  const billFullySettled = bill.payments.length > 0 && !billHasOutstanding;
+
+  const actionsLocked = monthLockWouldBlock && !billHasOutstanding;
+  const showLockedBanner = monthRowLooksLocked && !billHasOutstanding;
 
   const [expenseOpen, setExpenseOpen] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -1468,11 +1689,12 @@ function BillDetailView({
     const memberRows = bill.payments.map((p: PaymentRecord) => {
       const due = getEffectiveTotalDue(p);
       const rem = Math.max(0, due - (p.paidAmount ?? 0));
+      const carriedSnap = p.carriedUnpaidToNextMonth ?? 0;
       const pen = p.penaltyWaived ? 0 : (p.penalty ?? 0);
       const name = p.userId?.name ?? "Member";
       const rowClass = rem === 0 && due > 0 ? "row-paid" : (p.paidAmount ?? 0) > 0 ? "row-partial" : "row-pending";
       const remCell = rem === 0 && due > 0
-        ? `<span class="badge badge-paid">✓ PAID</span>`
+        ? `<span class="badge badge-paid">✓ PAID</span>${carriedSnap > 0 ? `<div style="font-size:9px;color:#b45309;margin-top:4px;line-height:1.25;text-align:right">Unpaid before rollover: ₹${invFmt(carriedSnap)} → next bill</div>` : ""}`
         : rem > 0 && (p.paidAmount ?? 0) > 0
           ? `<span class="val-yellow">₹${invFmt(rem)}</span>`
           : `<span class="val-red">₹${invFmt(rem)}</span>`;
@@ -1505,6 +1727,7 @@ function BillDetailView({
       <div class="pay-row"><span class="label"><strong>Total due</strong></span><span class="value"><strong>₹${invFmt(totalDue)}</strong></span></div>
       <div class="pay-row"><span class="label">Amount paid</span><span class="value val-green">₹${invFmt(paid)}</span></div>
       <div class="pay-row emphasis"><span class="label">Remaining balance</span><span class="value" style="color:${isPaidBill ? '#15803d' : isPartialBill ? '#b45309' : '#b91c1c'}">${isPaidBill ? '✓ PAID' : '₹' + invFmt(remaining)}</span></div>
+      ${isPaidBill && (payment?.carriedUnpaidToNextMonth ?? 0) > 0 ? `<div class="pay-row"><span class="label">Unpaid before next bill (added as carry forward)</span><span class="value carry-val">₹${invFmt(payment?.carriedUnpaidToNextMonth ?? 0)}</span></div>` : ""}
     </div>`;
 
     const html = `
@@ -1727,13 +1950,13 @@ function BillDetailView({
                     {onDeleteBill && (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className={actionsLocked ? "inline-flex cursor-not-allowed" : "inline-flex"}>
+                          <span className={billFullySettled ? "inline-flex cursor-not-allowed" : "inline-flex"}>
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              disabled={actionsLocked}
-                              onClick={() => !actionsLocked && onDeleteBill()}
+                              disabled={billFullySettled}
+                              onClick={() => !billFullySettled && onDeleteBill()}
                               className="h-9 w-9 text-red-400 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-40"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1741,7 +1964,9 @@ function BillDetailView({
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="bottom" className="max-w-xs bg-[#1c1b2d] border-white/10 text-white text-xs">
-                          {actionsLocked ? monthLockBlockTooltip(gateReason) : "Delete bill (Admin)"}
+                          {billFullySettled
+                            ? "Fully paid bills cannot be deleted"
+                            : "Delete bill (Admin)"}
                         </TooltipContent>
                       </Tooltip>
                     )}
@@ -1905,7 +2130,9 @@ function BillDetailView({
                   Total Due
                 </th>
                 <th className="text-right text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Paid</th>
-                <th className="text-right text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Remaining</th>
+                <th className="text-right text-white/40 font-medium px-3 py-2.5 min-w-[6.5rem] whitespace-nowrap">
+                  Remaining
+                </th>
                 <th className="text-center text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Status</th>
                 {isAdmin && (
                   <th className="text-center text-white/40 font-medium px-3 py-2.5 whitespace-nowrap">Actions (Admin)</th>
@@ -1978,10 +2205,18 @@ function BillDetailView({
                       <span className="text-green-400">₹{paid.toFixed(2)}</span>
                     </td>
 
-                    <td className="px-3 py-3 text-right whitespace-nowrap">
-                      <span className={cn("font-semibold", remaining > 0 ? "text-yellow-400" : "text-green-400")}>
-                        ₹{remaining.toFixed(2)}
-                      </span>
+                    <td className="px-3 py-3 text-right align-middle min-w-[6.5rem]">
+                      <div className="flex flex-col items-end justify-center gap-0.5">
+                        <span
+                          className={cn(
+                            "text-sm font-semibold tabular-nums leading-tight",
+                            remaining > 0 ? "text-yellow-400" : "text-green-400"
+                          )}
+                        >
+                          ₹{remaining.toFixed(2)}
+                        </span>
+                        <RolloverForwardNote amount={payment.carriedUnpaidToNextMonth ?? 0} variant="table" />
+                      </div>
                     </td>
 
                     <td className="px-3 py-3 text-center whitespace-nowrap">
@@ -2109,11 +2344,19 @@ function BillDetailView({
                   valueClass="text-green-400"
                 />
                 <MobileAmountBox
-                  label="Remaining"
+                  label="Remaining (due now)"
                   value={`₹${remaining.toFixed(2)}`}
                   valueClass={remaining > 0 ? "text-yellow-400 font-semibold" : "text-green-400"}
                 />
               </div>
+
+              {(payment.carriedUnpaidToNextMonth ?? 0) > 0 && (
+                <RolloverForwardNote
+                  amount={payment.carriedUnpaidToNextMonth ?? 0}
+                  variant="mobile"
+                  remainingDueNow={remaining}
+                />
+              )}
 
               {/* Admin actions */}
               {isAdmin && (
@@ -2163,6 +2406,90 @@ function BillDetailView({
 }
 
 // ─── Tiny shared sub-components ──────────────────────────────────────────────
+
+const ROLLOVER_TOOLTIP =
+  "This amount was still unpaid when the next month’s bill was created. It was added on that bill as carry forward — you do not owe it again on this month.";
+
+/**
+ * Snapshot of unpaid balance that rolled into the next bill when this month closed.
+ * Shown separately from “Remaining” so it is not mistaken for an active balance.
+ */
+function RolloverForwardNote({
+  amount,
+  variant,
+  remainingDueNow,
+}: {
+  amount: number;
+  variant: "table" | "mobile";
+  /** Current remaining for this month (mobile copy only). */
+  remainingDueNow?: number;
+}) {
+  if (amount <= 0) return null;
+
+  if (variant === "table") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex max-w-[11rem] items-center justify-end gap-1 rounded-md border border-amber-500/30",
+              "bg-amber-950/40 px-1.5 py-0.5 text-[11px] leading-none text-amber-100/95 tabular-nums",
+              "shadow-sm transition-colors hover:border-amber-500/45 hover:bg-amber-950/60",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/35"
+            )}
+            aria-label={`₹${amount.toFixed(2)} unpaid moved to next month’s bill. Hover or focus for details.`}
+          >
+            <Forward className="h-3 w-3 shrink-0 text-amber-400/85" aria-hidden />
+            <span className="font-semibold">₹{amount.toFixed(2)}</span>
+            <span className="hidden min-[900px]:inline font-normal text-white/35">→ next</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent
+          side="top"
+          align="end"
+          className="max-w-[17rem] border-amber-500/30 bg-[#1a1520] text-xs leading-relaxed text-white/90"
+        >
+          <p className="font-medium text-amber-100/95">Carry forward snapshot</p>
+          <p className="mt-1 text-white/75">{ROLLOVER_TOOLTIP}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  const dueNow = remainingDueNow ?? 0;
+  return (
+    <div
+      className={cn(
+        "rounded-xl border border-amber-500/40 bg-gradient-to-b from-amber-950/45 to-amber-950/10 p-3.5",
+        "shadow-[inset_0_1px_0_0_rgba(251,191,36,0.07)]"
+      )}
+      role="status"
+    >
+      <div className="flex gap-3">
+        <div
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/20"
+          aria-hidden
+        >
+          <Forward className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-xs font-semibold leading-tight text-amber-100/95">
+            Unpaid that rolled to next month
+          </p>
+          <p className="text-2xl font-bold tabular-nums tracking-tight text-amber-50">
+            ₹{amount.toFixed(2)}
+          </p>
+          <p className="text-[11px] leading-relaxed text-white/50 pt-0.5">
+            This appears on the <span className="text-white/65">next bill</span> as carry forward. Amount due for{" "}
+            <span className="text-white/65">this</span> month right now:{" "}
+            <span className="font-semibold text-green-400/95 tabular-nums">₹{dueNow.toFixed(2)}</span>.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PaymentStatusBadge({ status, remaining }: { status: string; remaining: number }) {
   const isPaid = status === "PAID" || remaining === 0;

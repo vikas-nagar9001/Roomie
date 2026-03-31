@@ -1,7 +1,12 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage, PaymentModel, BillModel } from "./storage";
-import { accountingMonthFromDate, accountingMonthFromBillFields, parseAccountingMonthKey } from "./lib/accounting-month";
+import { storage, PaymentModel, BillModel, FlatMonthModel } from "./storage";
+import {
+  accountingMonthFromDate,
+  accountingMonthFromBillFields,
+  parseAccountingMonthKey,
+  isInRollingThreeMonthBillWindow,
+} from "./lib/accounting-month";
 import {
   assertEntryLedgerOpen,
   assertBillLedgerOpen,
@@ -11,7 +16,11 @@ import {
   resolveEntryMonthKey,
   resolveBillMonthKey,
 } from "./month-guards";
-import { MONTH_LOCKED_DEFAULT_MESSAGE } from "./lib/month-ledger-error";
+import {
+  ARCHIVED_LEDGER_MESSAGE,
+  MONTH_LOCKED_DEFAULT_MESSAGE,
+  createMonthLockedError,
+} from "./lib/month-ledger-error";
 import { setupAuth } from "./auth";
 import { randomBytes } from "crypto";
 import { sendInviteEmail, sendPasswordResetEmail } from "./email";
@@ -33,6 +42,8 @@ import {
   MONTH_LONG_NAMES,
   accountingMonthKeyFromParts,
 } from "./schemas/monthly-history";
+import { snapshotMonthForFlat } from "./snapshot-month";
+import { snapshotCloseAndPurgeAccountingMonth } from "./ledger-month-rollover";
 
 /** Defensive: same Mongo _id must not appear twice in history payloads (avoids duplicate timeline rows). */
 function dedupeLedgerById<T extends { _id?: unknown }>(rows: T[]): T[] {
@@ -47,68 +58,116 @@ function dedupeLedgerById<T extends { _id?: unknown }>(rows: T[]): T[] {
   return out;
 }
 
-// ─── Standalone snapshot helper (also used by penalty-checker auto-snapshot) ──
-export async function snapshotMonthForFlat(flatId: string, year: number, monthIndex: number) {
-  const startOfMonth = new Date(year, monthIndex, 1);
-  const endOfMonth   = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+export { snapshotMonthForFlat };
 
-  const [allEntries, allPenalties, users] = await Promise.all([
-    storage.getEntriesByFlatId(flatId, { includeArchived: true, includeDeleted: true }),
-    storage.getPenaltiesByFlatId(flatId, { includeArchived: true, includeDeleted: true }),
-    storage.getUsersByFlatId(flatId),
-  ]);
+/** Remaining balance for a payment row (matches client getEffectiveTotalDue − paid). */
+function paymentRemainingAmount(p: {
+  totalDue?: number;
+  amount?: number;
+  penalty?: number;
+  penaltyWaived?: boolean;
+  paidAmount?: number;
+}): number {
+  const totalDue = Number(p.totalDue) > 0 ? Number(p.totalDue) : Number(p.amount) || 0;
+  const penalty = p.penaltyWaived ? 0 : Number(p.penalty) || 0;
+  const effective = totalDue + penalty;
+  const paid = Number(p.paidAmount) || 0;
+  return Math.max(0, parseFloat((effective - paid).toFixed(2)));
+}
 
-  const entries   = allEntries.filter(e => {
-    const d = new Date(e.dateTime || e.createdAt);
-    return d >= startOfMonth && d <= endOfMonth && e.status === "APPROVED";
-  });
-  const penalties = allPenalties.filter(p => {
-    const d = new Date(p.createdAt);
-    return d >= startOfMonth && d <= endOfMonth;
-  });
+/** True if the bill still has unpaid member rows — edits must stay allowed even when FlatMonth is locked. */
+function billPaymentsHaveOutstandingBalance(payments: Array<Record<string, unknown>>): boolean {
+  if (!payments?.length) return true;
+  return payments.some((p) => paymentRemainingAmount(p as any) > 0.01);
+}
 
-  const memberMap: Record<string, { name: string; userId: any; entryAmount: number; penaltyAmount: number }> = {};
-  for (const u of users) {
-    memberMap[u._id.toString()] = { name: u.name, userId: u._id, entryAmount: 0, penaltyAmount: 0 };
-  }
-  for (const e of entries) {
-    const uid = typeof e.userId === "object" ? ((e.userId as any)._id ?? e.userId).toString() : e.userId.toString();
-    if (!memberMap[uid]) memberMap[uid] = { name: (e.userId as any)?.name ?? "Unknown", userId: uid, entryAmount: 0, penaltyAmount: 0 };
-    memberMap[uid].entryAmount += e.amount;
-  }
-  for (const p of penalties) {
-    const uid = typeof p.userId === "object" ? ((p.userId as any)._id ?? p.userId).toString() : p.userId.toString();
-    if (!memberMap[uid]) memberMap[uid] = { name: (p.userId as any)?.name ?? "Unknown", userId: uid, entryAmount: 0, penaltyAmount: 0 };
-    memberMap[uid].penaltyAmount += p.amount;
-  }
+function billPaymentsFullySettled(payments: Array<Record<string, unknown>>): boolean {
+  if (!payments.length) return false;
+  return payments.every((p) => paymentRemainingAmount(p as any) <= 0.01);
+}
 
-  const members = Object.values(memberMap).map(m => ({
-    name: m.name, userId: m.userId,
-    entryAmount: m.entryAmount, penaltyAmount: m.penaltyAmount,
-    netAmount: m.entryAmount - m.penaltyAmount,
-  }));
-  const grandTotal = members.reduce((s, m) => s + m.entryAmount, 0);
-  const accountingMonth = accountingMonthKeyFromParts(year, monthIndex);
+/** Full amount owed on a payment (base totalDue + penalty) — used to mark a row fully paid. */
+function effectivePaymentTotalDue(p: {
+  totalDue?: number;
+  amount?: number;
+  penalty?: number;
+  penaltyWaived?: boolean;
+}): number {
+  const base = Number(p.totalDue) > 0 ? Number(p.totalDue) : Number(p.amount) || 0;
+  const penalty = p.penaltyWaived ? 0 : Number(p.penalty) || 0;
+  return parseFloat((base + penalty).toFixed(2));
+}
+
+function previousCalendarMonthParts(
+  year: number,
+  monthIndex: number,
+): { year: number; monthIndex: number } {
+  if (monthIndex === 0) return { year: year - 1, monthIndex: 11 };
+  return { year, monthIndex: monthIndex - 1 };
+}
+
+/**
+ * When a new bill is created, settle the immediately previous calendar month’s bill
+ * (mark payments fully paid) and lock that FlatMonth — carry-forward on the new bill
+ * already used each user’s actual remaining balance (including penalties).
+ */
+async function settlePreviousCalendarMonthBillIfExists(
+  flatId: string,
+  newBillYear: number,
+  newBillMonthIndex: number,
+  newBillId: unknown,
+  closedByUserId?: string,
+): Promise<void> {
+  const prev = previousCalendarMonthParts(newBillYear, newBillMonthIndex);
+  const prevMonthName = MONTH_LONG_NAMES[prev.monthIndex];
+  const fid = new mongoose.Types.ObjectId(flatId as string);
+  const prevBill = await BillModel.findOne({
+    $and: [
+      { flatId: { $in: [flatId, fid] } },
+      { year: prev.year },
+      { month: prevMonthName },
+      { $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] },
+    ],
+  }).lean();
+  if (!prevBill?._id) return;
+  if (String(prevBill._id) === String(newBillId)) return;
+
+  const prevPayments = await PaymentModel.find({ billId: prevBill._id }).lean();
   const now = new Date();
-
-  return MonthlyHistoryModel.findOneAndUpdate(
-    { flatId, year, monthIndex },
-    {
-      $set: {
-        flatId,
-        month: MONTH_LONG_NAMES[monthIndex],
-        year,
-        monthIndex,
-        members,
-        grandTotal,
-        accountingMonth,
-        lifecycleStatus: "active",
-        isDeleted: false,
-        updatedAt: now,
+  for (const p of prevPayments) {
+    const eff = effectivePaymentTotalDue(p as any);
+    const remainingBefore = paymentRemainingAmount(p as any);
+    await PaymentModel.updateOne(
+      { _id: p._id },
+      {
+        $set: {
+          paidAmount: eff,
+          status: "PAID",
+          paidAt: now,
+          ...(remainingBefore > 0.01
+            ? { carriedUnpaidToNextMonth: parseFloat(remainingBefore.toFixed(2)) }
+            : {}),
+          updatedAt: now,
+        },
       },
-      $setOnInsert: { createdAt: now },
-    },
-    { upsert: true, new: true },
+    );
+  }
+  const prevMonthKey = `${prev.year}-${String(prev.monthIndex + 1).padStart(2, "0")}`;
+  const $set: Record<string, unknown> = {
+    status: "locked",
+    accountingMonth: prevMonthKey,
+    closedAt: now,
+    updatedAt: now,
+    reopenedAt: null,
+    reopenedBy: null,
+  };
+  if (closedByUserId) {
+    $set.closedBy = new mongoose.Types.ObjectId(String(closedByUserId));
+  }
+  await FlatMonthModel.findOneAndUpdate(
+    { flatId: fid, monthKey: prevMonthKey },
+    { $set, $setOnInsert: { createdAt: now, flatId: fid, monthKey: prevMonthKey } },
+    { upsert: true },
   );
 }
 
@@ -118,6 +177,94 @@ function memberUserIdString(m: { userId?: unknown }): string | null {
   if (typeof u === "string") return u;
   const id = (u as { _id?: unknown })._id ?? u;
   return id != null ? String(id) : null;
+}
+
+function normalizeMemberName(s: string): string {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+/** Match Mongo flatId whether stored as string or ObjectId. */
+function flatIdInClause(flatId: string) {
+  return { flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId as string)] } };
+}
+
+/**
+ * Apply MonthlyHistory member rows to per-user entry/penalty maps.
+ * Resolves userId from snapshot.userId, or matches snapshot.name to current flat users.
+ * Returns total entry amount (for optional "Entries" line item).
+ */
+function mergeSnapshotMembersIntoUserMaps(
+  snapshot: { members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }> },
+  users: Array<{ _id: unknown; name?: string }>,
+  userEntryMap: Record<string, number>,
+  userPenaltyMap: Record<string, number>,
+): number {
+  if (!snapshot?.members?.length) return 0;
+  const nameToUserId = new Map<string, string>();
+  for (const u of users) {
+    nameToUserId.set(normalizeMemberName(String(u.name || "")), String(u._id));
+  }
+  let totalEntries = 0;
+  for (const m of snapshot.members) {
+    let uid = memberUserIdString(m);
+    if (!uid && m.name) {
+      uid = nameToUserId.get(normalizeMemberName(String(m.name))) ?? null;
+    }
+    if (!uid) continue;
+    const entryAmt = Number(m.entryAmount) || 0;
+    const penAmt = Number(m.penaltyAmount) || 0;
+    userEntryMap[uid] = (userEntryMap[uid] || 0) + entryAmt;
+    userPenaltyMap[uid] = (userPenaltyMap[uid] || 0) + penAmt;
+    totalEntries += entryAmt;
+  }
+  return totalEntries;
+}
+
+/** Merge MonthlyHistory snapshot into payment rows when DB has 0 entry/penalty (display-only; keeps totalDue as stored for PATCH consistency). */
+function enrichPaymentsFromMonthlyHistorySnapshot(
+  payments: any[],
+  snapshot: {
+    members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }>;
+  } | null,
+): any[] {
+  if (!snapshot?.members?.length) return payments;
+
+  const snapByUser = new Map<string, { entry: number; penalty: number }>();
+  const snapByName = new Map<string, { entry: number; penalty: number }>();
+  for (const m of snapshot.members) {
+    const entry = Number(m.entryAmount) || 0;
+    const pen = Number(m.penaltyAmount) || 0;
+    const uid = memberUserIdString(m);
+    if (uid) {
+      snapByUser.set(uid, { entry, penalty: pen });
+    }
+    if (m.name) {
+      snapByName.set(normalizeMemberName(String(m.name)), { entry, penalty: pen });
+    }
+  }
+  if (snapByUser.size === 0 && snapByName.size === 0) return payments;
+
+  return payments.map((p) => {
+    const uid = String(p.userId?._id ?? p.userId ?? "");
+    let snap = uid ? snapByUser.get(uid) : undefined;
+    if (!snap && p.userId?.name) {
+      snap = snapByName.get(normalizeMemberName(String(p.userId.name)));
+    }
+    let entryDeduction = Number(p.entryDeduction) || 0;
+    let penalty = Number(p.penalty) || 0;
+    if (snap) {
+      if (entryDeduction === 0 && snap.entry > 0) entryDeduction = snap.entry;
+      if (!p.penaltyWaived && penalty === 0 && snap.penalty > 0) penalty = snap.penalty;
+    }
+    return {
+      ...p,
+      entryDeduction,
+      penalty,
+    };
+  });
 }
 
 const penaltyIntervals: Record<string, NodeJS.Timeout> = {}; // Store active intervals per flat
@@ -481,18 +628,18 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json({ message: "Invalid monthKey — use YYYY-MM" });
     }
     try {
-      try {
-        await snapshotMonthForFlat(req.user.flatId, parsed.year, parsed.monthIndex);
-      } catch (snapErr) {
-        console.warn("Monthly snapshot during close failed (continuing with archive):", snapErr);
-      }
-      const stats = await storage.closeFlatMonth(req.user.flatId, monthKey, req.user._id);
+      const { stats, purge } = await snapshotCloseAndPurgeAccountingMonth(
+        req.user.flatId,
+        monthKey,
+        req.user._id,
+      );
       res.json({
         message: stats.alreadyClosed
           ? `Month ${monthKey} was already closed; ledger reconciled`
           : `Month ${monthKey} closed and archived`,
         stats,
         alreadyClosed: stats.alreadyClosed,
+        ledgerPurge: purge,
       });
     } catch (error: any) {
       console.error("Close month failed:", error);
@@ -518,18 +665,18 @@ export function registerRoutes(app: Express): Server {
       return res.status(400).json({ message: "Invalid month — use YYYY-MM" });
     }
     try {
-      try {
-        await snapshotMonthForFlat(req.user.flatId, parsed.year, parsed.monthIndex);
-      } catch (snapErr) {
-        console.warn("Monthly snapshot during close failed (continuing with archive):", snapErr);
-      }
-      const stats = await storage.closeFlatMonth(req.user.flatId, monthKey, req.user._id);
+      const { stats, purge } = await snapshotCloseAndPurgeAccountingMonth(
+        req.user.flatId,
+        monthKey,
+        req.user._id,
+      );
       res.json({
         message: stats.alreadyClosed
           ? `Month ${monthKey} was already closed; ledger reconciled`
           : `Month ${monthKey} closed and archived`,
         stats,
         alreadyClosed: stats.alreadyClosed,
+        ledgerPurge: purge,
       });
     } catch (error: any) {
       console.error("Close month failed:", error);
@@ -1452,8 +1599,29 @@ export function registerRoutes(app: Express): Server {
       let billMonthIndex = [...MONTH_LONG_NAMES].indexOf(monthStr);
       if (billMonthIndex < 0) billMonthIndex = due.getMonth();
 
+      const canonicalMonthLabel = MONTH_LONG_NAMES[billMonthIndex];
+      const fidDup = new mongoose.Types.ObjectId(flatId);
+      const duplicateBill = await BillModel.findOne({
+        flatId: { $in: [flatId, fidDup] },
+        year: yearNum,
+        month: canonicalMonthLabel,
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+      }).lean();
+      if (duplicateBill) {
+        return res.status(409).json({
+          message: `A bill for ${canonicalMonthLabel} ${yearNum} already exists. Delete or edit that bill first.`,
+        });
+      }
+
       const billAccountingMonthKey = `${yearNum}-${String(billMonthIndex + 1).padStart(2, "0")}`;
-      await storage.assertAccountingMonthOpen(flatId, billAccountingMonthKey);
+      if (!isInRollingThreeMonthBillWindow(billAccountingMonthKey)) {
+        return res.status(400).json({
+          message:
+            "You can only create bills for the current calendar month and the previous two months.",
+        });
+      }
+      // Backfill bills in the rolling window must not fight FlatMonth "active" pointer (older month vs current).
+      // Duplicate month is already rejected above.
 
       // Optional cache: MonthlyHistory snapshot (non-authoritative). If missing or unusable, live Entry/Penalty data is used below.
       // Optional: which MonthlyHistory row to use (defaults to same month/year as the bill)
@@ -1477,35 +1645,25 @@ export function registerRoutes(app: Express): Server {
 
       if (entryDeductionEnabled !== false) {
         try {
+          // Include archived snapshots (month closed) — totals still apply to bill splits.
+          // flatId must match whether stored as string or ObjectId.
           const snapshot = await MonthlyHistoryModel.findOne({
             $and: [
-              { flatId, year: historyYear, monthIndex: historyMonthIndex },
+              flatIdInClause(flatId),
+              { year: historyYear },
+              { monthIndex: historyMonthIndex },
               {
                 $or: [
                   { isDeleted: { $ne: true } },
                   { isDeleted: { $exists: false } },
                 ],
               },
-              {
-                $or: [
-                  { lifecycleStatus: { $ne: "archived" } },
-                  { lifecycleStatus: { $exists: false } },
-                ],
-              },
             ],
           }).lean() as any;
 
           if (snapshot && Array.isArray(snapshot.members) && snapshot.members.length > 0) {
+            totalEntriesAmount += mergeSnapshotMembersIntoUserMaps(snapshot, users, userEntryMap, userPenaltyMap);
             usedMonthlyHistorySnapshot = true;
-            for (const m of snapshot.members) {
-              const uid = memberUserIdString(m);
-              if (!uid) continue;
-              const entryAmt = Number(m.entryAmount) || 0;
-              const penAmt = Number(m.penaltyAmount) || 0;
-              userEntryMap[uid] = (userEntryMap[uid] || 0) + entryAmt;
-              userPenaltyMap[uid] = (userPenaltyMap[uid] || 0) + penAmt;
-              totalEntriesAmount += entryAmt;
-            }
           }
         } catch (histErr) {
           console.warn("Monthly history lookup failed:", histErr);
@@ -1567,9 +1725,10 @@ export function registerRoutes(app: Express): Server {
         let carryForwardAmount = 0;
         try {
           const lastPayment = await storage.getLastPaymentForUser(uid, flatId);
-          const prevTotalDue = lastPayment ? (Number(lastPayment.totalDue) > 0 ? Number(lastPayment.totalDue) : Number(lastPayment.amount)) : 0;
-          const prevPaid = lastPayment ? (Number(lastPayment.paidAmount) || 0) : 0;
-          carryForwardAmount = parseFloat(Math.max(0, prevTotalDue - prevPaid).toFixed(2));
+          if (lastPayment) {
+            // True unpaid remainder (base + penalty − paid), same as UI — not base-only.
+            carryForwardAmount = paymentRemainingAmount(lastPayment as any);
+          }
         } catch (e) {
           console.warn("Carry-forward lookup failed for user", uid, e);
         }
@@ -1613,6 +1772,18 @@ export function registerRoutes(app: Express): Server {
 
         allAppliedPenaltyIds.push(...userPenaltyIds);
         allAppliedEntryIds.push(...(userEntryIds[uid] || []));
+      }
+
+      try {
+        await settlePreviousCalendarMonthBillIfExists(
+          flatId,
+          yearNum,
+          billMonthIndex,
+          bill._id,
+          req.user._id,
+        );
+      } catch (settleErr) {
+        console.warn("Auto-settle previous calendar month bill failed:", settleErr);
       }
 
       // Mark entries and penalties as applied to this bill so they aren't counted again
@@ -1960,7 +2131,35 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
-      const payments = await storage.getPaymentsByBillId(req.params.billId);
+      const flatId = req.user.flatId;
+      let payments = await storage.getPaymentsByBillId(req.params.billId);
+
+      if (bill.entryDeductionEnabled !== false) {
+        const monthIdx = [...MONTH_LONG_NAMES].indexOf(String(bill.month || ""));
+        if (monthIdx >= 0) {
+          try {
+            const snapshot = await MonthlyHistoryModel.findOne({
+              $and: [
+                flatIdInClause(flatId),
+                { year: Number(bill.year) },
+                { monthIndex: monthIdx },
+                {
+                  $or: [
+                    { isDeleted: { $ne: true } },
+                    { isDeleted: { $exists: false } },
+                  ],
+                },
+              ],
+            }).lean() as { members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }> } | null;
+            if (snapshot) {
+              payments = enrichPaymentsFromMonthlyHistorySnapshot(payments, snapshot);
+            }
+          } catch (enrichErr) {
+            console.warn("Bill detail: monthly history enrich failed:", enrichErr);
+          }
+        }
+      }
+
       res.json({ ...bill, payments });
     } catch (error) {
       console.error("Failed to fetch bill:", error);
@@ -1980,8 +2179,19 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
+
+      const payments = await storage.getPaymentsByBillId(req.params.billId);
+      const outstanding = billPaymentsHaveOutstandingBalance(payments);
+
       try {
-        await assertBillLedgerOpen(storage, req.user.flatId, bill);
+        if (outstanding) {
+          if (bill.lifecycleStatus === "archived") {
+            throw createMonthLockedError(ARCHIVED_LEDGER_MESSAGE);
+          }
+          // Pending / partial: allow save even if FlatMonth says locked (e.g. next month already opened).
+        } else {
+          await assertBillLedgerOpen(storage, req.user.flatId, bill);
+        }
       } catch (guardErr: any) {
         if (ledgerWriteErrorResponse(res, guardErr)) return;
         throw guardErr;
@@ -2017,14 +2227,15 @@ export function registerRoutes(app: Express): Server {
         if (ledgerWriteErrorResponse(res, monthErr)) return;
         throw monthErr;
       }
-      try {
-        await assertMonthEditable(storage, req.user.flatId, effectiveMk);
-      } catch (monthErr: any) {
-        if (ledgerWriteErrorResponse(res, monthErr)) return;
-        throw monthErr;
+      if (!outstanding) {
+        try {
+          await assertMonthEditable(storage, req.user.flatId, effectiveMk);
+        } catch (monthErr: any) {
+          if (ledgerWriteErrorResponse(res, monthErr)) return;
+          throw monthErr;
+        }
       }
 
-      const payments = await storage.getPaymentsByBillId(req.params.billId);
       const userCount = Math.max(1, payments.length);
       const nextTotal = updates.totalAmount ?? bill.totalAmount;
       updates.splitAmount = parseFloat((nextTotal / userCount).toFixed(2));
@@ -2154,12 +2365,17 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
-      try {
-        await assertBillLedgerOpen(storage, req.user.flatId, bill);
-      } catch (guardErr: any) {
-        if (ledgerWriteErrorResponse(res, guardErr)) return;
-        throw guardErr;
+      if (bill.lifecycleStatus === "archived") {
+        return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
       }
+      const payments = await storage.getPaymentsByBillId(req.params.billId);
+      if (billPaymentsFullySettled(payments)) {
+        return res.status(403).json({
+          message:
+            "This bill is fully paid and cannot be deleted. Only pending or partially unpaid bills can be removed.",
+        });
+      }
+      // Pending / partial: allow delete even when the accounting month is locked in FlatMonth.
       const ok = await storage.deleteBill(req.params.billId);
       if (!ok) return res.status(500).json({ message: "Failed to delete bill" });
       res.status(200).json({ message: "Bill deleted" });

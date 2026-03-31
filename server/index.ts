@@ -13,6 +13,30 @@ const server = registerRoutes(app);
 (async () => {
   try {
     await storage.connect();
+
+    // If server was down at month boundary, catch up previous calendar month once (snapshot + close + optional purge).
+    try {
+      const { snapshotCloseAndPurgeAccountingMonth } = await import("./ledger-month-rollover.js");
+      const { previousCalendarMonthKey } = await import("./lib/accounting-month.js");
+      const { isAutoClosePreviousAccountingMonthEnabled } = await import("./auto-close-config.js");
+      if (isAutoClosePreviousAccountingMonthEnabled()) {
+        const key = previousCalendarMonthKey();
+        const flats = await storage.getAllFlats();
+        for (const flat of flats) {
+          const fid = String(flat._id);
+          try {
+            if (await storage.isAccountingMonthLocked(fid, key)) continue;
+            await snapshotCloseAndPurgeAccountingMonth(fid, key);
+          } catch (e) {
+            console.warn(`📅 Startup month rollover skipped for flat ${fid}:`, e);
+          }
+        }
+        console.log(`📅 Startup month rollover pass completed for ${key}`);
+      }
+    } catch (e) {
+      console.warn("Startup month rollover catch-up failed:", e);
+    }
+
     const { startPenaltyCheckers } = await import("./penalty-checker");
     startPenaltyCheckers().catch(e => console.error("Penalty checker init error:", e));
 

@@ -218,6 +218,11 @@ const paymentSchema = new mongoose.Schema({
   status: { type: String, enum: ["PAID", "PENDING"], default: "PENDING" },
   dueDate: { type: Date, required: true },
   paidAt: { type: Date },
+  /**
+   * Snapshot of unpaid balance before this row was auto-marked paid when the next calendar bill was created.
+   * Lets locked/paid months still show how much rolled into the next bill.
+   */
+  carriedUnpaidToNextMonth: { type: Number },
   createdAt: { type: Date, default: Date.now },
   ...ledgerPeriodSchemaFields(),
 });
@@ -390,6 +395,11 @@ export interface IStorage {
     payments: number;
     alreadyClosed: boolean;
   }>;
+  /** After month close + optional purge — removes entry & penalty rows for that accounting month only. */
+  deleteEntriesAndPenaltiesForAccountingMonth(
+    flatId: string,
+    monthKey: string,
+  ): Promise<{ entries: number; penalties: number }>;
   reopenFlatMonth(flatId: string, monthKey: string, reopenedByUserId: string): Promise<void>;
   sessionStore: session.Store;
 }
@@ -1379,13 +1389,20 @@ export class MongoStorage implements IStorage {
         }
       }
 
-      // Delete entries (no need to transfer)
-      const { deletedCount: entriesDeleted } = await EntryModel.deleteMany({ userId: id }).session(session);
+      // Delete only active (non-archived) ledger rows — closed months stay in DB until month-rollover purge,
+      // and MonthlyHistory snapshots keep totals after user removal.
+      const { deletedCount: entriesDeleted } = await EntryModel.deleteMany({
+        userId: id,
+        lifecycleStatus: { $ne: "archived" },
+      }).session(session);
       cleanupStats.entries = entriesDeleted;
 
       // Delete user's own penalties (penalties assigned TO this user)
       // Do NOT delete penalties created BY this user for others
-      const { deletedCount: penaltiesDeleted } = await PenaltyModel.deleteMany({ userId: id }).session(session);
+      const { deletedCount: penaltiesDeleted } = await PenaltyModel.deleteMany({
+        userId: id,
+        lifecycleStatus: { $ne: "archived" },
+      }).session(session);
       cleanupStats.penalties = penaltiesDeleted;
 
       // Delete user's payments
@@ -1860,6 +1877,21 @@ export class MongoStorage implements IStorage {
       }
       throw err;
     }
+  }
+
+  async deleteEntriesAndPenaltiesForAccountingMonth(
+    flatId: string,
+    monthKey: string,
+  ): Promise<{ entries: number; penalties: number }> {
+    const ledgerFilter = { ...flatIdQuery(flatId), accountingMonth: monthKey };
+    const [er, pr] = await Promise.all([
+      EntryModel.deleteMany(ledgerFilter),
+      PenaltyModel.deleteMany(ledgerFilter),
+    ]);
+    return {
+      entries: er.deletedCount ?? 0,
+      penalties: pr.deletedCount ?? 0,
+    };
   }
 
   async reopenFlatMonth(flatId: string, monthKey: string, reopenedByUserId: string): Promise<void> {

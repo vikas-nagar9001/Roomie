@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { previousCalendarMonthKey, parseAccountingMonthKey } from "./lib/accounting-month";
 import { isAutoClosePreviousAccountingMonthEnabled } from "./auto-close-config";
+import { snapshotCloseAndPurgeAccountingMonth } from "./ledger-month-rollover";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -24,9 +25,13 @@ export function startAccountingMonthCloseCron(): NodeJS.Timeout | null {
         try {
           const locked = await storage.isAccountingMonthLocked(fid, key);
           if (locked) continue;
-          const stats = await storage.closeFlatMonth(fid, key);
-          if (!stats.alreadyClosed || stats.entries + stats.payments + stats.bills + stats.penalties > 0) {
-            console.log(`🔒 Daily cron closed ${key} for flat ${fid}:`, stats);
+          const { stats, purge } = await snapshotCloseAndPurgeAccountingMonth(fid, key);
+          if (
+            !stats.alreadyClosed ||
+            (purge && (purge.entries > 0 || purge.penalties > 0)) ||
+            stats.entries + stats.payments + stats.bills + stats.penalties > 0
+          ) {
+            console.log(`🔒 Daily rollover ${key} for flat ${fid}:`, stats, purge);
           }
         } catch (e) {
           console.error(`❌ Daily month-close failed for flat ${fid} ${key}:`, e);

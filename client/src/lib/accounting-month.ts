@@ -19,9 +19,10 @@ export function accountingMonthKeyFromDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/** Ledger key from bill `year` + display `month` string. */
+/** Ledger key from bill `year` + display `month` string (case-insensitive, matches server). */
 export function accountingMonthKeyFromBillMonth(year: number, monthLongName: string): string {
-  const idx = CAL_MONTH_LONG_NAMES.indexOf(monthLongName as (typeof CAL_MONTH_LONG_NAMES)[number]);
+  const norm = String(monthLongName || "").trim().toLowerCase();
+  const idx = CAL_MONTH_LONG_NAMES.findIndex((n) => n.toLowerCase() === norm);
   const m = idx >= 0 ? idx + 1 : new Date().getMonth() + 1;
   return `${year}-${String(m).padStart(2, "0")}`;
 }

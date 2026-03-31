@@ -30,26 +30,30 @@ async function maybeAutoSnapshot() {
     `📅 Month rollover detected → snapshot${autoClose ? " + close" : ""} ${prevMonthKey} for all flats`,
   );
   try {
-    const { snapshotMonthForFlat } = await import("./routes.js");
+    const { snapshotMonthForFlat } = await import("./snapshot-month.js");
+    const { snapshotCloseAndPurgeAccountingMonth } = await import("./ledger-month-rollover.js");
     const flats = await storage.getAllFlats();
     for (const flat of flats) {
       const fid = flat._id.toString();
       try {
-        await snapshotMonthForFlat(fid, prevYear, prevMonth);
-        console.log(`✅ Auto-snapshot saved for flat ${flat._id} — ${prevMonthKey}`);
+        if (autoClose) {
+          const { stats, purge } = await snapshotCloseAndPurgeAccountingMonth(fid, prevMonthKey);
+          console.log(
+            `🔒 Auto month ${prevMonthKey} for flat ${flat._id} — close:`,
+            stats,
+            "purge:",
+            purge,
+          );
+        } else {
+          await snapshotMonthForFlat(fid, prevYear, prevMonth);
+          console.log(`✅ Auto-snapshot saved for flat ${flat._id} — ${prevMonthKey}`);
+        }
       } catch (e) {
-        console.error(`❌ Auto-snapshot failed for flat ${flat._id}:`, e);
-      }
-      if (!autoClose) continue;
-      try {
-        const stats = await storage.closeFlatMonth(fid, prevMonthKey);
-        console.log(`🔒 Auto-closed ledger month ${prevMonthKey} for flat ${flat._id}:`, stats);
-      } catch (e) {
-        console.error(`❌ Auto-close month failed for flat ${flat._id}:`, e);
+        console.error(`❌ Auto month rollover failed for flat ${flat._id}:`, e);
       }
     }
   } catch (e) {
-    console.error("Auto-snapshot import error:", e);
+    console.error("Auto month rollover import error:", e);
   }
 }
 

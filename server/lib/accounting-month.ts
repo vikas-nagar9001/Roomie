@@ -50,3 +50,17 @@ export function previousCalendarMonthKey(now = new Date()): string {
   if (m === 0) return `${y - 1}-12`;
   return `${y}-${String(m).padStart(2, "0")}`;
 }
+
+/** Current calendar month and the two before it (YYYY-MM), newest first. Used for bill creation window. */
+export function rollingThreeMonthBillWindowKeys(now = new Date()): string[] {
+  const keys: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    keys.push(accountingMonthFromDate(d));
+  }
+  return keys;
+}
+
+export function isInRollingThreeMonthBillWindow(monthKey: string, now = new Date()): boolean {
+  return rollingThreeMonthBillWindowKeys(now).includes(monthKey);
+}

@@ -108,6 +108,17 @@ interface UserStat {
   entryAmount: number;
   penaltyCount: number;
   penaltyAmount: number;
+  /** Present when this row was filled from a saved monthly snapshot (no live entries/penalties in /api/history for that user+month). */
+  fromMonthlySnapshot?: boolean;
+}
+
+function normalizeUserId(uid: unknown): string {
+  if (uid == null || uid === "") return "";
+  if (typeof uid === "object" && uid !== null && "_id" in (uid as object)) {
+    const id = (uid as { _id?: unknown })._id;
+    return id != null ? String(id) : "";
+  }
+  return String(uid);
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -134,8 +145,7 @@ export default function HistoryPage() {
     | { kind: "backup-year"; year: number }
     | { kind: "all" }
     | { kind: "year"; year: number }
-    | { kind: "month"; id: string; label: string }
-    | { kind: "delete-member"; userId: string; name: string };
+    | { kind: "month"; id: string; label: string };
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
 
@@ -154,19 +164,6 @@ export default function HistoryPage() {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/monthly-history/${id}`),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/monthly-history"] }); showSuccess("Month deleted"); setConfirmAction(null); },
     onError: () => showError("Delete failed"),
-  });
-
-  // Admin — delete a member (user) from the flat
-  const deleteMember = useMutation({
-    mutationFn: (userId: string) => apiRequest("DELETE", `/api/users/${userId}`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/history"] });
-      qc.invalidateQueries({ queryKey: ["/api/allUsers"] });
-      showSuccess("Member removed from flat");
-      setConfirmAction(null);
-      setSelectedUserId(null);
-    },
-    onError: (e: any) => showError(e?.message || "Failed to remove member"),
   });
 
   // Admin — snapshot mutation (save current or any month to monthly history)
@@ -188,7 +185,6 @@ export default function HistoryPage() {
     if (confirmAction.kind === "all")   deleteAll.mutate();
     if (confirmAction.kind === "year")  deleteYear.mutate(confirmAction.year);
     if (confirmAction.kind === "month") deleteMonth.mutate(confirmAction.id);
-    if (confirmAction.kind === "delete-member") deleteMember.mutate(confirmAction.userId);
   }
 
   function downloadBackup() {
@@ -240,38 +236,134 @@ export default function HistoryPage() {
     [penalties, monthStart, monthEnd]
   );
 
+  // Saved snapshot for the visible month (if any) — used to merge members missing from live ledger
+  const monthlyHistoryRecord = useMemo(
+    () =>
+      monthlyHistories.find(
+        (r: { year: number; monthIndex: number }) =>
+          r.year === currentDate.getFullYear() && r.monthIndex === currentDate.getMonth()
+      ) ?? null,
+    [monthlyHistories, currentDate]
+  );
+
   // ── Per-user aggregated stats ─────────────────────────────────────────────
   const userStats: UserStat[] = useMemo(() => {
     const map = new Map<string, UserStat>();
 
     filteredEntries.forEach((e: any) => {
-      const uid  = typeof e.userId === "object" ? e.userId?._id  : e.userId;
-      const name = typeof e.userId === "object" ? e.userId?.name : "Unknown";
-      const av   = typeof e.userId === "object" ? e.userId?.profilePicture : undefined;
-      if (!map.has(uid)) map.set(uid, { userId: uid, name, avatar: av, entryCount: 0, entryAmount: 0, penaltyCount: 0, penaltyAmount: 0 });
+      const uid = normalizeUserId(e.userId);
+      if (!uid) return;
+      const name = typeof e.userId === "object" && e.userId ? e.userId.name : "Unknown";
+      const av =
+        typeof e.userId === "object" && e.userId ? e.userId.profilePicture : undefined;
+      if (!map.has(uid)) {
+        map.set(uid, {
+          userId: uid,
+          name,
+          avatar: av,
+          entryCount: 0,
+          entryAmount: 0,
+          penaltyCount: 0,
+          penaltyAmount: 0,
+        });
+      }
       const s = map.get(uid)!;
       s.entryCount++;
       s.entryAmount += e.amount ?? 0;
     });
 
     filteredPenalties.forEach((p: any) => {
-      const uid  = typeof p.userId === "object" ? p.userId?._id  : p.userId;
-      const name = typeof p.userId === "object" ? p.userId?.name : "Unknown";
-      const av   = typeof p.userId === "object" ? p.userId?.profilePicture : undefined;
-      if (!map.has(uid)) map.set(uid, { userId: uid, name, avatar: av, entryCount: 0, entryAmount: 0, penaltyCount: 0, penaltyAmount: 0 });
+      const uid = normalizeUserId(p.userId);
+      if (!uid) return;
+      const name = typeof p.userId === "object" && p.userId ? p.userId.name : "Unknown";
+      const av =
+        typeof p.userId === "object" && p.userId ? p.userId.profilePicture : undefined;
+      if (!map.has(uid)) {
+        map.set(uid, {
+          userId: uid,
+          name,
+          avatar: av,
+          entryCount: 0,
+          entryAmount: 0,
+          penaltyCount: 0,
+          penaltyAmount: 0,
+        });
+      }
       const s = map.get(uid)!;
       s.penaltyCount++;
       s.penaltyAmount += p.amount ?? 0;
     });
 
-    return Array.from(map.values())
-      .filter(s => s.entryCount > 0 || s.penaltyCount > 0)
-      .sort((a, b) => b.entryAmount - a.entryAmount);
-  }, [filteredEntries, filteredPenalties]);
+    // MonthlyHistory snapshot is authoritative for the selected month (live ledger may be empty after purge).
+    // Merge into existing users too — otherwise members already in the map from /api/history with 0 totals
+    // (e.g. Vikas/Vishal after archived rows were deleted) never get snapshot amounts.
+    if (monthlyHistoryRecord?.members?.length) {
+      for (const m of monthlyHistoryRecord.members as Array<{
+        name?: string;
+        userId?: unknown;
+        entryAmount?: number;
+        penaltyAmount?: number;
+      }>) {
+        const uid = normalizeUserId(m.userId);
+        if (!uid) continue;
+        const entryAmt = Number(m.entryAmount) || 0;
+        const penAmt = Number(m.penaltyAmount) || 0;
+        if (entryAmt === 0 && penAmt === 0) continue;
 
-  // Totals
+        const existing = map.get(uid);
+        if (!existing) {
+          map.set(uid, {
+            userId: uid,
+            name: m.name || "Member",
+            avatar: undefined,
+            entryCount: entryAmt > 0 ? 1 : 0,
+            entryAmount: entryAmt,
+            penaltyCount: penAmt > 0 ? 1 : 0,
+            penaltyAmount: penAmt,
+            fromMonthlySnapshot: true,
+          });
+        } else {
+          existing.entryAmount = entryAmt;
+          existing.penaltyAmount = penAmt;
+          existing.entryCount =
+            entryAmt > 0 ? Math.max(existing.entryCount, 1) : existing.entryCount;
+          existing.penaltyCount =
+            penAmt > 0 ? Math.max(existing.penaltyCount, 1) : existing.penaltyCount;
+          existing.fromMonthlySnapshot = true;
+          if (m.name && (existing.name === "Unknown" || !existing.name.trim())) {
+            existing.name = m.name;
+          }
+        }
+      }
+    }
+
+    return Array.from(map.values())
+      .filter(
+        s =>
+          s.entryCount > 0 ||
+          s.penaltyCount > 0 ||
+          s.entryAmount > 0 ||
+          s.penaltyAmount > 0
+      )
+      .sort((a, b) => b.entryAmount - a.entryAmount);
+  }, [filteredEntries, filteredPenalties, monthlyHistoryRecord]);
+
+  // Totals from live ledger rows (may be 0 after month-close purge).
   const totalEntryAmt   = filteredEntries.reduce((s, e) => s + (e.amount ?? 0), 0);
   const totalPenaltyAmt = filteredPenalties.reduce((s, p) => s + (p.amount ?? 0), 0);
+
+  const userStatsEntrySum = useMemo(
+    () => userStats.reduce((s, u) => s + u.entryAmount, 0),
+    [userStats]
+  );
+  const userStatsPenaltySum = useMemo(
+    () => userStats.reduce((s, u) => s + u.penaltyAmount, 0),
+    [userStats]
+  );
+
+  // userStats merges MonthlyHistory snapshot; use max so summary + share % match the member list after purge.
+  const displayTotalEntryAmt   = Math.max(totalEntryAmt, userStatsEntrySum);
+  const displayTotalPenaltyAmt = Math.max(totalPenaltyAmt, userStatsPenaltySum);
 
   // Chart data (live)
   const chartData = useMemo(() =>
@@ -286,23 +378,42 @@ export default function HistoryPage() {
   );
 
   // ── Selected user detail ──────────────────────────────────────────────────
-  const selectedUser = userStats.find(s => s.userId === selectedUserId);
+  const selectedUser = userStats.find(
+    s => String(s.userId) === String(selectedUserId)
+  );
 
-  const userId = (obj: any) => typeof obj === "object" ? obj?._id : obj;
+  /** Snapshot row for the selected user (when live ledger rows are missing for this month). */
+  const snapshotRowForSelectedUser = useMemo(() => {
+    if (!monthlyHistoryRecord || !selectedUserId) return null;
+    const mem = (monthlyHistoryRecord.members as any[]).find(
+      (m: any) => normalizeUserId(m.userId) === String(selectedUserId)
+    );
+    return mem ?? null;
+  }, [monthlyHistoryRecord, selectedUserId]);
 
-  const userEntries = useMemo(() =>
-    !selectedUserId ? [] :
-    filteredEntries
-      .filter((e: any) => userId(e.userId) === selectedUserId)
-      .sort((a: any, b: any) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()),
+  const userEntries = useMemo(
+    () =>
+      !selectedUserId
+        ? []
+        : filteredEntries
+            .filter((e: any) => normalizeUserId(e.userId) === String(selectedUserId))
+            .sort(
+              (a: any, b: any) =>
+                new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
+            ),
     [filteredEntries, selectedUserId]
   );
 
-  const userPenalties = useMemo(() =>
-    !selectedUserId ? [] :
-    filteredPenalties
-      .filter((p: any) => userId(p.userId) === selectedUserId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+  const userPenalties = useMemo(
+    () =>
+      !selectedUserId
+        ? []
+        : filteredPenalties
+            .filter((p: any) => normalizeUserId(p.userId) === String(selectedUserId))
+            .sort(
+              (a: any, b: any) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ),
     [filteredPenalties, selectedUserId]
   );
 
@@ -400,13 +511,6 @@ export default function HistoryPage() {
     () => Array.from(new Set(pickerMonths.map(m => m.year))).sort((a, b) => b - a),
     [pickerMonths]
   );
-
-  // MonthlyHistory record for the selected month (if any)
-  const monthlyHistoryRecord = useMemo(() =>
-    monthlyHistories.find(
-      (r: any) => r.year === currentDate.getFullYear() && r.monthIndex === currentDate.getMonth()
-    ) ?? null,
-  [monthlyHistories, currentDate]);
 
   // true when showing seeded summary (no live data for this month)
   const isHistoricalSummary = userStats.length === 0 && monthlyHistoryRecord !== null;
@@ -653,17 +757,14 @@ export default function HistoryPage() {
         {/* ── Unified Confirm Modal ── */}
         {confirmAction && (() => {
           const isBackup = confirmAction.kind.startsWith("backup");
-          const isMemberDelete = confirmAction.kind === "delete-member";
-
-          const title    = isBackup ? "Backup Data" : isMemberDelete ? "Remove Member" : "Delete Records";
-          const subtitle = isBackup ? "CSV file will be downloaded to your device" : isMemberDelete ? "This will permanently remove the user from the flat" : "This action is permanent and cannot be undone";
+          const title    = isBackup ? "Backup Data" : "Delete Records";
+          const subtitle = isBackup ? "CSV file will be downloaded to your device" : "This action is permanent and cannot be undone";
 
           const scope =
             confirmAction.kind === "backup-all"     ? "All History" :
             confirmAction.kind === "backup-year"    ? `Year ${(confirmAction as any).year}` :
             confirmAction.kind === "all"            ? "All History" :
             confirmAction.kind === "year"           ? `Year ${(confirmAction as any).year}` :
-            confirmAction.kind === "delete-member"  ? (confirmAction as any).name :
                                                       (confirmAction as any).label;
 
           const detail =
@@ -675,11 +776,9 @@ export default function HistoryPage() {
               ? "All monthly history records for this flat will be permanently removed from the database."
               : confirmAction.kind === "year"
               ? `All monthly records for the year ${(confirmAction as any).year} will be permanently removed.`
-              : confirmAction.kind === "delete-member"
-              ? `${(confirmAction as any).name} will be removed from the flat. Their entries and penalties will remain in the records.`
               : `The summary record for ${(confirmAction as any).label} will be permanently removed.`;
 
-          const isPending = deleteAll.isPending || deleteYear.isPending || deleteMonth.isPending || deleteMember.isPending;
+          const isPending = deleteAll.isPending || deleteYear.isPending || deleteMonth.isPending;
 
           return (
             <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
@@ -885,6 +984,42 @@ export default function HistoryPage() {
 
             {/* ── Timeline ── */}
             {activeTimeline.length === 0 ? (
+              snapshotRowForSelectedUser &&
+              userEntries.length === 0 &&
+              userPenalties.length === 0 ? (
+                <div className="bg-[#111120] border border-[#7c3fbf]/25 rounded-2xl px-4 py-5 space-y-3">
+                  <p className="text-[10px] uppercase tracking-widest text-[#c49bff]/70 font-semibold">
+                    Saved monthly summary
+                  </p>
+                  <p className="text-xs text-white/45 leading-relaxed">
+                    Individual entries and penalties for this month are not in the live ledger (e.g. archived period). Totals below come from the saved snapshot for this member.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 pt-1 text-sm">
+                    <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-3 py-2">
+                      <p className="text-[9px] text-emerald-400/70 uppercase">Entries</p>
+                      <p className="font-bold text-emerald-400">
+                        ₹{Number(snapshotRowForSelectedUser.entryAmount ?? 0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2">
+                      <p className="text-[9px] text-amber-400/70 uppercase">Penalties</p>
+                      <p className="font-bold text-amber-400">
+                        ₹{Number(snapshotRowForSelectedUser.penaltyAmount ?? 0).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-white/50 pt-1">
+                    Net:{" "}
+                    <span className="font-bold text-white">
+                      ₹
+                      {(
+                        Number(snapshotRowForSelectedUser.entryAmount ?? 0) -
+                        Number(snapshotRowForSelectedUser.penaltyAmount ?? 0)
+                      ).toLocaleString("en-IN")}
+                    </span>
+                  </p>
+                </div>
+              ) : (
               <div className="py-14 flex flex-col items-center gap-2 text-center">
                 <p className="text-4xl">📭</p>
                 <p className="text-white/40 text-sm">
@@ -894,6 +1029,7 @@ export default function HistoryPage() {
                   }
                 </p>
               </div>
+              )
             ) : (
               <div className="space-y-4">
                 {activeTimeline.map(([dateKey, items]) => (
@@ -967,10 +1103,12 @@ export default function HistoryPage() {
                       label: "Total Spent",
                       value: isHistoricalSummary
                         ? `₹${(monthlyHistoryRecord.grandTotal as number).toLocaleString("en-IN")}`
-                        : `₹${totalEntryAmt.toLocaleString("en-IN")}`,
+                        : `₹${displayTotalEntryAmt.toLocaleString("en-IN")}`,
                       sub: isHistoricalSummary
                         ? `${(monthlyHistoryRecord.members as any[]).length} members`
-                        : `${filteredEntries.length} entries`,
+                        : filteredEntries.length === 0 && monthlyHistoryRecord
+                          ? `${userStats.length} members (summary)`
+                          : `${filteredEntries.length} entries`,
                       cls:  "border-emerald-500/20 bg-emerald-500/[0.06]",
                       vcls: "text-emerald-400",
                     },
@@ -987,10 +1125,12 @@ export default function HistoryPage() {
                       label: "Penalties",
                       value: isHistoricalSummary
                         ? `₹${(monthlyHistoryRecord.members as any[]).reduce((s: number, m: any) => s + m.penaltyAmount, 0).toLocaleString("en-IN")}`
-                        : `₹${totalPenaltyAmt.toLocaleString("en-IN")}`,
+                        : `₹${displayTotalPenaltyAmt.toLocaleString("en-IN")}`,
                       sub: isHistoricalSummary
                         ? `${(monthlyHistoryRecord.members as any[]).filter((m: any) => m.penaltyAmount > 0).length} penalised`
-                        : `${filteredPenalties.length} issued`,
+                        : filteredPenalties.length === 0 && monthlyHistoryRecord
+                          ? `${userStats.filter(u => u.penaltyAmount > 0).length} penalised (summary)`
+                          : `${filteredPenalties.length} issued`,
                       cls:  "border-amber-500/20 bg-amber-500/[0.06]",
                       vcls: "text-amber-400",
                     },
@@ -1145,19 +1285,16 @@ export default function HistoryPage() {
                       Members · tap to view details
                     </p>
                     {userStats.map(s => {
-                      const sharePercent = totalEntryAmt > 0
-                        ? Math.round((s.entryAmount / totalEntryAmt) * 100)
+                      const sharePercent = userStatsEntrySum > 0
+                        ? Math.round((s.entryAmount / userStatsEntrySum) * 100)
                         : 0;
                       return (
-                        <div
+                        <button
                           key={s.userId}
-                          className="w-full bg-[#111120] hover:bg-[#15152a] border border-white/[0.06] hover:border-[#7c3fbf]/30 rounded-2xl transition-all flex items-center"
+                          type="button"
+                          onClick={() => setSelectedUserId(s.userId)}
+                          className="w-full bg-[#111120] hover:bg-[#15152a] border border-white/[0.06] hover:border-[#7c3fbf]/30 rounded-2xl transition-all flex items-center px-4 py-3.5 text-left active:scale-[0.99]"
                         >
-                          {/* tap area — view details */}
-                          <button
-                            onClick={() => setSelectedUserId(s.userId)}
-                            className="flex-1 min-w-0 px-4 py-3.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-                          >
                             <Avatar className="w-10 h-10 shrink-0">
                               <AvatarImage src={s.avatar} />
                               <AvatarFallback className="bg-[#582c84]/25 text-[#c49bff] text-xs font-bold">
@@ -1188,19 +1325,7 @@ export default function HistoryPage() {
                               <p className="text-[9px] text-white/25 mt-0.5">share</p>
                             </div>
                             <FiChevronRight className="w-4 h-4 text-white/20 shrink-0" />
-                          </button>
-
-                          {/* admin — delete member button */}
-                          {isAdmin && s.userId !== user?._id && (
-                            <button
-                              onClick={e => { e.stopPropagation(); setConfirmAction({ kind: "delete-member", userId: s.userId, name: s.name }); }}
-                              className="shrink-0 mr-3 p-2 rounded-xl text-red-400/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all"
-                              title={`Remove ${s.name}`}
-                            >
-                              <FiTrash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
+                        </button>
                       );
                     })}
                   </div>
