@@ -12,7 +12,9 @@
     "migrate:ledger": "tsx server/scripts/migrate-accounting-ledger.ts",
     "migrate:consistency": "tsx server/scripts/migrate-ledger-consistency.ts",
     "migrate:monthly-history": "tsx server/scripts/migrate-monthly-history-ledger-fields.ts",
-    "migrate:schema-alignment": "tsx server/scripts/migrate-schema-alignment.ts"
+    "migrate:schema-alignment": "tsx server/scripts/migrate-schema-alignment.ts",
+    "migrate:monthly-history-to-ledger": "tsx server/scripts/migrate-monthly-history-to-ledger.ts",
+    "migrate:monthly-history-to-ledger:validate": "tsx server/scripts/migrate-monthly-history-to-ledger.ts --validate-only"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

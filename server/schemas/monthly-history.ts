@@ -1,8 +1,8 @@
 /**
- * Monthly snapshot summaries — READ-ONLY CACHE / denormalized aggregate for UI and bill-create fast path.
+ * Monthly snapshot summaries — denormalized aggregate for fast UI and month-close only.
  *
- * Source of truth for money and period state is always: Entry, Penalty, Bill, Payment (+ FlatMonth lock).
- * Bill creation falls back to live ledger queries when no usable snapshot exists; see routes bill handler.
+ * FORBIDDEN for: billing amounts, payment splits, penalty math, reconciliation (use Entry + Penalty only).
+ * Source of truth for money: Entry + Penalty via `aggregateLedgerForBillingMonth` (see server/storage.ts).
  */
 import mongoose from "mongoose";
 import { ledgerPeriodSchemaFields } from "./mongoose-ledger";

@@ -1,5 +1,6 @@
 /**
- * Persisted monthly totals for History / bills — used by admin snapshot, auto-rollover, and month close.
+ * Writes MonthlyHistory from live Entry + Penalty (denormalized cache). Do not use MonthlyHistory as input
+ * for billing or calculations — bill routes use `aggregateLedgerForBillingMonth` only.
  */
 import { storage } from "./storage";
 import {

@@ -4,9 +4,9 @@ import { parseAccountingMonthKey } from "./lib/accounting-month";
 import { isDeleteLedgerRowsAfterMonthCloseEnabled } from "./ledger-delete-config";
 
 /**
- * 1) Upsert MonthlyHistory snapshot for the month
+ * 1) Upsert MonthlyHistory snapshot for the month (UI cache only — not billing source of truth)
  * 2) Lock + archive ledger rows (FlatMonth + lifecycle on entries/penalties/bills/payments)
- * 3) Optionally delete entry + penalty documents for that accounting month (History uses MonthlyHistory)
+ * 3) Optionally hard-delete entry + penalty docs if DELETE_LEDGER_ROWS_AFTER_MONTH_CLOSE=true (off by default)
  */
 export async function snapshotCloseAndPurgeAccountingMonth(
   flatId: string,

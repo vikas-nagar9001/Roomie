@@ -44,6 +44,9 @@ import {
 } from "./schemas/monthly-history";
 import { snapshotMonthForFlat } from "./snapshot-month";
 import { snapshotCloseAndPurgeAccountingMonth } from "./ledger-month-rollover";
+import { MONTHLY_HISTORY_FORBIDDEN_FOR_BILLING_AMOUNTS } from "./ledger-monthly-history-policy";
+
+void MONTHLY_HISTORY_FORBIDDEN_FOR_BILLING_AMOUNTS;
 
 /** Defensive: same Mongo _id must not appear twice in history payloads (avoids duplicate timeline rows). */
 function dedupeLedgerById<T extends { _id?: unknown }>(rows: T[]): T[] {
@@ -171,94 +174,32 @@ async function settlePreviousCalendarMonthBillIfExists(
   );
 }
 
-function memberUserIdString(m: { userId?: unknown }): string | null {
-  const u = m?.userId as { _id?: unknown } | string | undefined;
-  if (u == null) return null;
-  if (typeof u === "string") return u;
-  const id = (u as { _id?: unknown })._id ?? u;
-  return id != null ? String(id) : null;
+/** Prefer stored bill.accountingMonth when valid; else derive from month/year/dueDate. */
+function billAccountingMonthKeyForQuery(bill: {
+  accountingMonth?: string;
+  month?: string;
+  year?: number;
+  dueDate?: Date | string;
+}): string {
+  const am = typeof bill.accountingMonth === "string" ? bill.accountingMonth.trim() : "";
+  if (am && parseAccountingMonthKey(am) != null) return am;
+  return resolveBillMonthKey(bill as { month: string; year: number; dueDate?: Date | string });
 }
 
-function normalizeMemberName(s: string): string {
-  return String(s || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
-}
-
-/** Match Mongo flatId whether stored as string or ObjectId. */
-function flatIdInClause(flatId: string) {
-  return { flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId as string)] } };
-}
-
-/**
- * Apply MonthlyHistory member rows to per-user entry/penalty maps.
- * Resolves userId from snapshot.userId, or matches snapshot.name to current flat users.
- * Returns total entry amount (for optional "Entries" line item).
- */
-function mergeSnapshotMembersIntoUserMaps(
-  snapshot: { members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }> },
-  users: Array<{ _id: unknown; name?: string }>,
-  userEntryMap: Record<string, number>,
-  userPenaltyMap: Record<string, number>,
-): number {
-  if (!snapshot?.members?.length) return 0;
-  const nameToUserId = new Map<string, string>();
-  for (const u of users) {
-    nameToUserId.set(normalizeMemberName(String(u.name || "")), String(u._id));
-  }
-  let totalEntries = 0;
-  for (const m of snapshot.members) {
-    let uid = memberUserIdString(m);
-    if (!uid && m.name) {
-      uid = nameToUserId.get(normalizeMemberName(String(m.name))) ?? null;
-    }
-    if (!uid) continue;
-    const entryAmt = Number(m.entryAmount) || 0;
-    const penAmt = Number(m.penaltyAmount) || 0;
-    userEntryMap[uid] = (userEntryMap[uid] || 0) + entryAmt;
-    userPenaltyMap[uid] = (userPenaltyMap[uid] || 0) + penAmt;
-    totalEntries += entryAmt;
-  }
-  return totalEntries;
-}
-
-/** Merge MonthlyHistory snapshot into payment rows when DB has 0 entry/penalty (display-only; keeps totalDue as stored for PATCH consistency). */
-function enrichPaymentsFromMonthlyHistorySnapshot(
+/** Fill display-only entry/penalty columns from ledger when payment rows are stale (e.g. after backfill). */
+function enrichPaymentsFromLedgerTotals(
   payments: any[],
-  snapshot: {
-    members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }>;
-  } | null,
+  ledgerTotals: Record<string, { entry: number; penalty: number }>,
 ): any[] {
-  if (!snapshot?.members?.length) return payments;
-
-  const snapByUser = new Map<string, { entry: number; penalty: number }>();
-  const snapByName = new Map<string, { entry: number; penalty: number }>();
-  for (const m of snapshot.members) {
-    const entry = Number(m.entryAmount) || 0;
-    const pen = Number(m.penaltyAmount) || 0;
-    const uid = memberUserIdString(m);
-    if (uid) {
-      snapByUser.set(uid, { entry, penalty: pen });
-    }
-    if (m.name) {
-      snapByName.set(normalizeMemberName(String(m.name)), { entry, penalty: pen });
-    }
-  }
-  if (snapByUser.size === 0 && snapByName.size === 0) return payments;
-
+  if (!ledgerTotals || !Object.keys(ledgerTotals).length) return payments;
   return payments.map((p) => {
     const uid = String(p.userId?._id ?? p.userId ?? "");
-    let snap = uid ? snapByUser.get(uid) : undefined;
-    if (!snap && p.userId?.name) {
-      snap = snapByName.get(normalizeMemberName(String(p.userId.name)));
-    }
+    const t = uid ? ledgerTotals[uid] : undefined;
+    if (!t) return p;
     let entryDeduction = Number(p.entryDeduction) || 0;
     let penalty = Number(p.penalty) || 0;
-    if (snap) {
-      if (entryDeduction === 0 && snap.entry > 0) entryDeduction = snap.entry;
-      if (!p.penaltyWaived && penalty === 0 && snap.penalty > 0) penalty = snap.penalty;
-    }
+    if (entryDeduction === 0 && t.entry > 0) entryDeduction = t.entry;
+    if (!p.penaltyWaived && penalty === 0 && t.penalty > 0) penalty = t.penalty;
     return {
       ...p,
       entryDeduction,
@@ -332,10 +273,14 @@ export function registerRoutes(app: Express): Server {
         });
       return true;
     }
-    if (e?.statusCode === 409 && e?.code === "NEWER_MONTH_ACTIVE") {
+    if (e?.statusCode === 409) {
       res.status(409).json({
-        error: "NEWER_MONTH_ACTIVE",
-        message: e.message || "A newer accounting month is still open",
+        ...(e.code === "NEWER_MONTH_ACTIVE" ? { error: "NEWER_MONTH_ACTIVE" } : {}),
+        message:
+          e.message ||
+          (e.code === "NEWER_MONTH_ACTIVE"
+            ? "A newer accounting month is still open"
+            : "Conflict"),
       });
       return true;
     }
@@ -1623,69 +1568,37 @@ export function registerRoutes(app: Express): Server {
       // Backfill bills in the rolling window must not fight FlatMonth "active" pointer (older month vs current).
       // Duplicate month is already rejected above.
 
-      // Optional cache: MonthlyHistory snapshot (non-authoritative). If missing or unusable, live Entry/Penalty data is used below.
-      // Optional: which MonthlyHistory row to use (defaults to same month/year as the bill)
+      // LEDGER ONLY — never MonthlyHistory. Query: accountingMonth + not deleted (+ APPROVED entries).
+      // lifecycleStatus is not used for billing (only UI/locks); see storage warn for past-month inconsistencies.
       let historyYear = req.body.historyYear != null && req.body.historyYear !== ""
         ? Number(req.body.historyYear)
         : undefined;
       let historyMonthIndex = req.body.historyMonthIndex != null && req.body.historyMonthIndex !== ""
         ? Number(req.body.historyMonthIndex)
         : undefined;
-      // Default: same calendar month as the bill (current month’s monthly history snapshot)
       if (historyYear == null || isNaN(historyYear) || historyMonthIndex == null || isNaN(historyMonthIndex)) {
         historyYear = yearNum;
         historyMonthIndex = billMonthIndex;
       }
 
-      const userEntryMap: Record<string, number> = {};
-      const userEntryIds: Record<string, string[]> = {};
-      const userPenaltyMap: Record<string, number> = {};
+      const historyMonthKey = accountingMonthKeyFromParts(historyYear, historyMonthIndex);
+
+      let userEntryMap: Record<string, number> = {};
+      let userEntryIds: Record<string, string[]> = {};
+      let userPenaltyMap: Record<string, number> = {};
+      let userPenaltyIdsMap: Record<string, string[]> = {};
       let totalEntriesAmount = 0;
-      let usedMonthlyHistorySnapshot = false;
 
       if (entryDeductionEnabled !== false) {
         try {
-          // Include archived snapshots (month closed) — totals still apply to bill splits.
-          // flatId must match whether stored as string or ObjectId.
-          const snapshot = await MonthlyHistoryModel.findOne({
-            $and: [
-              flatIdInClause(flatId),
-              { year: historyYear },
-              { monthIndex: historyMonthIndex },
-              {
-                $or: [
-                  { isDeleted: { $ne: true } },
-                  { isDeleted: { $exists: false } },
-                ],
-              },
-            ],
-          }).lean() as any;
-
-          if (snapshot && Array.isArray(snapshot.members) && snapshot.members.length > 0) {
-            totalEntriesAmount += mergeSnapshotMembersIntoUserMaps(snapshot, users, userEntryMap, userPenaltyMap);
-            usedMonthlyHistorySnapshot = true;
-          }
-        } catch (histErr) {
-          console.warn("Monthly history lookup failed:", histErr);
-        }
-
-        // Fallback: legacy behaviour — live unapplied entries + penalties collections
-        if (!usedMonthlyHistorySnapshot) {
-          try {
-            const unappliedEntries = await storage.getUnappliedEntriesByFlatId(flatId);
-            for (const entry of unappliedEntries || []) {
-              const uid = (entry.userId?._id ?? entry.userId)?.toString?.() ?? String(entry.userId);
-              const amt = Number(entry.amount) || 0;
-              if (uid && amt > 0) {
-                userEntryMap[uid] = (userEntryMap[uid] || 0) + amt;
-                if (!userEntryIds[uid]) userEntryIds[uid] = [];
-                userEntryIds[uid].push(String(entry._id));
-                totalEntriesAmount += amt;
-              }
-            }
-          } catch (entryErr) {
-            console.warn("Entry fetch failed, continuing without:", entryErr);
-          }
+          const agg = await storage.aggregateLedgerForBillingMonth(flatId, historyMonthKey);
+          userEntryMap = agg.userEntryMap;
+          userPenaltyMap = agg.userPenaltyMap;
+          userEntryIds = agg.userEntryIds;
+          userPenaltyIdsMap = agg.userPenaltyIds;
+          totalEntriesAmount = agg.totalEntriesAmount;
+        } catch (ledgerErr) {
+          console.warn("Ledger aggregate for bill month failed:", ledgerErr);
         }
 
         if (totalEntriesAmount > 0) {
@@ -1733,22 +1646,8 @@ export function registerRoutes(app: Express): Server {
           console.warn("Carry-forward lookup failed for user", uid, e);
         }
 
-        let initialPenalty = 0;
-        const userPenaltyIds: string[] = [];
-        if (usedMonthlyHistorySnapshot) {
-          initialPenalty = parseFloat((userPenaltyMap[uid] || 0).toFixed(2));
-        } else {
-          try {
-            const unappliedPenalties = await storage.getUnappliedPenaltiesForUser(uid, flatId);
-            for (const p of unappliedPenalties) {
-              initialPenalty += Number(p.amount) || 0;
-              userPenaltyIds.push(String(p._id));
-            }
-            initialPenalty = parseFloat(initialPenalty.toFixed(2));
-          } catch (e) {
-            console.warn("Unapplied penalty lookup failed for user", uid, e);
-          }
-        }
+        const initialPenalty = parseFloat((userPenaltyMap[uid] || 0).toFixed(2));
+        const userPenaltyIds: string[] = userPenaltyIdsMap[uid] ?? [];
 
         const entryDeduction = parseFloat((userEntryMap[uid] || 0).toFixed(2));
         const userBaseAmount = calcUserShare(uid, parsedItems);
@@ -2135,28 +2034,12 @@ export function registerRoutes(app: Express): Server {
       let payments = await storage.getPaymentsByBillId(req.params.billId);
 
       if (bill.entryDeductionEnabled !== false) {
-        const monthIdx = [...MONTH_LONG_NAMES].indexOf(String(bill.month || ""));
-        if (monthIdx >= 0) {
-          try {
-            const snapshot = await MonthlyHistoryModel.findOne({
-              $and: [
-                flatIdInClause(flatId),
-                { year: Number(bill.year) },
-                { monthIndex: monthIdx },
-                {
-                  $or: [
-                    { isDeleted: { $ne: true } },
-                    { isDeleted: { $exists: false } },
-                  ],
-                },
-              ],
-            }).lean() as { members?: Array<{ userId?: unknown; name?: string; entryAmount?: number; penaltyAmount?: number }> } | null;
-            if (snapshot) {
-              payments = enrichPaymentsFromMonthlyHistorySnapshot(payments, snapshot);
-            }
-          } catch (enrichErr) {
-            console.warn("Bill detail: monthly history enrich failed:", enrichErr);
-          }
+        try {
+          const billMonthKey = billAccountingMonthKeyForQuery(bill as any);
+          const ledgerTotals = await storage.getLedgerTotalsForAccountingMonth(flatId, billMonthKey);
+          payments = enrichPaymentsFromLedgerTotals(payments, ledgerTotals);
+        } catch (enrichErr) {
+          console.warn("Bill detail: ledger enrich failed:", enrichErr);
         }
       }
 

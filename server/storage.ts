@@ -143,6 +143,8 @@ const penaltySchema = new mongoose.Schema({
   nextPenaltyDate: { type: Date },
   billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null },
   incurredAt: { type: Date },
+  /** Idempotency key for migrations (e.g. monthlyHistory → penalty). */
+  migrationKey: { type: String, sparse: true },
   ...ledgerPeriodSchemaFields(),
 });
 
@@ -178,6 +180,8 @@ const entrySchema = new mongoose.Schema({
   flatId: { type: mongoose.Schema.Types.ObjectId, ref: "Flat", required: true },
   billId: { type: mongoose.Schema.Types.ObjectId, ref: "Bill", default: null },
   createdAt: { type: Date, default: Date.now },
+  /** Idempotency key for migrations (e.g. monthlyHistory → entry). */
+  migrationKey: { type: String, sparse: true },
   ...ledgerPeriodSchemaFields(),
 });
 
@@ -229,10 +233,22 @@ const paymentSchema = new mongoose.Schema({
 
 entrySchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
 entrySchema.index({ flatId: 1, isDeleted: 1 });
+entrySchema.index({ flatId: 1, migrationKey: 1 }, { unique: true, sparse: true });
 penaltySchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
 penaltySchema.index({ flatId: 1, isDeleted: 1 });
+penaltySchema.index({ flatId: 1, migrationKey: 1 }, { unique: true, sparse: true });
 billSchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
 billSchema.index({ flatId: 1, isDeleted: 1 });
+/** At most one non-deleted bill per flat per calendar month (month name + year as stored). */
+billSchema.index(
+  { flatId: 1, year: 1, month: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+    },
+  },
+);
 paymentSchema.index({ flatId: 1, accountingMonth: 1, lifecycleStatus: 1 });
 paymentSchema.index({ flatId: 1, isDeleted: 1 });
 
@@ -276,6 +292,27 @@ function notDeletedMatch(): Record<string, unknown> {
 
 function flatIdQuery(flatId: string) {
   return { flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] } };
+}
+
+/** Billing includes all rows for the month; lifecycle is not filtered. Warn if past month rows are not archived. */
+function warnLedgerLifecycleInconsistencyForPastBillingMonth(
+  accountingMonthKey: string,
+  flatId: string,
+  entryRows: Array<{ lifecycleStatus?: string }>,
+  penaltyRows: Array<{ lifecycleStatus?: string }>,
+): void {
+  const nowKey = accountingMonthFromDate(new Date());
+  if (compareAccountingMonthKeys(accountingMonthKey, nowKey) >= 0) return;
+
+  const badE = entryRows.filter((r) => r.lifecycleStatus !== "archived");
+  const badP = penaltyRows.filter((r) => r.lifecycleStatus !== "archived");
+  if (badE.length === 0 && badP.length === 0) return;
+
+  console.warn(
+    `[ledger-billing] DATA INCONSISTENCY: past accounting month ${accountingMonthKey} (flat ${flatId}) has ` +
+      `${badE.length} entry row(s) and ${badP.length} penalty row(s) not lifecycleStatus=archived. ` +
+      `Totals still include all rows; fix month-close or lifecycle backfill.`,
+  );
 }
 
 /** Extra match for period lifecycle + soft delete (backward compatible with docs missing fields). */
@@ -357,6 +394,25 @@ export interface IStorage {
   getEntriesByBillId(billId: string): Promise<any[]>;
   getUnappliedPenaltiesForUser(userId: string, flatId: string): Promise<any[]>;
   markPenaltiesAppliedToBill(penaltyIds: string[], billId: string): Promise<void>;
+  /**
+   * Full ledger slice for an accounting month: accountingMonth + not deleted + APPROVED entries.
+   * Does not filter lifecycleStatus (billing must never skip rows for lifecycle); use guards/UI for lifecycle.
+   */
+  aggregateLedgerForBillingMonth(
+    flatId: string,
+    accountingMonthKey: string,
+  ): Promise<{
+    userEntryMap: Record<string, number>;
+    userPenaltyMap: Record<string, number>;
+    userEntryIds: Record<string, string[]>;
+    userPenaltyIds: Record<string, string[]>;
+    totalEntriesAmount: number;
+  }>;
+  /** Same slice as aggregateLedgerForBillingMonth, per-user entry/penalty totals for payment rows. */
+  getLedgerTotalsForAccountingMonth(
+    flatId: string,
+    accountingMonthKey: string,
+  ): Promise<Record<string, { entry: number; penalty: number }>>;
   getEntryById(id: string): Promise<any | null>;
   deleteEntry(id: string): Promise<boolean>;
   // Penalty methods
@@ -1029,8 +1085,37 @@ export class MongoStorage implements IStorage {
     payload.accountingMonth = accountingMonth;
     payload.lifecycleStatus = payload.lifecycleStatus ?? "active";
     payload.updatedAt = new Date();
+
+    const dup = await BillModel.findOne({
+      $and: [
+        flatIdQuery(String(payload.flatId)),
+        { year: Number(payload.year) },
+        { month: String(payload.month).trim() },
+        notDeletedMatch(),
+      ],
+    }).lean();
+    if (dup) {
+      const err = new Error(
+        `A bill already exists for ${String(payload.month).trim()} ${Number(payload.year)} for this flat.`,
+      );
+      (err as { statusCode?: number }).statusCode = 409;
+      throw err;
+    }
+
     const bill = new BillModel(payload);
-    await bill.save();
+    try {
+      await bill.save();
+    } catch (err: unknown) {
+      const code = (err as { code?: number })?.code;
+      if (code === 11000) {
+        const dupErr = new Error(
+          `A bill already exists for ${String(payload.month).trim()} ${Number(payload.year)} for this flat.`,
+        );
+        (dupErr as { statusCode?: number }).statusCode = 409;
+        throw dupErr;
+      }
+      throw err;
+    }
     return this.convertId(bill.toObject());
   }
 
@@ -1316,6 +1401,102 @@ export class MongoStorage implements IStorage {
     ];
     const penalties = await PenaltyModel.find({ $and: parts });
     return penalties.map(p => this.convertId(p.toObject()));
+  }
+
+  async aggregateLedgerForBillingMonth(
+    flatId: string,
+    accountingMonthKey: string,
+  ): Promise<{
+    userEntryMap: Record<string, number>;
+    userPenaltyMap: Record<string, number>;
+    userEntryIds: Record<string, string[]>;
+    userPenaltyIds: Record<string, string[]>;
+    totalEntriesAmount: number;
+  }> {
+    const base = [
+      flatIdQuery(flatId),
+      { accountingMonth: accountingMonthKey },
+      notDeletedMatch(),
+    ];
+
+    const [entryRows, penaltyRows] = await Promise.all([
+      EntryModel.find({
+        $and: [
+          ...base,
+          { status: "APPROVED" as const },
+        ],
+      }).lean(),
+      PenaltyModel.find({
+        $and: [...base],
+      }).lean(),
+    ]);
+
+    warnLedgerLifecycleInconsistencyForPastBillingMonth(
+      accountingMonthKey,
+      flatId,
+      entryRows as Array<{ lifecycleStatus?: string }>,
+      penaltyRows as Array<{ lifecycleStatus?: string }>,
+    );
+
+    const userEntryMap: Record<string, number> = {};
+    const userPenaltyMap: Record<string, number> = {};
+    const userEntryIds: Record<string, string[]> = {};
+    const userPenaltyIds: Record<string, string[]> = {};
+    let totalEntriesAmount = 0;
+
+    const uidOf = (row: { userId?: unknown }) => {
+      const u = row.userId as { _id?: unknown } | undefined;
+      const id = u && typeof u === "object" && u._id != null ? u._id : row.userId;
+      return id != null ? String(id) : "";
+    };
+
+    for (const e of entryRows) {
+      const uid = uidOf(e);
+      if (!uid) continue;
+      const amt = Number(e.amount) || 0;
+      if (amt <= 0) continue;
+      userEntryMap[uid] = (userEntryMap[uid] || 0) + amt;
+      totalEntriesAmount += amt;
+      if (!userEntryIds[uid]) userEntryIds[uid] = [];
+      userEntryIds[uid].push(String(e._id));
+    }
+
+    for (const p of penaltyRows) {
+      const uid = uidOf(p);
+      if (!uid) continue;
+      const amt = Number(p.amount) || 0;
+      if (amt <= 0) continue;
+      userPenaltyMap[uid] = (userPenaltyMap[uid] || 0) + amt;
+      if (!userPenaltyIds[uid]) userPenaltyIds[uid] = [];
+      userPenaltyIds[uid].push(String(p._id));
+    }
+
+    return {
+      userEntryMap,
+      userPenaltyMap,
+      userEntryIds,
+      userPenaltyIds,
+      totalEntriesAmount,
+    };
+  }
+
+  async getLedgerTotalsForAccountingMonth(
+    flatId: string,
+    accountingMonthKey: string,
+  ): Promise<Record<string, { entry: number; penalty: number }>> {
+    const agg = await this.aggregateLedgerForBillingMonth(flatId, accountingMonthKey);
+    const uids = new Set([
+      ...Object.keys(agg.userEntryMap),
+      ...Object.keys(agg.userPenaltyMap),
+    ]);
+    const out: Record<string, { entry: number; penalty: number }> = {};
+    for (const uid of Array.from(uids)) {
+      out[uid] = {
+        entry: agg.userEntryMap[uid] || 0,
+        penalty: agg.userPenaltyMap[uid] || 0,
+      };
+    }
+    return out;
   }
 
   /**
