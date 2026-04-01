@@ -14,24 +14,13 @@ const server = registerRoutes(app);
   try {
     await storage.connect();
 
-    // If server was down at month boundary, catch up previous calendar month once (snapshot + close + optional purge).
+    // Catch up previous calendar month if server was down across a boundary (same job as daily cron).
     try {
-      const { snapshotCloseAndPurgeAccountingMonth } = await import("./ledger-month-rollover.js");
-      const { previousCalendarMonthKey } = await import("./lib/accounting-month.js");
       const { isAutoClosePreviousAccountingMonthEnabled } = await import("./auto-close-config.js");
+      const { runPreviousAccountingMonthCloseForAllFlats } = await import("./month-close-cron.js");
       if (isAutoClosePreviousAccountingMonthEnabled()) {
-        const key = previousCalendarMonthKey();
-        const flats = await storage.getAllFlats();
-        for (const flat of flats) {
-          const fid = String(flat._id);
-          try {
-            if (await storage.isAccountingMonthLocked(fid, key)) continue;
-            await snapshotCloseAndPurgeAccountingMonth(fid, key);
-          } catch (e) {
-            console.warn(`📅 Startup month rollover skipped for flat ${fid}:`, e);
-          }
-        }
-        console.log(`📅 Startup month rollover pass completed for ${key}`);
+        await runPreviousAccountingMonthCloseForAllFlats();
+        console.log("📅 Startup accounting month close pass completed");
       }
     } catch (e) {
       console.warn("Startup month rollover catch-up failed:", e);

@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Plus, Settings, Receipt, TrendingUp, TrendingDown,
   Bell, ChevronRight, ChevronDown, History,
-  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Download, Share2, Link,
+  IndianRupee, Users, Trash2, CalendarDays, Pencil, X, Printer, Share2, Link,
   Forward,
 } from "lucide-react";
 import {
@@ -206,8 +206,6 @@ export default function PaymentsPage() {
   });
   const [isDeleteBillOpen, setIsDeleteBillOpen] = useState(false);
   const [billToDeleteId, setBillToDeleteId] = useState<string | null>(null);
-  const [isDeleteAllBillsOpen, setIsDeleteAllBillsOpen] = useState(false);
-  const [isBackupConfirmOpen, setIsBackupConfirmOpen] = useState(false);
   const [filterYear, setFilterYear] = useState<string>("");
   const [filterMonth, setFilterMonth] = useState<string>("");
 
@@ -559,55 +557,6 @@ export default function PaymentsPage() {
     },
   });
 
-  const deleteAllBillsMutation = useMutation({
-    mutationFn: async () => {
-      showLoader();
-      const res = await apiRequest("DELETE", "/api/bills/all");
-      const data = await res.json().catch(() => ({}));
-      return data as { deletedBills: number; deletedPayments: number };
-    },
-    onSuccess: (data) => {
-      setSelectedBillId(null);
-      setIsDeleteAllBillsOpen(false);
-      queryClient.setQueryData(["/api/bills"], []);
-      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] === "/api/bills" && query.queryKey[1] != null });
-      queryClient.invalidateQueries({ queryKey: ["/api/bills"] });
-      showSuccess(`All bills deleted. ${data.deletedBills} bill(s) and ${data.deletedPayments} payment record(s) removed from database.`);
-      hideLoader();
-    },
-    onError: (err: any) => {
-      showError(err.message || "Failed to delete all bills");
-      hideLoader();
-    },
-  });
-
-  const handleBackupBills = async () => {
-    try {
-      showLoader();
-      const base = typeof window !== "undefined" ? window.location.origin : "";
-      const res = await fetch(`${base}/api/bills/backup`, { credentials: "include" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as { message?: string }).message || "Backup failed");
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition");
-      const match = disposition?.match(/filename="?([^";]+)"?/);
-      const filename = match?.[1] ?? `roomie-bills-backup-${new Date().toISOString().slice(0, 10)}.csv`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      showSuccess("Backup downloaded");
-    } catch (err: any) {
-      showError(err.message || "Failed to download backup");
-    } finally {
-      hideLoader();
-    }
-  };
-
   const [billUpdateSuccessCallback, setBillUpdateSuccessCallback] = useState<(() => void) | null>(null);
 
   const updateBillMutation = useMutation({
@@ -697,8 +646,10 @@ export default function PaymentsPage() {
                   <Receipt className="w-7 h-7 text-[#9f5bf7]" />
                   Payments
                 </h1>
-                <p className="text-white/40 text-xs mt-1.5">
-                  {isAdmin ? "You can create, edit, record payments & print. Others can view & print." : "You can view bills and print your invoice."}
+                <p className="text-white/40 text-xs mt-1.5 max-w-2xl">
+                  {isAdmin
+                    ? "Create bills, record payments, and print. When an accounting month is closed and the bill is fully settled, it becomes read-only here—use History for finalized archived periods."
+                    : "View bills and print your share. Closed, settled periods are read-only."}
                 </p>
                 {isAdmin && (
                   <>
@@ -749,25 +700,6 @@ export default function PaymentsPage() {
                         </TooltipContent>
                       )}
                     </Tooltip>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsBackupConfirmOpen(true)}
-                      className="flex items-center gap-2 bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white"
-                      title="Download all bills data as CSV backup (month-wise)"
-                    >
-                      <Download className="h-4 w-4" />
-                      <span className="hidden sm:inline">Backup</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsDeleteAllBillsOpen(true)}
-                      disabled={bills.length === 0}
-                      className="flex items-center gap-2 bg-white/5 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-400"
-                      title="Permanently delete all bills from database"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      <span className="hidden sm:inline">Delete all bills</span>
-                    </Button>
                     <Button
                       variant="outline"
                       onClick={() => setIsSettingsOpen(true)}
@@ -828,9 +760,14 @@ export default function PaymentsPage() {
               {/* ── Bills Sidebar ── */}
               <div className="lg:w-64 shrink-0">
                 <div className="bg-[#151525] rounded-xl border border-white/5 overflow-hidden lg:sticky lg:top-24">
-                  <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
-                    <History className="w-3.5 h-3.5 text-white/40" />
-                    <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Monthly Bills</p>
+                  <div className="px-4 py-3 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                      <History className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                      <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Monthly Bills</p>
+                    </div>
+                    <p className="text-[10px] text-white/30 mt-1.5 leading-snug">
+                      Lock on a row = closed month and fully paid (read-only). Open History for archived ledger detail.
+                    </p>
                   </div>
                   {/* Date filter — styled dropdowns */}
                   <div className="px-3 py-2 border-b border-white/5 flex flex-wrap gap-2">
@@ -1337,39 +1274,6 @@ export default function PaymentsPage() {
         confirmText="Delete"
         cancelText="Cancel"
         onConfirm={() => billToDeleteId && deleteBillMutation.mutate(billToDeleteId)}
-      />
-
-      {/* ── Backup Confirm ── */}
-      <ConfirmDialog
-        open={isBackupConfirmOpen}
-        onOpenChange={setIsBackupConfirmOpen}
-        title="Download full bills backup?"
-        description={
-          <>
-            This will download a <strong>CSV file</strong> containing <strong>all bills</strong> for your flat:
-            bill summary, expense items and <strong>every member&apos;s payments</strong> (base share, entry deduction,
-            carry forward, penalty, paid and remaining amounts) for each month.
-          </>
-        }
-        confirmText="Download backup"
-        cancelText="Cancel"
-        onConfirm={() => handleBackupBills()}
-      />
-
-      {/* ── Delete ALL Bills Confirm ── */}
-      <ConfirmDialog
-        open={isDeleteAllBillsOpen}
-        onOpenChange={setIsDeleteAllBillsOpen}
-        title="Permanently delete all bills?"
-        description={
-          <>
-            This will <strong>permanently delete all bills and all payment records</strong> for your flat from the database.
-            This action cannot be undone. Make sure you have taken a backup if needed.
-          </>
-        }
-        confirmText="Delete all permanently"
-        cancelText="Cancel"
-        onConfirm={() => deleteAllBillsMutation.mutate()}
       />
 
       {/* ── Mobile Nav ── */}

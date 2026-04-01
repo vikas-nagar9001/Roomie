@@ -1,13 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/header";
 import { MobileNav } from "@/components/mobile-nav";
 import { apiRequest } from "@/lib/queryClient";
-import { useAuth } from "@/hooks/use-auth";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
-import { showSuccess, showError } from "@/services/toastService";
 import {
-  format, addMonths, subMonths,
+  format,
   startOfMonth, endOfMonth, isWithinInterval, isToday, isYesterday,
 } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -18,7 +16,7 @@ import {
 import {
   FiArrowLeft, FiChevronLeft, FiChevronRight, FiChevronDown,
   FiList, FiAlertTriangle, FiCheckCircle, FiXCircle, FiClock,
-  FiDownload, FiTrash2, FiAlertOctagon, FiSave,
+  FiBarChart2, FiUsers,
 } from "react-icons/fi";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -93,7 +91,8 @@ function ChartTooltip({ active, payload }: any) {
           </div>
         )}
       </div>
-      <p className="text-[9px] text-[#c49bff]/30 mt-2 text-center">tap to view details</p>
+      <p className="text-[9px] text-[#c49bff]/30 mt-2 text-center hidden md:block">click for details</p>
+      <p className="text-[9px] text-[#c49bff]/30 mt-2 text-center md:hidden">tap for details</p>
     </div>
   );
 }
@@ -121,13 +120,67 @@ function normalizeUserId(uid: unknown): string {
   return String(uid);
 }
 
+/** Canonical YYYY-MM for "today" (local), same idea as server accounting month. */
+function currentAccountingMonthKey(ref = new Date()): string {
+  return `${ref.getFullYear()}-${String(ref.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function derivedMonthKeyFromRecord(r: { year: number; monthIndex: number }): string | null {
+  const y = Number(r.year);
+  const mi = Number(r.monthIndex);
+  if (!Number.isFinite(y) || !Number.isFinite(mi)) return null;
+  if (mi >= 0 && mi <= 11) return `${y}-${String(mi + 1).padStart(2, "0")}`;
+  return null;
+}
+
+type MonthlyHistoryRow = {
+  _id?: string;
+  year: number;
+  monthIndex: number;
+  month?: string;
+  members?: unknown[];
+  grandTotal?: number;
+  lifecycleStatus?: string;
+  isDeleted?: boolean;
+  accountingMonth?: string;
+};
+
+/**
+ * History shows only finalized periods: never the live calendar month, never "active" snapshots.
+ * Legacy rows: past month + missing lifecycle still shown (treated as final).
+ */
+function isClosedHistoryRecord(r: MonthlyHistoryRow, ref = new Date()): boolean {
+  if (r.isDeleted === true) return false;
+  const curKey = currentAccountingMonthKey(ref);
+  const am = typeof r.accountingMonth === "string" ? r.accountingMonth.trim() : "";
+  const key = (am && /^\d{4}-\d{2}$/.test(am) ? am : null) ?? derivedMonthKeyFromRecord(r);
+  if (!key || !/^\d{4}-\d{2}$/.test(key)) return false;
+  if (key >= curKey) return false;
+
+  if (r.lifecycleStatus === "archived") return true;
+  if (r.lifecycleStatus === "active") return false;
+  return true;
+}
+
+function findMonthlyHistoryForMonth(records: MonthlyHistoryRow[], d: Date): MonthlyHistoryRow | null {
+  const y = d.getFullYear();
+  const month0 = d.getMonth();
+  const idx0 = month0;
+  const idx1 = month0 + 1;
+  return (
+    records.find((r) => r.year === y && r.monthIndex === idx0) ??
+    records.find((r) => r.year === y && r.monthIndex === idx1) ??
+    null
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
-  const now = new Date();
-  const [currentDate, setCurrentDate] = useState(
-    new Date(now.getFullYear(), now.getMonth(), 1)
-  );
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [detailTab, setDetailTab] = useState<"all" | "entry" | "penalty">("all");
   const [entryStatusFilter, setEntryStatusFilter] = useState<string>("all");
@@ -135,66 +188,8 @@ export default function HistoryPage() {
   const [showPicker, setShowPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
 
-  const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN" || user?.role === "CO_ADMIN";
-  const qc = useQueryClient();
-
-  // Admin — confirm modal state
-  type ConfirmAction =
-    | { kind: "backup-all" }
-    | { kind: "backup-year"; year: number }
-    | { kind: "all" }
-    | { kind: "year"; year: number }
-    | { kind: "month"; id: string; label: string };
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
-
-  // Admin — delete mutations
-  const deleteAll = useMutation({
-    mutationFn: () => apiRequest("DELETE", "/api/monthly-history/all"),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/monthly-history"] }); showSuccess("All history deleted"); setConfirmAction(null); },
-    onError: () => showError("Delete failed"),
-  });
-  const deleteYear = useMutation({
-    mutationFn: (year: number) => apiRequest("DELETE", `/api/monthly-history/year/${year}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/monthly-history"] }); showSuccess("Year history deleted"); setConfirmAction(null); },
-    onError: () => showError("Delete failed"),
-  });
-  const deleteMonth = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/monthly-history/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/monthly-history"] }); showSuccess("Month deleted"); setConfirmAction(null); },
-    onError: () => showError("Delete failed"),
-  });
-
-  // Admin — snapshot mutation (save current or any month to monthly history)
-  const snapshotMutation = useMutation({
-    mutationFn: ({ year, monthIndex }: { year: number; monthIndex: number }) =>
-      apiRequest("POST", "/api/monthly-history/snapshot", { year, monthIndex }),
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ["/api/monthly-history"] });
-      const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-      showSuccess(`Snapshot saved for ${names[vars.monthIndex]} ${vars.year}`);
-    },
-    onError: () => showError("Snapshot failed"),
-  });
-
-  function handleConfirm() {
-    if (!confirmAction) return;
-    if (confirmAction.kind === "backup-all")  { window.open("/api/monthly-history/backup", "_blank"); setConfirmAction(null); return; }
-    if (confirmAction.kind === "backup-year") { window.open(`/api/monthly-history/backup?year=${confirmAction.year}`, "_blank"); setConfirmAction(null); return; }
-    if (confirmAction.kind === "all")   deleteAll.mutate();
-    if (confirmAction.kind === "year")  deleteYear.mutate(confirmAction.year);
-    if (confirmAction.kind === "month") deleteMonth.mutate(confirmAction.id);
-  }
-
-  function downloadBackup() {
-    setConfirmAction({ kind: "backup-all" });
-  }
-
   const monthStart     = startOfMonth(currentDate);
   const monthEnd       = endOfMonth(currentDate);
-  const isCurrentMonth = currentDate.getMonth() === now.getMonth() &&
-                         currentDate.getFullYear() === now.getFullYear();
 
   // ── Query — unified history from dedicated endpoint ─────────────────────
   const { data: historyData, isLoading } = useQuery<{ entries: any[]; penalties: any[] }>({
@@ -223,6 +218,13 @@ export default function HistoryPage() {
     },
   });
 
+  const closedMonthlyHistories = useMemo(() => {
+    const ref = new Date();
+    return (monthlyHistories as MonthlyHistoryRow[]).filter((r) =>
+      isClosedHistoryRecord(r, ref),
+    );
+  }, [monthlyHistories]);
+
   useEffect(() => { showLoader(); return () => forceHideLoader(); }, []);
   useEffect(() => { if (!isLoading) setTimeout(() => hideLoader(), 200); }, [isLoading]);
 
@@ -236,27 +238,13 @@ export default function HistoryPage() {
     [penalties, monthStart, monthEnd]
   );
 
-  // Saved snapshot for the visible month (if any) — used to merge members missing from live ledger
-  const monthlyHistoryRecord = useMemo(() => {
-    const y = currentDate.getFullYear();
-    const idx0 = currentDate.getMonth(); // 0-based: Jan=0 ... Dec=11
-    const idx1 = idx0 + 1; // 1-based: Jan=1 ... Dec=12 (older records)
+  // Saved snapshot for the visible month — only from closed (archived / finalized) history rows
+  const monthlyHistoryRecord = useMemo(
+    () => findMonthlyHistoryForMonth(closedMonthlyHistories, currentDate),
+    [closedMonthlyHistories, currentDate],
+  );
 
-    // Prefer correct 0-based match if both exist.
-    const exact0 =
-      monthlyHistories.find(
-        (r: { year: number; monthIndex: number }) => r.year === y && r.monthIndex === idx0,
-      ) ?? null;
-    if (exact0) return exact0;
-
-    const exact1 =
-      monthlyHistories.find(
-        (r: { year: number; monthIndex: number }) => r.year === y && r.monthIndex === idx1,
-      ) ?? null;
-    return exact1;
-  }, [monthlyHistories, currentDate]);
-
-  /** This page shows MonthlyHistory snapshots only — no live ledger rollup unless a snapshot row exists for that month. */
+  /** Closed monthly snapshot for this period (live calendar month is never listed here). */
   const hasMonthlySnapshot = monthlyHistoryRecord !== null;
 
   // ── Per-user aggregated stats ─────────────────────────────────────────────
@@ -480,56 +468,86 @@ export default function HistoryPage() {
     return Object.entries(grouped).sort(([a], [b]) => b.localeCompare(a));
   }, [detailTab, filteredDetailEntries, filteredDetailPenalties, timeline]);
 
-  // ── Month nav handler ─────────────────────────────────────────────────────
+  // ── Month nav handler (closed months only, newest first) ──────────────────
   function resetDetail() { setDetailTab("all"); setEntryStatusFilter("all"); setPenaltyTypeFilter("all"); }
-  function prevMonth() { setCurrentDate(d => subMonths(d, 1)); setSelectedUserId(null); resetDetail(); }
-  function nextMonth() { if (!isCurrentMonth) { setCurrentDate(d => addMonths(d, 1)); setSelectedUserId(null); resetDetail(); } }
+
+  /** Closed months for picker / arrows — newest first (index 0 = most recent closed). */
+  const pickerMonths = useMemo(() => {
+    type Row = { year: number; month: number; sortKey: string };
+    const rows: Row[] = [];
+    const seen = new Set<string>();
+    for (const r of closedMonthlyHistories) {
+      const am = typeof r.accountingMonth === "string" ? r.accountingMonth.trim() : "";
+      const key =
+        am && /^\d{4}-\d{2}$/.test(am) ? am : derivedMonthKeyFromRecord(r);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      const mi = Number(r.monthIndex);
+      const calMonth = mi >= 0 && mi <= 11 ? mi : Math.max(0, Math.min(11, mi - 1));
+      rows.push({ year: Number(r.year), month: calMonth, sortKey: key });
+    }
+    rows.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+    return rows.map(({ year, month }) => ({ year, month }));
+  }, [closedMonthlyHistories]);
+
+  const currentPickerIndex = useMemo(() => {
+    const y = currentDate.getFullYear();
+    const m = currentDate.getMonth();
+    return pickerMonths.findIndex((pm) => pm.year === y && pm.month === m);
+  }, [currentDate, pickerMonths]);
+
+  useEffect(() => {
+    if (pickerMonths.length === 0) return;
+    setCurrentDate((prev) => {
+      const y = prev.getFullYear();
+      const m = prev.getMonth();
+      if (pickerMonths.some((pm) => pm.year === y && pm.month === m)) return prev;
+      const latest = pickerMonths[0]!;
+      return new Date(latest.year, latest.month, 1);
+    });
+  }, [pickerMonths]);
+
+  function prevMonth() {
+    if (currentPickerIndex < 0 || currentPickerIndex >= pickerMonths.length - 1) return;
+    const t = pickerMonths[currentPickerIndex + 1]!;
+    setCurrentDate(new Date(t.year, t.month, 1));
+    setSelectedUserId(null);
+    resetDetail();
+  }
+  function nextMonth() {
+    if (currentPickerIndex <= 0) return;
+    const t = pickerMonths[currentPickerIndex - 1]!;
+    setCurrentDate(new Date(t.year, t.month, 1));
+    setSelectedUserId(null);
+    resetDetail();
+  }
   function jumpToMonth(year: number, month: number) {
+    if (!pickerMonths.some((pm) => pm.year === year && pm.month === month)) return;
     setCurrentDate(new Date(year, month, 1));
     setSelectedUserId(null);
     resetDetail();
     setShowPicker(false);
   }
   function jumpToYear(year: number) {
-    const isThisYear = year === now.getFullYear();
-    if (isThisYear) {
-      setCurrentDate(new Date(year, now.getMonth(), 1));
-    } else {
-      const latest = pickerMonths.find(m => m.year === year);
-      if (latest) setCurrentDate(new Date(latest.year, latest.month, 1));
-    }
+    const inYear = pickerMonths.filter((m) => m.year === year);
+    if (inYear.length === 0) return;
+    const t = inYear[0]!;
+    setCurrentDate(new Date(t.year, t.month, 1));
     setSelectedUserId(null);
     resetDetail();
     setShowYearPicker(false);
   }
 
-  // Build list of months from earliest data to current
-  const pickerMonths = useMemo(() => {
-    const dates = [
-      ...entries.map((e: any) => new Date(e.dateTime)),
-      ...penalties.map((p: any) => new Date(p.createdAt)),
-    ];
-    // Also add dates from seeded monthly histories
-    monthlyHistories.forEach((r: any) => {
-      dates.push(new Date(r.year, r.monthIndex, 1));
-    });
-    if (dates.length === 0) return [{ year: now.getFullYear(), month: now.getMonth() }];
-    const earliest = new Date(Math.min(...dates.map(d => d.getTime())));
-    const start = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
-    const end   = new Date(now.getFullYear(), now.getMonth(), 1);
-    const months: { year: number; month: number }[] = [];
-    let cur = start;
-    while (cur <= end) {
-      months.push({ year: cur.getFullYear(), month: cur.getMonth() });
-      cur = addMonths(cur, 1);
-    }
-    return months.reverse();
-  }, [entries, penalties, monthlyHistories]);
-
   const availableYears = useMemo(
-    () => Array.from(new Set(pickerMonths.map(m => m.year))).sort((a, b) => b - a),
-    [pickerMonths]
+    () => Array.from(new Set(pickerMonths.map((m) => m.year))).sort((a, b) => b - a),
+    [pickerMonths],
   );
+
+  const canGoOlder =
+    pickerMonths.length > 0 &&
+    currentPickerIndex >= 0 &&
+    currentPickerIndex < pickerMonths.length - 1;
+  const canGoNewer = pickerMonths.length > 0 && currentPickerIndex > 0;
 
   // true when showing seeded summary (no live data for this month)
   const isHistoricalSummary = userStats.length === 0 && monthlyHistoryRecord !== null;
@@ -548,335 +566,35 @@ export default function HistoryPage() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0f0f1f]">
+    <div className="min-h-screen bg-[#0f0f1f] relative">
       <Header />
 
-      <div className="pt-24 pb-28 sm:pb-10 px-3 sm:px-8 max-w-xl sm:max-w-4xl mx-auto">
+      <div
+        className="hidden md:block pointer-events-none absolute inset-0 overflow-hidden"
+        aria-hidden
+      >
+        <div className="absolute top-0 left-0 w-full h-[50vh] bg-[#0f0f1f]" />
+        <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl" />
+      </div>
 
-        {/* ── Filter Bar ── */}
-        <div className="flex items-center justify-between mb-5 px-1">
+      <div className="relative z-10 pt-24 pb-28 sm:pb-10 px-3 sm:px-6 lg:px-8 max-w-xl sm:max-w-4xl md:max-w-7xl mx-auto">
 
-          {/* LEFT — Year + Month filters */}
-          <div className="flex items-center gap-2">
-
-            {/* Year pill */}
-            <div className="relative">
-              <button
-                onClick={() => { setShowYearPicker(v => !v); setShowPicker(false); }}
-                className={cn(
-                  "flex items-center gap-1 h-8 px-3 rounded-lg border text-xs font-bold transition-all",
-                  showYearPicker
-                    ? "bg-[#582c84]/40 border-[#7c3fbf]/60 text-[#c49bff]"
-                    : "bg-[#7c3fbf]/10 border-[#7c3fbf]/20 text-[#c49bff]/70 hover:bg-[#7c3fbf]/20 hover:text-[#c49bff]"
-                )}
-              >
-                {currentDate.getFullYear()}
-                <FiChevronDown className={cn("w-3 h-3 transition-transform duration-200", showYearPicker && "rotate-180")} />
-              </button>
-              {showYearPicker && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowYearPicker(false)} />
-                  <div className="absolute top-full left-0 mt-1.5 z-50 bg-[#16162a] border border-[#7c3fbf]/30 rounded-xl shadow-2xl overflow-hidden min-w-[84px]">
-                    {availableYears.map(yr => (
-                      <button
-                        key={yr}
-                        onClick={() => jumpToYear(yr)}
-                        className={cn(
-                          "w-full px-4 py-2.5 text-sm text-left font-semibold transition-colors",
-                          currentDate.getFullYear() === yr
-                            ? "bg-[#582c84]/40 text-[#c49bff]"
-                            : "text-white/50 hover:bg-[#7c3fbf]/10 hover:text-[#c49bff]/80"
-                        )}
-                      >
-                        {yr}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Month pill */}
-            <div className="relative">
-              <button
-                onClick={() => { setShowPicker(v => !v); setShowYearPicker(false); }}
-                className={cn(
-                  "flex items-center gap-1 h-8 px-3 rounded-lg border text-xs font-bold transition-all",
-                  showPicker
-                    ? "bg-[#582c84]/40 border-[#7c3fbf]/60 text-[#c49bff]"
-                    : "bg-[#7c3fbf]/10 border-[#7c3fbf]/20 text-[#c49bff]/70 hover:bg-[#7c3fbf]/20 hover:text-[#c49bff]"
-                )}
-              >
-                {format(currentDate, "MMM")}
-                <FiChevronDown className={cn("w-3 h-3 transition-transform duration-200", showPicker && "rotate-180")} />
-              </button>
-              {showPicker && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
-                  <div className="absolute top-full left-0 mt-1.5 z-50 bg-[#16162a] border border-[#7c3fbf]/30 rounded-xl shadow-2xl overflow-hidden w-36">
-                    <div className="max-h-60 overflow-y-auto no-scrollbar py-1">
-                      {pickerMonths.filter(m => m.year === currentDate.getFullYear()).map(({ year, month }) => {
-                        const isSel = currentDate.getMonth() === month;
-                        const isNow = now.getFullYear() === year && now.getMonth() === month;
-                        return (
-                          <button
-                            key={`${year}-${month}`}
-                            onClick={() => jumpToMonth(year, month)}
-                            className={cn(
-                              "w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors",
-                              isSel
-                                ? "bg-[#582c84]/40 text-[#c49bff]"
-                                : "text-white/50 hover:bg-[#7c3fbf]/10 hover:text-[#c49bff]/80"
-                            )}
-                          >
-                            <span>{format(new Date(year, month, 1), "MMM")}</span>
-                            {isNow && <span className="text-[9px] text-[#c49bff]/50 bg-[#7c3fbf]/20 px-1.5 py-0.5 rounded-full font-bold">Now</span>}
-                            {isSel && !isNow && <span className="w-1.5 h-1.5 rounded-full bg-[#c49bff] shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* RIGHT — Prev / Next arrows */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={prevMonth}
-              className="w-8 h-8 rounded-lg bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border border-[#7c3fbf]/20 hover:border-[#7c3fbf]/40 flex items-center justify-center transition-all"
-            >
-              <FiChevronLeft className="w-4 h-4 text-[#c49bff]/70" />
-            </button>
-            <button
-              onClick={nextMonth}
-              disabled={isCurrentMonth}
-              className={cn(
-                "w-8 h-8 rounded-lg border flex items-center justify-center transition-all",
-                isCurrentMonth
-                  ? "opacity-20 cursor-not-allowed bg-white/[0.03] border-white/[0.05]"
-                  : "bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border-[#7c3fbf]/20 hover:border-[#7c3fbf]/40"
-              )}
-            >
-              <FiChevronRight className="w-4 h-4 text-[#c49bff]/70" />
-            </button>
-          </div>
+        <p className="md:hidden text-[11px] text-white/40 mb-4 px-1 leading-relaxed">
+          <span className="text-white/55 font-semibold">History</span> — finalized closed months only. The current month stays on{" "}
+          <span className="text-white/50">Entries</span> and <span className="text-white/50">Payments</span> until the period is closed.
+        </p>
+        <div className="hidden md:block mb-8">
+          <h1 className="text-4xl font-bold text-white tracking-tight">History</h1>
+          <p className="text-indigo-200/75 mt-2 text-sm max-w-2xl leading-relaxed">
+            Finalized closed months only—read-only ledger archive. The current period stays on{" "}
+            <span className="text-indigo-100/90">Entries</span> and{" "}
+            <span className="text-indigo-100/90">Payments</span> until month close.
+          </p>
         </div>
 
-        {!showPicker && !showYearPicker && (
-          <div className="flex items-center gap-2 mb-5 px-1">
-            <h2 className="text-lg font-bold text-white tracking-tight">
-              {format(currentDate, "MMMM yyyy")}
-            </h2>
-            {isCurrentMonth && (
-              <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#7c3fbf]/25 border border-[#7c3fbf]/40 text-[#c49bff]/80">
-                Current
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* ── Admin Panel ── */}
-        {isAdmin && !selectedUserId && (
-          <div className="mb-4">
-            <button
-              onClick={() => setShowAdminPanel(v => !v)}
-              className={cn(
-                "w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs font-semibold transition-all",
-                showAdminPanel
-                  ? "bg-[#582c84]/20 border-[#7c3fbf]/40 text-[#c49bff]"
-                  : "bg-white/[0.03] border-white/[0.07] text-white/40 hover:text-white/60 hover:bg-white/[0.05]"
-              )}
-            >
-              <span className="flex items-center gap-2">
-                <FiAlertOctagon className="w-3.5 h-3.5" />
-                Admin Tools
-              </span>
-              <FiChevronDown className={cn("w-3.5 h-3.5 transition-transform duration-200", showAdminPanel && "rotate-180")} />
-            </button>
-
-            {showAdminPanel && (
-              <div className="mt-2 bg-[#0f0f1e] border border-white/[0.07] rounded-2xl overflow-hidden">
-
-                {/* ─ Snapshot section */}
-                <div className="px-4 pt-3.5 pb-3 border-b border-white/[0.05]">
-                  <p className="text-[10px] uppercase tracking-widest text-emerald-400/50 font-semibold mb-1">Save to History</p>
-                  <p className="text-[10px] text-white/30 mb-2.5">Saves approved entries + penalties as a permanent monthly snapshot</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      disabled={snapshotMutation.isPending}
-                      onClick={() => snapshotMutation.mutate({ year: currentDate.getFullYear(), monthIndex: currentDate.getMonth() })}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400/80 hover:text-emerald-400 text-xs font-semibold transition-all disabled:opacity-40"
-                    >
-                      <FiSave className="w-3.5 h-3.5" />
-                      {format(currentDate, "MMM yyyy")}
-                    </button>
-                  </div>
-                </div>
-
-                {/* ─ Backup section */}
-                <div className="px-4 pt-3.5 pb-3 border-b border-white/[0.05]">
-                  <p className="text-[10px] uppercase tracking-widest text-white/30 font-semibold mb-2.5">Backup Data — Download CSV</p>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setConfirmAction({ kind: "backup-all" })}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border border-[#7c3fbf]/25 hover:border-[#7c3fbf]/50 text-[#c49bff]/80 hover:text-[#c49bff] text-xs font-semibold transition-all"
-                    >
-                      <FiDownload className="w-3.5 h-3.5" />
-                      All History
-                    </button>
-                    <button
-                      onClick={() => setConfirmAction({ kind: "backup-year", year: currentDate.getFullYear() })}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border border-[#7c3fbf]/25 hover:border-[#7c3fbf]/50 text-[#c49bff]/80 hover:text-[#c49bff] text-xs font-semibold transition-all"
-                    >
-                      <FiDownload className="w-3.5 h-3.5" />
-                      {currentDate.getFullYear()} Only
-                    </button>
-                  </div>
-                </div>
-
-                {/* ─ Delete section */}
-                {monthlyHistories.length > 0 && (
-                <div className="px-4 pt-3.5 pb-3.5">
-                  <p className="text-[10px] uppercase tracking-widest text-red-400/40 font-semibold mb-2.5">Delete Records — Cannot be undone</p>
-                  <div className="flex flex-wrap gap-2">
-                    {monthlyHistoryRecord && (
-                      <button
-                        onClick={() => setConfirmAction({ kind: "month", id: monthlyHistoryRecord._id as string, label: `${monthlyHistoryRecord.month} ${monthlyHistoryRecord.year}` })}
-                        className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400/70 hover:text-red-400 text-xs font-semibold transition-all"
-                      >
-                        <FiTrash2 className="w-3.5 h-3.5" />
-                        {format(currentDate, "MMM yyyy")}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setConfirmAction({ kind: "year", year: currentDate.getFullYear() })}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400/70 hover:text-red-400 text-xs font-semibold transition-all"
-                    >
-                      <FiTrash2 className="w-3.5 h-3.5" />
-                      All of {currentDate.getFullYear()}
-                    </button>
-                    <button
-                      onClick={() => setConfirmAction({ kind: "all" })}
-                      className="flex items-center gap-1.5 h-8 px-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400/70 hover:text-red-400 text-xs font-semibold transition-all"
-                    >
-                      <FiTrash2 className="w-3.5 h-3.5" />
-                      All History
-                    </button>
-                  </div>
-                </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Unified Confirm Modal ── */}
-        {confirmAction && (() => {
-          const isBackup = confirmAction.kind.startsWith("backup");
-          const title    = isBackup ? "Backup Data" : "Delete Records";
-          const subtitle = isBackup ? "CSV file will be downloaded to your device" : "This action is permanent and cannot be undone";
-
-          const scope =
-            confirmAction.kind === "backup-all"     ? "All History" :
-            confirmAction.kind === "backup-year"    ? `Year ${(confirmAction as any).year}` :
-            confirmAction.kind === "all"            ? "All History" :
-            confirmAction.kind === "year"           ? `Year ${(confirmAction as any).year}` :
-                                                      (confirmAction as any).label;
-
-          const detail =
-            confirmAction.kind === "backup-all"
-              ? "Every monthly summary across all years will be included in the CSV."
-              : confirmAction.kind === "backup-year"
-              ? `Only records from ${(confirmAction as any).year} will be included in the CSV.`
-              : confirmAction.kind === "all"
-              ? "All monthly history records for this flat will be permanently removed from the database."
-              : confirmAction.kind === "year"
-              ? `All monthly records for the year ${(confirmAction as any).year} will be permanently removed.`
-              : `The summary record for ${(confirmAction as any).label} will be permanently removed.`;
-
-          const isPending = deleteAll.isPending || deleteYear.isPending || deleteMonth.isPending;
-
-          return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center px-5">
-              <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setConfirmAction(null)} />
-              <div className={cn(
-                "relative w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden",
-                isBackup ? "bg-[#13132a] border border-[#7c3fbf]/35" : "bg-[#1a0d1a] border border-red-500/30"
-              )}>
-
-                {/* Top accent strip */}
-                <div className={cn("h-1 w-full", isBackup ? "bg-gradient-to-r from-[#582c84] to-[#c49bff]" : "bg-gradient-to-r from-red-700 to-red-400")} />
-
-                <div className="p-6">
-                  {/* Icon + title */}
-                  <div className="flex flex-col items-center text-center mb-5">
-                    <div className={cn(
-                      "w-16 h-16 rounded-2xl flex items-center justify-center mb-3",
-                      isBackup ? "bg-[#7c3fbf]/20 border border-[#7c3fbf]/35" : "bg-red-500/15 border border-red-500/30"
-                    )}>
-                      {isBackup
-                        ? <FiDownload className="w-7 h-7 text-[#c49bff]" />
-                        : <FiTrash2 className="w-7 h-7 text-red-400" />
-                      }
-                    </div>
-                    <p className="text-white font-bold text-base leading-tight">{title}</p>
-                    <p className={cn("text-xs mt-1", isBackup ? "text-[#c49bff]/50" : "text-red-400/50")}>{subtitle}</p>
-                  </div>
-
-                  {/* Scope badge */}
-                  <div className="flex justify-center mb-4">
-                    <span className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border",
-                      isBackup
-                        ? "bg-[#7c3fbf]/15 border-[#7c3fbf]/30 text-[#c49bff]"
-                        : "bg-red-500/15 border-red-500/25 text-red-400"
-                    )}>
-                      {isBackup ? <FiDownload className="w-3 h-3" /> : <FiTrash2 className="w-3 h-3" />}
-                      {scope}
-                    </span>
-                  </div>
-
-                  {/* Detail text */}
-                  <p className="text-white/50 text-sm text-center leading-relaxed mb-6">
-                    {detail}
-                  </p>
-
-                  {/* Actions */}
-                  <div className="flex gap-2.5">
-                    <button
-                      onClick={() => setConfirmAction(null)}
-                      className="flex-1 h-11 rounded-xl bg-white/[0.06] hover:bg-white/[0.09] border border-white/[0.08] text-white/55 hover:text-white text-sm font-semibold transition-all"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleConfirm}
-                      disabled={isPending}
-                      className={cn(
-                        "flex-1 h-11 rounded-xl text-sm font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2",
-                        isBackup
-                          ? "bg-[#7c3fbf]/25 hover:bg-[#7c3fbf]/40 border border-[#7c3fbf]/40 text-[#c49bff]"
-                          : "bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 hover:text-red-300"
-                      )}
-                    >
-                      {isPending
-                        ? <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                        : isBackup
-                          ? <><FiDownload className="w-4 h-4" />Download</>
-                          : <><FiTrash2 className="w-4 h-4" />Delete</>
-                      }
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
         {selectedUserId ? (
-          <div>
+          <div className="lg:grid lg:grid-cols-12 lg:gap-10 lg:items-start">
+            <div className="lg:col-span-4 space-y-5 lg:sticky lg:top-28">
             {/* User header */}
             <div className="flex items-center gap-3 mb-5">
               <button
@@ -898,7 +616,7 @@ export default function HistoryPage() {
             </div>
 
             {/* User stat chips */}
-            <div className="grid grid-cols-3 gap-2 mb-5">
+            <div className="grid grid-cols-3 lg:grid-cols-1 gap-2 mb-5 lg:mb-0">
               {[
                 {
                   label: "Entries",
@@ -922,14 +640,16 @@ export default function HistoryPage() {
                   vcls: "text-amber-400",
                 },
               ].map(s => (
-                <div key={s.label} className={cn("rounded-xl border px-2 py-3 text-center", s.cls)}>
+                <div key={s.label} className={cn("rounded-xl border px-2 py-3 text-center lg:text-left lg:px-4 lg:py-3.5", s.cls)}>
                   <p className={cn("text-xl font-bold leading-none", s.vcls)}>{s.value}</p>
                   <p className="text-[8px] text-white/35 mt-1 uppercase tracking-wider leading-tight">{s.label}</p>
                   <p className="text-[9px] text-white/25 mt-0.5 leading-tight">{s.sub}</p>
                 </div>
               ))}
             </div>
+            </div>
 
+            <div className="lg:col-span-8 min-w-0 space-y-4">
             {/* ── Tabs ── */}
             <div className="flex items-center gap-1.5 mb-3">
               {([
@@ -1104,10 +824,153 @@ export default function HistoryPage() {
                 ))}
               </div>
             )}
+            </div>
           </div>
 
         ) : (
           /* ═══ OVERVIEW ════════════════════════════════════════════════════ */
+          <div className="flex flex-col lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start">
+            <aside className="lg:col-span-4 mb-5 lg:mb-0">
+              <div className="lg:rounded-2xl lg:border lg:border-[#7c3fbf]/25 lg:bg-gradient-to-b lg:from-[#1a1530]/90 lg:to-[#111018]/95 lg:p-6 lg:shadow-[0_0_40px_rgba(101,58,167,0.08)] lg:sticky lg:top-28 space-y-4">
+                <p className="hidden lg:block text-[10px] uppercase tracking-widest text-white/35 font-semibold">Closed period</p>
+                {/* ── Filter Bar ── */}
+                <div className="flex items-center justify-between px-1 lg:px-0">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <button
+                        onClick={() => { setShowYearPicker(v => !v); setShowPicker(false); }}
+                        className={cn(
+                          "flex items-center gap-1 h-8 px-3 rounded-lg border text-xs font-bold transition-all",
+                          showYearPicker
+                            ? "bg-[#582c84]/40 border-[#7c3fbf]/60 text-[#c49bff]"
+                            : "bg-[#7c3fbf]/10 border-[#7c3fbf]/20 text-[#c49bff]/70 hover:bg-[#7c3fbf]/20 hover:text-[#c49bff]"
+                        )}
+                      >
+                        {currentDate.getFullYear()}
+                        <FiChevronDown className={cn("w-3 h-3 transition-transform duration-200", showYearPicker && "rotate-180")} />
+                      </button>
+                      {showYearPicker && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowYearPicker(false)} />
+                          <div className="absolute top-full left-0 mt-1.5 z-50 bg-[#16162a] border border-[#7c3fbf]/30 rounded-xl shadow-2xl overflow-hidden min-w-[84px]">
+                            {availableYears.map(yr => (
+                              <button
+                                key={yr}
+                                onClick={() => jumpToYear(yr)}
+                                className={cn(
+                                  "w-full px-4 py-2.5 text-sm text-left font-semibold transition-colors",
+                                  currentDate.getFullYear() === yr
+                                    ? "bg-[#582c84]/40 text-[#c49bff]"
+                                    : "text-white/50 hover:bg-[#7c3fbf]/10 hover:text-[#c49bff]/80"
+                                )}
+                              >
+                                {yr}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <button
+                        onClick={() => { setShowPicker(v => !v); setShowYearPicker(false); }}
+                        className={cn(
+                          "flex items-center gap-1 h-8 px-3 rounded-lg border text-xs font-bold transition-all",
+                          showPicker
+                            ? "bg-[#582c84]/40 border-[#7c3fbf]/60 text-[#c49bff]"
+                            : "bg-[#7c3fbf]/10 border-[#7c3fbf]/20 text-[#c49bff]/70 hover:bg-[#7c3fbf]/20 hover:text-[#c49bff]"
+                        )}
+                      >
+                        {format(currentDate, "MMM")}
+                        <FiChevronDown className={cn("w-3 h-3 transition-transform duration-200", showPicker && "rotate-180")} />
+                      </button>
+                      {showPicker && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowPicker(false)} />
+                          <div className="absolute top-full left-0 mt-1.5 z-50 bg-[#16162a] border border-[#7c3fbf]/30 rounded-xl shadow-2xl overflow-hidden w-36">
+                            <div className="max-h-60 overflow-y-auto no-scrollbar py-1">
+                              {pickerMonths.filter(m => m.year === currentDate.getFullYear()).map(({ year, month }) => {
+                                const isSel = currentDate.getMonth() === month;
+                                return (
+                                  <button
+                                    key={`${year}-${month}`}
+                                    onClick={() => jumpToMonth(year, month)}
+                                    className={cn(
+                                      "w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors",
+                                      isSel
+                                        ? "bg-[#582c84]/40 text-[#c49bff]"
+                                        : "text-white/50 hover:bg-[#7c3fbf]/10 hover:text-[#c49bff]/80"
+                                    )}
+                                  >
+                                    <span>{format(new Date(year, month, 1), "MMM")}</span>
+                                    {isSel && <span className="w-1.5 h-1.5 rounded-full bg-[#c49bff] shrink-0" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={prevMonth}
+                      disabled={!canGoOlder}
+                      title="Older closed month"
+                      className={cn(
+                        "w-8 h-8 rounded-lg border flex items-center justify-center transition-all",
+                        !canGoOlder
+                          ? "opacity-20 cursor-not-allowed bg-white/[0.03] border-white/[0.05]"
+                          : "bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border border-[#7c3fbf]/20 hover:border-[#7c3fbf]/40",
+                      )}
+                    >
+                      <FiChevronLeft className="w-4 h-4 text-[#c49bff]/70" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={nextMonth}
+                      disabled={!canGoNewer}
+                      title="Newer closed month"
+                      className={cn(
+                        "w-8 h-8 rounded-lg border flex items-center justify-center transition-all",
+                        !canGoNewer
+                          ? "opacity-20 cursor-not-allowed bg-white/[0.03] border-white/[0.05]"
+                          : "bg-[#7c3fbf]/10 hover:bg-[#7c3fbf]/25 border border-[#7c3fbf]/20 hover:border-[#7c3fbf]/40",
+                      )}
+                    >
+                      <FiChevronRight className="w-4 h-4 text-[#c49bff]/70" />
+                    </button>
+                  </div>
+                </div>
+                {!showPicker && !showYearPicker && (
+                  <div className="flex flex-wrap items-center gap-2 px-1 lg:px-0">
+                    <h2 className="text-lg lg:text-xl font-bold text-white tracking-tight">
+                      {format(currentDate, "MMMM yyyy")}
+                    </h2>
+                    {pickerMonths.length > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-500/20 border border-slate-500/35 text-slate-300/90">
+                        Closed period · Read-only
+                      </span>
+                    )}
+                  </div>
+                )}
+                <p className="hidden lg:block text-[11px] text-white/30 leading-relaxed border-t border-white/[0.06] pt-4">
+                  Use the arrows or month menu to move between finalized months. Member drill-down opens on the right.
+                </p>
+              </div>
+            </aside>
+            <div className="lg:col-span-8 space-y-5 min-w-0">
+            {pickerMonths.length === 0 && !showPicker && !showYearPicker && (
+              <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-xs text-amber-200/80 leading-relaxed">
+                <p className="font-semibold text-amber-100/90 mb-1">No closed months in History yet</p>
+                <p className="text-amber-200/60">
+                  This page only lists <span className="text-amber-100/80">finalized</span> months (after month close). The{" "}
+                  <span className="text-amber-100/80">current month</span> stays on Entries and Payments until it is closed.
+                </p>
+              </div>
+            )}
           <div>
             {isLoading ? (
               <div className="py-20 flex items-center justify-center">
@@ -1115,9 +978,9 @@ export default function HistoryPage() {
               </div>
             ) : (
               <>
-                {/* 3 summary cards */}
-                <div className="grid grid-cols-3 gap-2 mb-5">
-                  {[
+                {/* 3 summary cards — compact on mobile, dashboard-style on md+ */}
+                <div className="grid grid-cols-3 gap-2 md:gap-4 mb-5 md:mb-6">
+                  {([
                     {
                       label: "Total Spent",
                       value: !hasMonthlySnapshot
@@ -1132,7 +995,8 @@ export default function HistoryPage() {
                         : filteredEntries.length === 0 && monthlyHistoryRecord
                           ? `${userStats.length} members (summary)`
                           : `${filteredEntries.length} entries`,
-                      cls:  "border-emerald-500/20 bg-emerald-500/[0.06]",
+                      Icon: FiBarChart2,
+                      accent: "from-emerald-500/25 to-emerald-600/5",
                       vcls: "text-emerald-400",
                     },
                     {
@@ -1143,7 +1007,8 @@ export default function HistoryPage() {
                         ? String((monthlyHistoryRecord!.members as any[]).length)
                         : String(userStats.length),
                       sub:   !hasMonthlySnapshot ? "—" : "active this month",
-                      cls:  "border-[#7c3fbf]/25 bg-[#7c3fbf]/[0.07]",
+                      Icon: FiUsers,
+                      accent: "from-[#7c3fbf]/35 to-[#582c84]/10",
                       vcls: "text-[#c49bff]",
                     },
                     {
@@ -1160,14 +1025,32 @@ export default function HistoryPage() {
                         : filteredPenalties.length === 0 && monthlyHistoryRecord
                           ? `${userStats.filter(u => u.penaltyAmount > 0).length} penalised (summary)`
                           : `${filteredPenalties.length} issued`,
-                      cls:  "border-amber-500/20 bg-amber-500/[0.06]",
+                      Icon: FiAlertTriangle,
+                      accent: "from-amber-500/25 to-amber-600/5",
                       vcls: "text-amber-400",
                     },
-                  ].map(s => (
-                    <div key={s.label} className={cn("rounded-xl border px-2 py-3 text-center", s.cls)}>
-                      <p className={cn("text-lg font-bold leading-none", s.vcls)}>{s.value}</p>
-                      <p className="text-[8px] text-white/35 mt-1 uppercase tracking-wider leading-tight">{s.label}</p>
-                      <p className="text-[9px] text-white/25 mt-0.5 leading-tight">{s.sub}</p>
+                  ] as const).map((s) => (
+                    <div
+                      key={s.label}
+                      className="group relative overflow-hidden rounded-xl md:rounded-2xl border border-white/[0.08] bg-[#111120]/80 md:bg-[#111120]/60 md:hover:border-[#7c3fbf]/30 md:transition-all md:duration-300"
+                    >
+                      <div className={cn("hidden md:block absolute inset-0 bg-gradient-to-br opacity-80 pointer-events-none", s.accent)} />
+                      <div className="hidden md:block absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-[0.07]" />
+                      <div className="relative p-2 py-3 md:p-5 md:flex md:flex-col md:min-h-[132px] md:justify-between">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-[8px] md:text-[10px] text-white/40 uppercase tracking-wider font-semibold leading-tight">{s.label}</p>
+                          <div className="hidden md:flex p-2 rounded-full bg-white/10 text-white/90 shrink-0">
+                            <s.Icon className="h-5 w-5" aria-hidden />
+                          </div>
+                        </div>
+                        <div className="md:mt-3">
+                          <p className={cn("text-base md:text-2xl font-bold leading-tight tabular-nums", s.vcls)}>{s.value}</p>
+                          <p className="text-[9px] md:text-xs text-white/30 mt-1 leading-snug line-clamp-2">{s.sub}</p>
+                        </div>
+                        <div className="hidden md:block mt-4 pt-3 border-t border-white/10">
+                          <span className="text-[11px] text-white/45">Month summary</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1179,7 +1062,14 @@ export default function HistoryPage() {
                       <div>
                         <p className="text-xs font-semibold text-white/55">Monthly Breakdown</p>
                         <p className="text-[9px] text-white/20 mt-0.5">
-                          {isHistoricalSummary ? "Archived summary data" : "Tap a bar → view member details"}
+                          {isHistoricalSummary
+                            ? "Final closed-period totals"
+                            : (
+                              <>
+                                <span className="md:hidden">Tap a bar → member details (read-only)</span>
+                                <span className="hidden md:inline">Click a bar for member details (read-only)</span>
+                              </>
+                            )}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1193,7 +1083,8 @@ export default function HistoryPage() {
                         </span>
                       </div>
                     </div>
-                    <ResponsiveContainer width="100%" height={190}>
+                    <div className="h-[190px] md:h-[280px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart
                         data={isHistoricalSummary ? historicalChartData : chartData}
                         barSize={24}
@@ -1237,6 +1128,7 @@ export default function HistoryPage() {
                           activeBar={{ fill: "#fde68a", opacity: 1 }} />
                       </BarChart>
                     </ResponsiveContainer>
+                    </div>
                   </div>
                 )}
 
@@ -1244,11 +1136,10 @@ export default function HistoryPage() {
                 {!hasMonthlySnapshot ? (
                   <div className="bg-[#111120] border border-white/[0.05] rounded-2xl p-8 flex flex-col items-center gap-3 text-center">
                     <p className="text-3xl">📭</p>
-                    <p className="text-white/50 text-sm font-semibold">No monthly history saved</p>
+                    <p className="text-white/50 text-sm font-semibold">No closed snapshot for this month</p>
                     <p className="text-white/25 text-xs max-w-xs leading-relaxed">
-                      There is no <span className="text-white/40">MonthlyHistory</span> row in the database for{" "}
-                      {format(currentDate, "MMMM yyyy")}. This screen only shows saved monthly snapshots (not live entries).
-                      Save one from <span className="text-white/45">Admin Tools → Save to History</span>, or check the Entries page for current activity.
+                      There is no finalized <span className="text-white/40">MonthlyHistory</span> row for{" "}
+                      {format(currentDate, "MMMM yyyy")} that is marked closed. When the accounting month is closed (month-end process), it appears here automatically. For in-progress activity, use Entries or Payments.
                     </p>
                   </div>
                 ) : !isHistoricalSummary && userStats.length === 0 ? (
@@ -1274,7 +1165,7 @@ export default function HistoryPage() {
                         📊 Summary Data
                       </span>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 md:space-y-0 md:grid md:grid-cols-2 md:gap-3">
                       {(monthlyHistoryRecord.members as any[]).map((m: any) => {
                         const net = m.entryAmount - m.penaltyAmount;
                         const totalEntry = (monthlyHistoryRecord.members as any[]).reduce((s: number, x: any) => s + x.entryAmount, 0);
@@ -1312,17 +1203,19 @@ export default function HistoryPage() {
                           </div>
                         );
                       })}
-                      <div className="mt-1 bg-[#111120] border border-white/[0.06] rounded-2xl px-4 py-3 flex items-center justify-between">
+                      <div className="mt-1 md:mt-0 md:col-span-2 bg-[#111120] border border-white/[0.06] rounded-2xl px-4 py-3 flex items-center justify-between">
                         <span className="text-xs text-white/40 font-medium">Grand Total</span>
                         <span className="text-base font-bold text-white">₹{(monthlyHistoryRecord.grandTotal as number).toLocaleString("en-IN")}</span>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <p className="text-[10px] uppercase tracking-widest text-white/25 font-semibold px-1 mb-2">
-                      Members · tap to view details
+                  <div className="space-y-2 md:space-y-0">
+                    <p className="text-[10px] uppercase tracking-widest text-white/25 font-semibold px-1 mb-2 md:mb-3">
+                      <span className="md:hidden">Members · tap to view details</span>
+                      <span className="hidden md:inline">Members · click a row for details</span>
                     </p>
+                    <div className="md:grid md:grid-cols-2 md:gap-3 md:space-y-0 space-y-2">
                     {userStats.map(s => {
                       const sharePercent = userStatsEntrySum > 0
                         ? Math.round((s.entryAmount / userStatsEntrySum) * 100)
@@ -1367,10 +1260,13 @@ export default function HistoryPage() {
                         </button>
                       );
                     })}
+                    </div>
                   </div>
                 )}
               </>
             )}
+          </div>
+            </div>
           </div>
         )}
 

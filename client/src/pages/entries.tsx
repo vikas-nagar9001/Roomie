@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { LuUserPlus } from "react-icons/lu";
 import { FiUser } from "react-icons/fi";
+import { Loader2, PanelRight, Receipt } from "lucide-react";
 import { showLoader, hideLoader, forceHideLoader } from "@/services/loaderService";
 import { showSuccess, showError, showInfo, showWarning } from "@/services/toastService";
 import { Link } from "wouter";
@@ -38,10 +39,20 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ContributionStatus } from "@/components/contribution-status";
 import { BsThreeDots } from "react-icons/bs";
@@ -209,6 +220,12 @@ export default function EntriesPage() {
   } = useMonthLock();
   const [newEntry, setNewEntry] = useState({ name: "", amount: "" });
   const [openAddDialog, setOpenAddDialog] = useState(false); // State for controlling the Add Entry dialog
+
+  useEffect(() => {
+    if (openAddDialog) {
+      setNewEntry({ name: "", amount: "" });
+    }
+  }, [openAddDialog]);
   const [currentPage, setCurrentPage] = useState(1);
   const entriesPerPage = 6; // Limit of 10 per page
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
@@ -216,6 +233,26 @@ export default function EntriesPage() {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [showContributionStatus, setShowContributionStatus] = useState(false);
+  const [contributionSheetOpen, setContributionSheetOpen] = useState(false);
+
+  const [isMdUp, setIsMdUp] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 768px)").matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => {
+      const up = mq.matches;
+      setIsMdUp(up);
+      if (up) {
+        setContributionSheetOpen(false);
+        setOpenAddDialog(false);
+      }
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
 
   const updateEntryStatusInCache = (entryId: string, status: "APPROVED" | "REJECTED") => {
     queryClient.setQueryData<Entry[]>(["/api/entries"], (old) => {
@@ -457,6 +494,66 @@ export default function EntriesPage() {
     return false;
   }, [entries, selectedEntries, isLocked]);
 
+  const isAdmin = user?.role === "ADMIN" || user?.role === "CO_ADMIN";
+
+  const hasCurrentUserContributionWarning = useMemo(() => {
+    if (!entries?.length || !users?.length || !user?._id) return false;
+    const currentUserId = user._id.toString();
+    const totalApprovedGlobal =
+      entries
+        .filter((e) => e.status === "APPROVED")
+        .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
+    const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
+    if (totalGlobalAfterPenalty <= 0) return false;
+    const fairSharePerUser = totalGlobalAfterPenalty / users.length;
+    const userEntries = entries.filter((e) => {
+      const entryUserId =
+        typeof e.userId === "object" && e.userId !== null
+          ? (e.userId._id || e.userId.id || e.userId)
+          : e.userId;
+      return entryUserId?.toString() === currentUserId;
+    });
+    const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
+    const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
+    const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+    const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
+    const fairSharePercentage = 100 / users.length;
+    const userContributionPercentage =
+      totalGlobalAfterPenalty > 0 ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 : 0;
+    const fairShareThreshold = (75 * fairSharePercentage) / 100;
+    return (
+      fairSharePerUser > 0 &&
+      totalAmountAfterPenalty > 0 &&
+      userContributionPercentage < fairShareThreshold
+    );
+  }, [entries, users, user?._id, totalPenaltyAmount, allUserPenalties]);
+
+  const handleRunContributionCheck = async () => {
+    showLoader();
+    setDataLoading(true);
+    try {
+      const res = await fetch("/api/check-contribution-penalties", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skipAdmins: false }),
+      });
+      const data = await res.json();
+      if (data.deficitUsers?.length > 0) {
+        showWarning(data.message);
+      } else {
+        showSuccess(data.message);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
+    } catch {
+      showError("Failed to run contribution check");
+    } finally {
+      setDataLoading(false);
+      hideLoader();
+    }
+  };
+
   // Reverse filtered entries and apply pagination
   const paginatedEntries = filteredEntries?.slice().reverse().slice(
     (currentPage - 1) * entriesPerPage,
@@ -513,10 +610,73 @@ export default function EntriesPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    addEntryMutation.mutate({
-      name: newEntry.name,
-      amount: parseFloat(newEntry.amount),
-    });
+    const trimmed = newEntry.name.trim();
+    const amt = parseFloat(newEntry.amount);
+    if (!trimmed || Number.isNaN(amt) || amt <= 0) return;
+    addEntryMutation.mutate({ name: trimmed, amount: amt });
+  };
+
+  const addEntryCanSubmit =
+    newEntry.name.trim().length > 0 &&
+    !Number.isNaN(parseFloat(newEntry.amount)) &&
+    parseFloat(newEntry.amount) > 0;
+
+  const quickAmountPresets = useMemo(
+    () => [25, 34, 50, 65, 80, 100, 150, 200, 250, 500, 750, 1000],
+    []
+  );
+
+  /** Full list for desktop dialog. */
+  const entryQuickCombos = useMemo(
+    () =>
+      [
+        { label: "Milk · ₹25", name: "Milk Morning", amount: 25 },
+        { label: "Milk eve · ₹25", name: "Milk Evening", amount: 25 },
+        { label: "Milk · ₹34", name: "Milk Day", amount: 34 },
+        { label: "Milk · ₹50", name: "Milk Morning", amount: 50 },
+        { label: "Veg · ₹50", name: "Vegtable", amount: 50 },
+        { label: "Veg · ₹80", name: "Vegtable", amount: 80 },
+        { label: "Chai · ₹25", name: "Chaipatti", amount: 25 },
+        { label: "Sugar · ₹34", name: "Sugar", amount: 34 },
+        { label: "Masala · ₹34", name: "Masala", amount: 34 },
+        { label: "Room · ₹100", name: "Room Product", amount: 100 },
+        { label: "Sugar · ₹50", name: "Sugar", amount: 50 },
+        { label: "Masala · ₹50", name: "Masala", amount: 50 },
+      ] as const,
+    []
+  );
+
+  /** Compact 8 presets for mobile sheet (fits one screen, no scroll). */
+  const entryQuickCombosSheet = useMemo(
+    () =>
+      [
+        { label: "Milk ₹25", name: "Milk Morning", amount: 25 },
+        { label: "Milk eve ₹25", name: "Milk Evening", amount: 25 },
+        { label: "Milk ₹34", name: "Milk Day", amount: 34 },
+        { label: "Veg ₹50", name: "Vegtable", amount: 50 },
+        { label: "Chai ₹25", name: "Chaipatti", amount: 25 },
+        { label: "Sugar ₹34", name: "Sugar", amount: 34 },
+        { label: "Masala ₹34", name: "Masala", amount: 34 },
+        { label: "Room ₹100", name: "Room Product", amount: 100 },
+      ] as const,
+    []
+  );
+
+  /** Sheet: 8 amounts = 4×2, fits screen better. */
+  const quickAmountPresetsSheet = useMemo(
+    () => [25, 34, 50, 100, 250, 500, 1000, 1500],
+    []
+  );
+
+  const isQuickComboActive = (c: { name: string; amount: number }) =>
+    newEntry.name === c.name && newEntry.amount === String(c.amount);
+
+  const onAddEntryOpenChange = (open: boolean) => {
+    if (!open) {
+      setOpenAddDialog(false);
+      return;
+    }
+    if (!addEntryBlocked) setOpenAddDialog(true);
   };
 
   const options = [
@@ -534,16 +694,399 @@ export default function EntriesPage() {
   return (
     <TooltipProvider>
       <Header />
-      <div className="min-h-screen p-8 pt-36 pb-28 bg-[#0f0f1f]">
+      <div className="min-h-screen bg-[#0f0f1f] px-2.5 pt-24 pb-28 md:p-8 md:pt-36 md:pb-28">
         <div className="max-w-7xl mx-auto">
-          <div className="relative group mb-8">
+          <div className="md:hidden mb-5 space-y-3">
+            {monthStatus === "unavailable" && (
+              <MonthLockUnavailableBanner className="max-w-xl" />
+            )}
+            {monthStatus === "loading" && (
+              <MonthLockStatusSkeleton className="max-w-xl" />
+            )}
+            {monthStatus === "ready" && isLocked(currentCalendarMonthKey) && (
+              <MonthLockedBanner className="max-w-xl" />
+            )}
+            <div className="relative overflow-hidden rounded-2xl border border-[#7c3fbf]/30 bg-gradient-to-br from-[#16161f] via-[#0f0f18] to-[#13131c] px-4 py-4 shadow-lg shadow-black/45">
+              <div
+                className="pointer-events-none absolute -right-6 -top-10 h-28 w-28 rounded-full bg-[#7c3fbf]/25 blur-2xl"
+                aria-hidden
+              />
+              <div
+                className="pointer-events-none absolute -bottom-8 left-1/4 h-20 w-40 rounded-full bg-[#582c84]/20 blur-2xl"
+                aria-hidden
+              />
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#c49bff]/80">Flat expenses</p>
+                  <h1 className="mt-1 bg-gradient-to-r from-white via-white to-[#d4b8ff] bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+                    Entries
+                  </h1>
+                  <p className="mt-2 max-w-sm text-base leading-snug text-white/65">
+                    Add rows below, swipe <span className="text-[#c49bff]">Your status</span> for your share.
+                  </p>
+                </div>
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#7c3fbf]/35 bg-[#582c84]/25 shadow-inner shadow-black/20"
+                  aria-hidden
+                >
+                  <Receipt className="h-5 w-5 text-[#c49bff]" />
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-[#7c3fbf]/25 bg-[#13131c] p-3 space-y-2.5 shadow-lg shadow-black/40">
+              <div className="flex flex-wrap gap-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={
+                        addEntryBlocked
+                          ? `inline-block ${monthLockWaitCursor(monthStatus === "loading")}`
+                          : "inline-block"
+                      }
+                    >
+                      <Button
+                        disabled={addEntryBlocked}
+                        onClick={() => !addEntryBlocked && setOpenAddDialog(true)}
+                        aria-label={
+                          addEntryBlocked
+                            ? monthLockActionAria("Add entry", gateReason(currentCalendarMonthKey))
+                            : "Add entry"
+                        }
+                        className="flex items-center gap-2 bg-[#582c84] text-white shadow-md shadow-black/30 hover:bg-[#542d87] disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        <LuUserPlus className="h-5 w-5 shrink-0" aria-hidden />
+                        Add entry
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+                  {addEntryBlocked && (
+                    <TooltipContent className="max-w-xs bg-[#1c1b2d] border border-white/10 text-white text-xs">
+                      {monthLockBlockTooltip(gateReason(currentCalendarMonthKey))}
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setContributionSheetOpen(true)}
+                  className={cn(
+                    "flex items-center gap-2 border-white/15 bg-white/5 text-white hover:bg-white/10 shadow-md shadow-black/25",
+                    hasCurrentUserContributionWarning && "border-amber-500/50 bg-amber-500/10"
+                  )}
+                  aria-haspopup="dialog"
+                  aria-expanded={contributionSheetOpen}
+                >
+                  <PanelRight className="h-4 w-4 shrink-0 text-[#c49bff]" aria-hidden />
+                  Your status
+                </Button>
+              </div>
+              {isAdmin && (
+                <div className="pt-2 border-t border-white/10">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full bg-white/10 border-white/20 text-white text-sm shadow-md shadow-black/25 hover:bg-white/15"
+                    onClick={handleRunContributionCheck}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 shrink-0 mr-2"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Run contribution
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <Sheet open={contributionSheetOpen} onOpenChange={setContributionSheetOpen}>
+            <SheetContent
+              side="right"
+              className={cn(
+                "flex flex-col gap-0 overflow-hidden p-0",
+                "left-0 h-[100dvh] max-h-[100dvh] w-full !max-w-none rounded-none border-0 bg-[#0f0f1f] sm:!max-w-none",
+                "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+                "[&>button]:right-4 [&>button]:top-[max(1rem,env(safe-area-inset-top))] [&>button]:text-white/80 [&>button:hover]:bg-white/10 [&>button:hover]:text-white"
+              )}
+            >
+              <div
+                className="h-1 shrink-0 bg-gradient-to-r from-[#582c84] via-[#7c3fbf] to-[#c49bff]"
+                aria-hidden
+              />
+              <SheetHeader className="shrink-0 space-y-1 border-b border-white/10 bg-[#13131c] px-5 pb-4 pt-[max(1.25rem,env(safe-area-inset-top))] pr-14 text-left shadow-sm shadow-black/20">
+                <SheetTitle className="text-lg font-semibold tracking-tight text-white">
+                  Contribution status
+                </SheetTitle>
+                <SheetDescription className="text-xs text-white/50">Your share vs fair share.</SheetDescription>
+              </SheetHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                {totals && users && user?._id ? (
+                  <div className="mx-auto max-w-lg rounded-xl border border-[#7c3fbf]/25 bg-[#13131c] p-4 shadow-lg shadow-black/40 sm:max-w-xl">
+                    <ContributionStatus
+                      embedded
+                      userContribution={totals.userTotal}
+                      fairShare={totals.fairShareAmount}
+                      userId={String(user._id)}
+                      flatTotalEntry={totals.flatTotal}
+                      totalUsers={users.length}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-white/10 bg-[#13131c] px-4 py-10 text-center text-sm text-white/50 shadow-md shadow-black/30">
+                    Loading contribution data…
+                  </div>
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <Sheet open={openAddDialog && !isMdUp} onOpenChange={onAddEntryOpenChange}>
+            <SheetContent
+              side="right"
+              className={cn(
+                "flex flex-col gap-0 overflow-hidden p-0",
+                "left-0 h-[100dvh] max-h-[100dvh] w-full !max-w-none rounded-none border-0 bg-[#0f0f1f] sm:!max-w-none",
+                "data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right",
+                "[&>button]:right-4 [&>button]:top-[max(1rem,env(safe-area-inset-top))] [&>button]:text-white/80 [&>button:hover]:bg-white/10 [&>button:hover]:text-white"
+              )}
+            >
+              <div
+                className="h-1 shrink-0 bg-gradient-to-r from-[#582c84] via-[#7c3fbf] to-[#c49bff]"
+                aria-hidden
+              />
+              <SheetHeader className="shrink-0 border-b border-white/10 bg-[#13131c] px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] pr-14 text-left">
+                <SheetTitle className="text-base font-bold text-white">Add entry</SheetTitle>
+                <SheetDescription className="text-[11px] leading-snug text-white/45">
+                  One tap = item + ₹. Tags = name only. Then ₹ and Save.
+                </SheetDescription>
+              </SheetHeader>
+              <form
+                onSubmit={handleSubmit}
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <div className="mx-auto flex min-h-0 w-full max-w-sm flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 py-2">
+                  <div className="shrink-0 space-y-1">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-[#c49bff]">
+                      One tap bill
+                    </Label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {entryQuickCombosSheet.map((c) => (
+                        <button
+                          key={`${c.name}-${c.amount}-${c.label}`}
+                          type="button"
+                          onClick={() => setNewEntry({ name: c.name, amount: String(c.amount) })}
+                          className={cn(
+                            "flex min-h-[40px] touch-manipulation items-center justify-center rounded-xl border-0 px-1 py-1 text-center text-[10px] font-bold leading-tight transition active:scale-[0.98]",
+                            isQuickComboActive(c)
+                              ? "bg-gradient-to-b from-[#8350b8] to-[#5a2d85] text-white shadow-[0_4px_0_0_rgba(0,0,0,0.35),0_8px_24px_rgba(124,63,191,0.45),0_0_0_1px_rgba(196,155,255,0.35)]"
+                              : "bg-[#2d2d3d] text-white shadow-[0_4px_0_0_rgba(0,0,0,0.45),0_6px_16px_rgba(0,0,0,0.55),0_0_0_1px_rgba(124,63,191,0.14),inset_0_1px_0_rgba(255,255,255,0.07)] hover:brightness-110"
+                          )}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 space-y-1">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-[#c49bff]">
+                      Name tags
+                    </Label>
+                    <div className="flex flex-wrap gap-1">
+                      {options.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setNewEntry((p) => ({ ...p, name: opt.value }))}
+                          className={cn(
+                            "min-h-[32px] touch-manipulation rounded-full border-0 px-2 py-1 text-[10px] font-medium transition active:scale-[0.98]",
+                            newEntry.name === opt.value
+                              ? "bg-gradient-to-b from-[#8350b8] to-[#5a2d85] text-white shadow-[0_3px_0_0_rgba(0,0,0,0.35),0_6px_18px_rgba(124,63,191,0.4),0_0_0_1px_rgba(196,155,255,0.35)]"
+                              : "bg-[#2d2d3d] text-white/90 shadow-[0_3px_0_0_rgba(0,0,0,0.4),0_4px_12px_rgba(0,0,0,0.5),0_0_0_1px_rgba(124,63,191,0.12),inset_0_1px_0_rgba(255,255,255,0.06)] hover:brightness-110"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 shrink-0">
+                    <Label htmlFor="entry-name-sheet" className="sr-only">
+                      Item name
+                    </Label>
+                    <CreatableSelect
+                      inputId="entry-name-sheet"
+                      options={options}
+                      isClearable
+                      formatCreateLabel={(inputValue) => `Add “${inputValue}”`}
+                      placeholder="Other item — search or type"
+                      noOptionsMessage={() => "Type to add"}
+                      value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
+                      onChange={(selectedOption) => {
+                        setNewEntry((prev) => ({
+                          ...prev,
+                          name: selectedOption ? selectedOption.value : "",
+                        }));
+                      }}
+                      onCreateOption={(inputValue) => {
+                        setNewEntry((prev) => ({ ...prev, name: inputValue.trim() }));
+                      }}
+                      className="w-full text-sm"
+                      menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                      menuPosition="fixed"
+                      styles={{
+                        control: (base, state) => ({
+                          ...base,
+                          minHeight: 38,
+                          fontSize: 13,
+                          borderRadius: 10,
+                          backgroundColor: "#2d2d3d",
+                          borderWidth: 0,
+                          borderColor: "transparent",
+                          boxShadow: state.isFocused
+                            ? "0 0 0 2px rgba(196, 155, 255, 0.4), 0 8px 24px rgba(124, 63, 191, 0.25), 0 4px 16px rgba(0,0,0,0.5)"
+                            : "0 3px 0 0 rgba(0,0,0,0.4), 0 6px 16px rgba(0,0,0,0.55), 0 0 0 1px rgba(124, 63, 191, 0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
+                          "&:hover": {
+                            boxShadow:
+                              "0 4px 0 0 rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.55), 0 0 0 1px rgba(124, 63, 191, 0.22), inset 0 1px 0 rgba(255,255,255,0.08)",
+                          },
+                        }),
+                        menu: (base) => ({
+                          ...base,
+                          borderRadius: 10,
+                          backgroundColor: "#1a1a28",
+                          border: "1px solid rgba(124, 63, 191, 0.35)",
+                          zIndex: 250,
+                        }),
+                        menuPortal: (base) => ({ ...base, zIndex: 250 }),
+                        option: (base, { isFocused, isSelected }) => ({
+                          ...base,
+                          backgroundColor: isSelected
+                            ? "#582c84"
+                            : isFocused
+                              ? "rgba(124, 63, 191, 0.22)"
+                              : "#1a1a28",
+                          color: "white",
+                          cursor: "pointer",
+                          fontSize: 13,
+                        }),
+                        singleValue: (base) => ({
+                          ...base,
+                          color: "white",
+                          fontSize: 13,
+                        }),
+                        input: (base) => ({ ...base, color: "white" }),
+                        placeholder: (base) => ({ ...base, color: "rgba(255,255,255,0.38)" }),
+                      }}
+                    />
+                  </div>
+
+                  <div className="shrink-0 space-y-1">
+                    <Label className="text-[10px] font-semibold uppercase tracking-wider text-[#c49bff]">
+                      ₹ quick
+                    </Label>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {quickAmountPresetsSheet.map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setNewEntry((prev) => ({ ...prev, amount: String(preset) }))}
+                          className={cn(
+                            "min-h-[38px] touch-manipulation rounded-xl border-0 py-1 text-center text-[11px] font-bold tabular-nums leading-none transition active:scale-[0.98]",
+                            newEntry.amount === String(preset)
+                              ? "bg-gradient-to-b from-[#8350b8] to-[#5a2d85] text-white shadow-[0_4px_0_0_rgba(0,0,0,0.35),0_8px_22px_rgba(124,63,191,0.42),0_0_0_1px_rgba(196,155,255,0.35)]"
+                              : "bg-[#2d2d3d] text-white shadow-[0_4px_0_0_rgba(0,0,0,0.45),0_6px_14px_rgba(0,0,0,0.55),0_0_0_1px_rgba(124,63,191,0.14),inset_0_1px_0_rgba(255,255,255,0.07)] hover:brightness-110"
+                          )}
+                        >
+                          ₹{preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="relative mt-3 shrink-0 border-t border-white/[0.08] pt-3">
+                    <Label htmlFor="entry-amount-sheet" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-[#c49bff]">
+                      Amount
+                    </Label>
+                    <div className="relative">
+                      <span
+                        className="pointer-events-none absolute left-3 top-1/2 z-[1] -translate-y-1/2 text-base font-bold text-[#c49bff]"
+                        aria-hidden
+                      >
+                        ₹
+                      </span>
+                      <Input
+                        id="entry-amount-sheet"
+                        type="number"
+                        inputMode="decimal"
+                        enterKeyHint="done"
+                        min={0}
+                        step="any"
+                        placeholder="0.00"
+                        autoComplete="off"
+                        name="entry-amount"
+                        value={newEntry.amount}
+                        onChange={(e) => setNewEntry((prev) => ({ ...prev, amount: e.target.value }))}
+                        className="h-11 min-h-[44px] rounded-xl border-0 bg-[#2d2d3d] pl-10 pr-3 text-base font-semibold tabular-nums text-white shadow-[0_4px_0_0_rgba(0,0,0,0.4),0_8px_20px_rgba(0,0,0,0.55),0_0_0_1px_rgba(124,63,191,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] placeholder:text-white/35 focus-visible:shadow-[0_0_0_2px_rgba(196,155,255,0.45),0_10px_28px_rgba(124,63,191,0.25)] focus-visible:outline-none focus-visible:ring-0"
+                      />
+                    </div>
+                  </div>
+
+                  {addEntryBlocked && (
+                    <p className="shrink-0 rounded-md border border-amber-500/25 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-100/90">
+                      Month locked.
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2 border-t border-white/10 bg-[#13131c]/95 px-4 py-2.5 pb-[max(10px,env(safe-area-inset-bottom))]">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-10 flex-1 text-sm text-white/70 hover:bg-white/10 hover:text-white"
+                    onClick={() => setOpenAddDialog(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!addEntryCanSubmit || addEntryMutation.isPending || addEntryBlocked}
+                    className="h-10 flex-1 border-0 bg-gradient-to-r from-[#6d3a9e] to-[#7c3fbf] text-sm font-semibold text-white shadow-[0_4px_0_0_rgba(0,0,0,0.35),0_8px_28px_rgba(124,63,191,0.45)] disabled:opacity-40 active:scale-[0.98] active:shadow-[0_2px_0_0_rgba(0,0,0,0.35)]"
+                  >
+                    {addEntryMutation.isPending ? (
+                      <Loader2 className="mx-auto h-4 w-4 animate-spin" aria-hidden />
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </SheetContent>
+          </Sheet>
+
+          <div className="hidden md:block mb-8">
+          <div className="relative group">
             {/* Blurred border layer */}
             <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
 
             {/* Main content */}
             <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-4 border border-white/10 flex flex-wrap justify-between items-center gap-4">
               <div className="min-w-0 flex-1">
-                <h1 className="text-2xl sm:text-3xl text-white font-bold">Entries</h1>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#c49bff]/75">Flat ledger</p>
+                <h1 className="mt-0.5 bg-gradient-to-r from-white via-white to-[#dcc4ff] bg-clip-text text-2xl font-bold tracking-tight text-transparent sm:text-3xl">
+                  Entries
+                </h1>
+                <p className="mt-1 max-w-lg text-sm leading-snug text-white/55">
+                  Table below — add, search, approve. Toggle status for your fair share.
+                </p>
                 {monthStatus === "unavailable" && (
                   <MonthLockUnavailableBanner className="mt-2 max-w-xl" />
                 )}
@@ -557,40 +1100,11 @@ export default function EntriesPage() {
 
               <div className="flex gap-2 flex-wrap justify-end">
                 {/* Contribution Check Button for Admins */}
-                {(user?.role === "ADMIN" || user?.role === "CO_ADMIN") && (
+                {isAdmin && (
                   <Button
                     variant="outline"
                     className="bg-white/80 hover:bg-white/90 text-gray-700"
-                    onClick={async () => {
-                      showLoader();
-                      setDataLoading(true);
-
-                      try {
-                        const res = await fetch('/api/check-contribution-penalties', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ skipAdmins: false }),
-                        });
-
-                        const data = await res.json();
-
-                        if (data.deficitUsers?.length > 0) {
-                          showWarning(data.message);
-                        } else {
-                          showSuccess(data.message);
-                        }
-
-                        // Refresh data
-                        queryClient.invalidateQueries({ queryKey: ["/api/penalties"] });
-                        queryClient.invalidateQueries({ queryKey: ["/api/entries"] });
-                        queryClient.invalidateQueries({ queryKey: ["/api/entries/total"] });
-                      } catch (error) {
-                        showError("Failed to run contribution check");
-                      } finally {
-                        setDataLoading(false); // ensure loading state is cleared
-                        hideLoader(); // stop the loader regardless of success/failure
-                      }
-                    }}
+                    onClick={handleRunContributionCheck}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -599,18 +1113,8 @@ export default function EntriesPage() {
                   </Button>
                 )}
 
-                <Dialog
-                  open={openAddDialog}
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      setOpenAddDialog(false);
-                      return;
-                    }
-                    if (!addEntryBlocked) {
-                      setOpenAddDialog(true);
-                    }
-                  }}
-                >
+                <Dialog open={openAddDialog && isMdUp} onOpenChange={onAddEntryOpenChange}>
+                  <div className="hidden md:block">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span
@@ -642,86 +1146,260 @@ export default function EntriesPage() {
                       </TooltipContent>
                     )}
                   </Tooltip>
+                  </div>
 
-                  <DialogContent className="top-[40vh] max-w-80 w-full p-6 rounded-lg shadow-lg bg-[#151525] border border-[#582c84]/30">
-                    <DialogHeader>
-                      <DialogTitle className="text-lg font-semibold text-white">Add New Entry</DialogTitle>
+                  <DialogContent
+                    className={cn(
+                      "left-[50%] top-[50%] max-h-[min(90vh,640px)] w-[calc(100vw-1.25rem)] max-w-[400px] translate-x-[-50%] translate-y-[-50%] gap-0 overflow-hidden rounded-2xl border border-[#7c3fbf]/35 bg-[#0f0f1f] p-0 shadow-2xl shadow-black/60 sm:max-w-[420px]",
+                      "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+                    )}
+                  >
+                    <div
+                      className="h-1.5 shrink-0 bg-gradient-to-r from-[#582c84] via-[#7c3fbf] to-[#c49bff]"
+                      aria-hidden
+                    />
+                    <DialogHeader className="space-y-0 border-b border-white/10 bg-[#13131c]/90 px-5 pb-4 pt-4 text-left">
+                      <div className="flex gap-3 pr-10">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#582c84] to-[#7c3fbf] shadow-lg shadow-[#582c84]/30">
+                          <Receipt className="h-6 w-6 text-white" aria-hidden />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <DialogTitle className="text-xl font-bold tracking-tight text-white">
+                            Add entry
+                          </DialogTitle>
+                          <DialogDescription className="text-sm text-white/50">
+                            Quick name, amount in ₹, save.
+                          </DialogDescription>
+                        </div>
+                      </div>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <CreatableSelect
-                        options={options}
-                        isClearable
-                        placeholder="Select or type entry name"
-                        value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
-                        onChange={(selectedOption) => {
-                          setNewEntry({ ...newEntry, name: selectedOption ? selectedOption.value : "" });
-                        }}
-                        onCreateOption={(inputValue) => {
-                          setNewEntry({ ...newEntry, name: inputValue });
-                        }}
-                        className="w-full"
-                        styles={{
-                          control: (base) => ({
-                            ...base,
-                            backgroundColor: '#151525',
-                            borderColor: 'rgba(255, 255, 255, 0.1)',
-                            '&:hover': {
-                              borderColor: '#582c84'
-                            }
-                          }),
-                          menu: (base) => ({
-                            ...base,
-                            backgroundColor: '#151525',
-                            border: '1px solid rgba(102, 54, 163, 0.3)'
-                          }),
-                          option: (base, { isFocused, isSelected }) => ({
-                            ...base,
-                            backgroundColor: isSelected ? '#582c84' : isFocused ? 'rgba(102, 54, 163, 0.3)' : '#151525',
-                            color: 'white',
-                            cursor: 'pointer'
-                          }),
-                          singleValue: (base) => ({
-                            ...base,
-                            color: 'white',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: 'calc(100% - 20px)'
-                          }),
-                          input: (base) => ({
-                            ...base,
-                            color: 'white',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          })
-                        }}
-                      />
 
-                      <Input
-                        type="number"
-                        placeholder="Amount"
-                        value={newEntry.amount}
-                        onChange={(e) => setNewEntry({ ...newEntry, amount: e.target.value })}
-                        className="w-full px-4 py-2 border border-white/10 bg-black/30 text-white rounded-lg focus:ring-2 focus:ring-[#582c84] outline-none transition"
-                      />
+                    <form onSubmit={handleSubmit} className="flex min-h-0 flex-col">
+                      <div className="max-h-[min(52vh,400px)] space-y-4 overflow-y-auto overscroll-contain px-5 py-4 sm:max-h-[min(56vh,440px)]">
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-semibold uppercase tracking-wider text-[#c49bff]/90">
+                            One tap (name + ₹)
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {entryQuickCombos.map((c) => (
+                              <button
+                                key={`dlg-${c.name}-${c.amount}-${c.label}`}
+                                type="button"
+                                onClick={() => setNewEntry({ name: c.name, amount: String(c.amount) })}
+                                className={cn(
+                                  "rounded-xl border-0 px-2.5 py-2.5 text-left text-xs font-bold shadow-[0_4px_14px_rgba(0,0,0,0.45)] transition sm:text-sm",
+                                  isQuickComboActive(c)
+                                    ? "bg-gradient-to-b from-[#6b3a9a] to-[#582c84] text-white shadow-[0_6px_20px_rgba(88,44,132,0.5)] ring-2 ring-[#c49bff]/45"
+                                    : "bg-[#1e1e2a] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:shadow-[0_6px_18px_rgba(0,0,0,0.5)]"
+                                )}
+                              >
+                                {c.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
 
-                      <Button
-                        type="submit"
-                        disabled={addEntryMutation.isPending || addEntryBlocked}
-                        className="w-full bg-[#582c84] hover:bg-[#542d87] text-white rounded-lg"
-                      >
-                        Add Entry
-                      </Button>
+                        <div className="space-y-2">
+                          <Label className="text-[11px] font-semibold uppercase tracking-wider text-[#c49bff]/90">
+                            Item name
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            {options.map((opt) => (
+                              <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setNewEntry((prev) => ({ ...prev, name: opt.value }))}
+                                className={cn(
+                                  "rounded-full border-0 px-3 py-2 text-xs font-medium shadow-[0_3px_12px_rgba(0,0,0,0.4)] transition-all duration-200",
+                                  newEntry.name === opt.value
+                                    ? "bg-gradient-to-b from-[#6b3a9a] to-[#582c84] text-white shadow-[0_5px_16px_rgba(88,44,132,0.45)] ring-2 ring-[#c49bff]/40"
+                                    : "bg-[#222230] text-white/85 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_5px_14px_rgba(0,0,0,0.45)]"
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="entry-name-select" className="text-[11px] font-semibold uppercase tracking-wider text-[#c49bff]/90">
+                            Or type / search
+                          </Label>
+                          <CreatableSelect
+                            inputId="entry-name-select"
+                            options={options}
+                            isClearable
+                            formatCreateLabel={(inputValue) => `Add “${inputValue}”`}
+                            placeholder="Type to search or create…"
+                            noOptionsMessage={() => "Type a new name and press Enter"}
+                            value={newEntry.name ? { value: newEntry.name, label: newEntry.name } : null}
+                            onChange={(selectedOption) => {
+                              setNewEntry((prev) => ({
+                                ...prev,
+                                name: selectedOption ? selectedOption.value : "",
+                              }));
+                            }}
+                            onCreateOption={(inputValue) => {
+                              setNewEntry((prev) => ({ ...prev, name: inputValue.trim() }));
+                            }}
+                            className="w-full"
+                            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+                            menuPosition="fixed"
+                            styles={{
+                              control: (base, state) => ({
+                                ...base,
+                                minHeight: 48,
+                                borderRadius: 12,
+                                backgroundColor: "#1a1a24",
+                                borderWidth: 0,
+                                borderColor: "transparent",
+                                boxShadow: state.isFocused
+                                  ? "0 0 0 2px rgba(124, 63, 191, 0.45), 0 6px 20px rgba(0,0,0,0.45)"
+                                  : "0 4px 14px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
+                                "&:hover": {
+                                  boxShadow:
+                                    "0 6px 18px rgba(0,0,0,0.48), inset 0 1px 0 rgba(255,255,255,0.06)",
+                                },
+                              }),
+                              menu: (base) => ({
+                                ...base,
+                                borderRadius: 12,
+                                backgroundColor: "#1a1a28",
+                                border: "1px solid rgba(124, 63, 191, 0.35)",
+                                overflow: "hidden",
+                                zIndex: 100,
+                              }),
+                              menuPortal: (base) => ({ ...base, zIndex: 200 }),
+                              option: (base, { isFocused, isSelected }) => ({
+                                ...base,
+                                backgroundColor: isSelected
+                                  ? "#582c84"
+                                  : isFocused
+                                    ? "rgba(124, 63, 191, 0.25)"
+                                    : "#1a1a28",
+                                color: "white",
+                                cursor: "pointer",
+                                fontSize: "0.875rem",
+                              }),
+                              singleValue: (base) => ({
+                                ...base,
+                                color: "white",
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                maxWidth: "calc(100% - 20px)",
+                              }),
+                              input: (base) => ({
+                                ...base,
+                                color: "white",
+                              }),
+                              placeholder: (base) => ({
+                                ...base,
+                                color: "rgba(255,255,255,0.4)",
+                              }),
+                            }}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="entry-amount" className="text-[11px] font-semibold uppercase tracking-wider text-[#c49bff]/90">
+                            Amount (₹) — tap or type
+                          </Label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {quickAmountPresets.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() =>
+                                  setNewEntry((prev) => ({
+                                    ...prev,
+                                    amount: String(preset),
+                                  }))
+                                }
+                                className={cn(
+                                  "rounded-xl border-0 py-2 text-center text-xs font-semibold tabular-nums shadow-[0_4px_12px_rgba(0,0,0,0.42)] transition-all sm:text-sm",
+                                  newEntry.amount === String(preset)
+                                    ? "bg-gradient-to-b from-[#6b3a9a] to-[#582c84] text-white shadow-[0_6px_18px_rgba(88,44,132,0.5)] ring-2 ring-[#c49bff]/45"
+                                    : "bg-[#1c1c28] text-white/88 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_6px_16px_rgba(0,0,0,0.48)]"
+                                )}
+                              >
+                                ₹{preset}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="mt-3 border-t border-white/10 pt-4">
+                            <div className="relative">
+                              <span
+                                className="pointer-events-none absolute left-4 top-1/2 z-[1] -translate-y-1/2 text-xl font-bold text-[#c49bff]"
+                                aria-hidden
+                              >
+                                ₹
+                              </span>
+                              <Input
+                                id="entry-amount"
+                                type="number"
+                                inputMode="decimal"
+                                enterKeyHint="done"
+                                min={0}
+                                step="any"
+                                placeholder="0.00"
+                                autoComplete="off"
+                                value={newEntry.amount}
+                                onChange={(e) => setNewEntry((prev) => ({ ...prev, amount: e.target.value }))}
+                                className="h-14 min-h-[52px] rounded-xl border-0 bg-[#1a1a24] pl-12 pr-4 text-lg font-semibold tabular-nums text-white shadow-[0_6px_22px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.06)] placeholder:text-white/30 focus-visible:shadow-[0_0_0_2px_rgba(124,63,191,0.55),0_8px_24px_rgba(0,0,0,0.55)] focus-visible:outline-none focus-visible:ring-0"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {addEntryBlocked && (
+                          <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+                            This month is locked — entries cannot be added until an admin unlocks it.
+                          </p>
+                        )}
+                      </div>
+
+                      <DialogFooter className="gap-2 border-t border-white/10 bg-[#13131c]/80 px-5 py-4 sm:flex-row sm:justify-end">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-white/70 hover:bg-white/10 hover:text-white"
+                          onClick={() => setOpenAddDialog(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="submit"
+                          disabled={!addEntryCanSubmit || addEntryMutation.isPending || addEntryBlocked}
+                          className="min-w-[140px] border-0 bg-gradient-to-r from-[#582c84] to-[#7c3fbf] font-semibold text-white shadow-[0_6px_20px_rgba(88,44,132,0.45),0_2px_8px_rgba(0,0,0,0.35)] hover:from-[#6a3599] hover:to-[#8b4fd4] disabled:opacity-40"
+                        >
+                          {addEntryMutation.isPending ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                              Saving…
+                            </>
+                          ) : (
+                            "Save entry"
+                          )}
+                        </Button>
+                      </DialogFooter>
                     </form>
                   </DialogContent>
                 </Dialog>
               </div>
             </div>
           </div>
+          </div>
 
           <div className="grid gap-6 grid-cols-1 mb-8">
-            <Card className="bg-[#582c84] duration-300 group-hover:scale-105 text-white shadow-xl border border-white/10 rounded-lg">
+            <Card
+              className={cn(
+                "text-white rounded-xl transition-shadow",
+                "border border-[#7c3fbf]/25 bg-[#13131c] shadow-lg shadow-black/35",
+                "md:border-white/10 md:bg-[#582c84] md:shadow-xl md:shadow-black/40 md:duration-300 md:hover:scale-[1.01]"
+              )}
+            >
               {/* Fair Share Information */}
 
               <div className="w-full overflow-x-auto px-4 py-4 bg-transparent rounded-t-lg" style={{
@@ -862,7 +1540,7 @@ export default function EntriesPage() {
                     <div className="w-full flex items-center justify-center py-8 sm:py-10 md:py-12 lg:py-16 px-2 sm:px-2 md:px-2 min-h-[240px] sm:min-h-[280px] md:min-h-[320px] lg:min-h-[360px]">
                       <div className="flex flex-col items-center justify-center max-w-2xl mx-auto">
                         {/* Icon container with responsive sizing and hover effects */}
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-[#582c84] to-[#8e4be4] rounded-full flex items-center justify-center mb-4 sm:mb-5 md:mb-6 lg:mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 animate-pulse">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 bg-gradient-to-br from-[#582c84] to-[#8e4be4] rounded-full flex items-center justify-center mb-4 sm:mb-5 md:mb-6 lg:mb-8 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 md:animate-pulse">
                           <FaClipboardList className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 text-white" />
                         </div>
                         
@@ -1043,176 +1721,6 @@ export default function EntriesPage() {
                       </div>
                     </Button>
                   </div>
-                  
-                  {/* Mobile Button */}
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowContributionStatus(!showContributionStatus)}
-                    className={`sm:hidden w-full relative overflow-hidden transition-all duration-300 border-2 backdrop-blur-md rounded-2xl py-4 px-6 ${
-                      totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
-                        const totalApprovedGlobal = entries
-                          .filter((e) => e.status === "APPROVED")
-                          .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
-                        const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
-                        const normalizedUserIds = entries.map(e => {
-                          const userId = typeof e.userId === 'object' && e.userId !== null
-                            ? (e.userId._id || e.userId.id || e.userId)
-                            : e.userId;
-                          return userId?.toString();
-                        });
-                        const hasWarnings = Array.from(new Set(normalizedUserIds.filter(id => id))).some((userId) => {
-                          const userEntries = entries.filter((e) => {
-                            const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                              ? (e.userId._id || e.userId.id || e.userId)
-                              : e.userId;
-                            return entryUserId?.toString() === userId?.toString();
-                          });
-                          const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
-                          const userPenaltyAmount = allUserPenalties[userId]?.totalAmount || 0;
-                          const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-                          const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
-                          const progressPercentage = Math.min((totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100, 100);
-                          return progressPercentage < 51;
-                        });
-                      })()
-                        ? 'bg-gradient-to-r from-red-500/20 via-orange-500/15 to-red-500/20 hover:from-red-500/30 hover:via-orange-500/25 hover:to-red-500/30 border-red-400/50 hover:border-red-400/70 shadow-red-500/30 animate-pulse'
-                        : 'bg-gradient-to-r from-purple-500/20 via-blue-500/15 to-purple-500/20 hover:from-purple-500/30 hover:via-blue-500/25 hover:to-purple-500/30 border-purple-400/50 hover:border-purple-400/70 text-black shadow-purple-500/30'
-                    } shadow-xl hover:shadow-2xl hover:scale-[1.02] transform`}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-white/10 via-white/5 to-white/10 opacity-0 hover:opacity-100 transition-opacity duration-500"></div>
-                    <div className="relative flex items-center justify-center gap-3">
-                      {totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
-                        const totalApprovedGlobal = entries
-                          .filter((e) => e.status === "APPROVED")
-                          .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
-                        const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
-                        const normalizedUserIds = entries.map(e => {
-                          const userId = typeof e.userId === 'object' && e.userId !== null
-                            ? (e.userId._id || e.userId.id || e.userId)
-                            : e.userId;
-                          return userId?.toString();
-                        });
-                        // Only check current user's deficit, not all users
-                        const currentUserId = user?._id?.toString();
-                        let hasCurrentUserWarning = false;
-                        
-                        if (currentUserId) {
-                          const userEntries = entries.filter((e) => {
-                            const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                              ? (e.userId._id || e.userId.id || e.userId)
-                              : e.userId;
-                            return entryUserId?.toString() === currentUserId;
-                          });
-                          const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
-                          const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
-                          const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-                          const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
-                          
-                          // Use the same logic as ContributionStatus component
-                          const fairSharePercentage = 100 / (users?.length || 1);
-                          const userContributionPercentage = totalGlobalAfterPenalty > 0 
-                            ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
-                            : 0;
-                          const fairShareThreshold = (75 * fairSharePercentage) / 100;
-                          
-                          hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
-                        }
-                        
-                        return hasCurrentUserWarning && (
-                          <div className="relative">
-                            <div className="w-3 h-3 bg-red-400 rounded-full animate-ping absolute"></div>
-                            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                          </div>
-                        );
-                      })()}
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        className={`h-6 w-6 transition-transform duration-500 ${showContributionStatus ? 'rotate-180' : ''}`}
-                        viewBox="0 0 20 20" 
-                        fill="currentColor"
-                      >
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                      <div className="flex flex-col items-center">
-                        <span className={`font-bold text-sm leading-tight text-black ${
-                          totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
-                            // Only check current user's deficit, not all users
-                            const currentUserId = user?._id?.toString();
-                            let hasCurrentUserWarning = false;
-                            
-                            if (currentUserId) {
-                              const totalApprovedGlobal = entries
-                                .filter((e) => e.status === "APPROVED")
-                                .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
-                              const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
-                              
-                              const userEntries = entries.filter((e) => {
-                                const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                                  ? (e.userId._id || e.userId.id || e.userId)
-                                  : e.userId;
-                                return entryUserId?.toString() === currentUserId;
-                              });
-                              const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
-                              const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
-                              const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-                              const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
-                              
-                              // Use the same logic as ContributionStatus component
-                              const fairSharePercentage = 100 / (users?.length || 1);
-                              const userContributionPercentage = totalGlobalAfterPenalty > 0 
-                                ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
-                                : 0;
-                              const fairShareThreshold = (75 * fairSharePercentage) / 100;
-                              
-                              hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
-                            }
-                            
-                            return hasCurrentUserWarning;
-                          })() ? 'animate-pulse' : ''
-                        }`}>
-                          {showContributionStatus ? "Hide" : "Show"} Contribution Status
-                        </span>
-                        {totals && users && entries && Array.isArray(entries) && entries.length > 0 && (() => {
-                          // Only check current user's deficit, not all users
-                          const currentUserId = user?._id?.toString();
-                          let hasCurrentUserWarning = false;
-                          
-                          if (currentUserId) {
-                            const totalApprovedGlobal = entries
-                              .filter((e) => e.status === "APPROVED")
-                              .reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
-                            const totalGlobalAfterPenalty = totalApprovedGlobal - totalPenaltyAmount;
-                            
-                            const userEntries = entries.filter((e) => {
-                              const entryUserId = typeof e.userId === 'object' && e.userId !== null
-                                ? (e.userId._id || e.userId.id || e.userId)
-                                : e.userId;
-                              return entryUserId?.toString() === currentUserId;
-                            });
-                            const approvedEntries = userEntries.filter((e) => e.status === "APPROVED");
-                            const userPenaltyAmount = allUserPenalties[currentUserId]?.totalAmount || 0;
-                            const totalApprovedAmount = approvedEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-                            const totalAmountAfterPenalty = totalApprovedAmount - userPenaltyAmount;
-                            
-                            // Use the same logic as ContributionStatus component
-                            const fairSharePercentage = 100 / (users?.length || 1);
-                            const userContributionPercentage = totalGlobalAfterPenalty > 0 
-                              ? (totalAmountAfterPenalty / totalGlobalAfterPenalty) * 100 
-                              : 0;
-                            const fairShareThreshold = (75 * fairSharePercentage) / 100;
-                            
-                            hasCurrentUserWarning = totalGlobalAfterPenalty > 0 && (totalGlobalAfterPenalty / (users?.length || 1)) > 0 && totalAmountAfterPenalty > 0 && userContributionPercentage < fairShareThreshold;
-                          }
-                          
-                          return hasCurrentUserWarning && (
-                            <span className="text-xs opacity-80 font-medium">
-                              Your contribution needs attention
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </Button>
                 </div>
               </CardHeader>
 
@@ -1261,15 +1769,17 @@ export default function EntriesPage() {
               </CardContent>
             </Card>
 
-            {/* Contribution Status Card */}
+            {/* Contribution status — desktop inline only; mobile uses sheet drawer */}
             {showContributionStatus && totals && users && (
-              <ContributionStatus
-                userContribution={totals.userTotal}
-                fairShare={totals.fairShareAmount}
-                userId={user._id}
-                flatTotalEntry={totals.flatTotal}
-                totalUsers={users.length}
-              />
+              <div className="hidden md:block">
+                <ContributionStatus
+                  userContribution={totals.userTotal}
+                  fairShare={totals.fairShareAmount}
+                  userId={String(user._id)}
+                  flatTotalEntry={totals.flatTotal}
+                  totalUsers={users.length}
+                />
+              </div>
             )}
           </div>
 
@@ -1307,7 +1817,7 @@ export default function EntriesPage() {
             </div>
           
 
-          <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl">
+          <Table className="w-full overflow-x-auto bg-[#151525] rounded-xl shadow-lg shadow-black/30 border border-[#582c84]/20">
             <TableHeader>
               <TableRow className="border-none">
 

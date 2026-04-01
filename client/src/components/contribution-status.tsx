@@ -9,6 +9,8 @@ interface ContributionStatusProps {
     userId: string;
     flatTotalEntry: number;
     totalUsers: number;
+    /** Flat layout for sheet/drawer — no outer glow card or duplicate title */
+    embedded?: boolean;
 }
 //////////////////////////////////////////// Timer Component //////////////////////////////////////////
 function PenaltyTimer() {
@@ -66,7 +68,14 @@ function PenaltyTimer() {
 
 //////////////////////////////////////////// Timer Component //////////////////////////////////////////
 
-export function ContributionStatus({ userContribution, fairShare, userId, flatTotalEntry, totalUsers }: ContributionStatusProps) {
+export function ContributionStatus({
+    userContribution,
+    fairShare,
+    userId,
+    flatTotalEntry,
+    totalUsers,
+    embedded = false,
+}: ContributionStatusProps) {
 
 
     const [userPenaltyAmount, setUserPenaltyAmount] = useState(0);
@@ -119,21 +128,16 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
     // Don't show deficit warning if contribution or fair share is 0
     const isDeficit = finalFlatTotalEntry > 0 && finalFairShare > 0 && userContribution > 0 && userContributionPercentage < fairShareThreshold;
 
-    return (
-        <Card className="relative group">
-            {/* Blurred border layer */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition"></div>
-
-            {/* Main content */}
-            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-6 border border-white/10">
+    const inner = (
                 <div className="space-y-6">
-                    {/* Simple header */}
+                    {!embedded && (
                     <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         <span className="p-1.5 rounded-lg bg-[#582c84] inline-block">
                             💰
                         </span>
                         Contribution Status
                     </h3>
+                    )}
 
                     {/* Two simple cards for contribution amounts */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,6 +261,17 @@ export function ContributionStatus({ userContribution, fairShare, userId, flatTo
                         </div>
                     )}
                 </div>
+    );
+
+    if (embedded) {
+        return inner;
+    }
+
+    return (
+        <Card className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-[#5433a7] rounded-xl blur group-hover:opacity-75 transition" />
+            <div className="relative bg-black/50 backdrop-blur-xl rounded-xl p-6 border border-white/10">
+                {inner}
             </div>
         </Card>
     );
