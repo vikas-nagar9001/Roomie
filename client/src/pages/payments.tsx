@@ -528,6 +528,32 @@ export default function PaymentsPage() {
     },
   });
 
+  const sendAllRemindersMutation = useMutation({
+    mutationFn: async (billId: string) => {
+      showLoader();
+      const res = await apiRequest("POST", `/api/bills/${billId}/remind-pending`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to send reminders");
+      return data as { sent: number; failed: number; totalPending: number };
+    },
+    onSuccess: (data) => {
+      const sent = Number(data?.sent || 0);
+      const failed = Number(data?.failed || 0);
+      if (sent > 0 && failed === 0) {
+        showSuccess(`Reminders sent to ${sent} member${sent === 1 ? "" : "s"}`);
+      } else if (sent > 0 && failed > 0) {
+        showSuccess(`Sent ${sent} reminders (${failed} failed)`);
+      } else {
+        showError("No reminders could be sent");
+      }
+      hideLoader();
+    },
+    onError: (err: any) => {
+      showError(err.message || "Failed to send reminders");
+      hideLoader();
+    },
+  });
+
   const deleteBillMutation = useMutation({
     mutationFn: async (billId: string) => {
       showLoader();
@@ -823,6 +849,8 @@ export default function PaymentsPage() {
                     flatMembers={flatMembers}
                     onRecordPayment={(p) => { setRecordPayment(p); setRecordPaymentAmount(""); }}
                     onSendReminder={(id) => sendReminderMutation.mutate(id)}
+                    onSendReminderAll={(billId) => sendAllRemindersMutation.mutate(billId)}
+                    isSendingReminderAll={sendAllRemindersMutation.isPending}
                     onDeleteBill={() => { setBillToDeleteId(billDetail._id); setIsDeleteBillOpen(true); }}
                     onUpdateBill={(data, exitEditMode) => {
                       setBillUpdateSuccessCallback(() => exitEditMode);
@@ -1424,6 +1452,8 @@ function BillDetailView({
   flatMembers = [],
   onRecordPayment,
   onSendReminder,
+  onSendReminderAll,
+  isSendingReminderAll = false,
   onDeleteBill,
   onUpdateBill,
   onEditError,
@@ -1434,6 +1464,8 @@ function BillDetailView({
   flatMembers?: FlatMember[];
   onRecordPayment: (p: PaymentRecord) => void;
   onSendReminder: (id: string) => void;
+  onSendReminderAll?: (billId: string) => void;
+  isSendingReminderAll?: boolean;
   onDeleteBill?: () => void;
   onUpdateBill?: (data: { items: BillItem[]; totalAmount: number; month: string; year: number; dueDate: string; entryDeductionEnabled: boolean }, exitEditMode: () => void) => void;
   onEditError?: (msg: string) => void;
@@ -1459,6 +1491,10 @@ function BillDetailView({
 
   /** Everyone has paid in full — delete is not allowed (pending/partial/or no payment rows yet can be removed). */
   const billFullySettled = bill.payments.length > 0 && !billHasOutstanding;
+  const pendingReminderCount = useMemo(
+    () => bill.payments.filter((p) => Math.max(0, getEffectiveTotalDue(p) - (p.paidAmount || 0)) > 0.01).length,
+    [bill.payments],
+  );
 
   const actionsLocked = monthLockWouldBlock && !billHasOutstanding;
   const showLockedBanner = monthRowLooksLocked && !billHasOutstanding;
@@ -2019,9 +2055,23 @@ function BillDetailView({
 
       {/* ── Member Payments — Desktop Table ── */}
       <div className="hidden md:block bg-[#151525] rounded-xl border border-white/5 overflow-hidden">
-        <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2">
-          <Users className="w-4 h-4 text-white/40" />
-          <p className="text-white/60 text-sm font-semibold">Member Payments</p>
+        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-white/40" />
+            <p className="text-white/60 text-sm font-semibold">Member Payments</p>
+          </div>
+          {isAdmin && pendingReminderCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onSendReminderAll?.(bill._id)}
+              disabled={isSendingReminderAll}
+              className="h-8 px-3 bg-transparent border-[#582c84]/60 text-[#caa5ff] hover:bg-[#582c84]/20 hover:text-white"
+            >
+              <Bell className="w-3.5 h-3.5 mr-1.5" />
+              {isSendingReminderAll ? "Sending..." : `Remind All (${pendingReminderCount})`}
+            </Button>
+          )}
         </div>
         <div className="members-table-scroll overflow-x-auto overflow-y-auto max-h-[min(65vh,32rem)] relative">
           <table className="w-full text-sm min-w-[700px]">
@@ -2181,9 +2231,23 @@ function BillDetailView({
 
       {/* ── Member Payments — Mobile Cards ── */}
       <div className="md:hidden space-y-3">
-        <div className="flex items-center gap-2 px-1">
-          <Users className="w-4 h-4 text-white/40" />
-          <p className="text-white/60 text-sm font-semibold">Member Payments</p>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-white/40" />
+            <p className="text-white/60 text-sm font-semibold">Member Payments</p>
+          </div>
+          {isAdmin && pendingReminderCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onSendReminderAll?.(bill._id)}
+              disabled={isSendingReminderAll}
+              className="h-7 px-2.5 bg-transparent border-[#582c84]/60 text-[#caa5ff] hover:bg-[#582c84]/20 hover:text-white text-[11px]"
+            >
+              <Bell className="w-3 h-3 mr-1" />
+              {isSendingReminderAll ? "Sending" : `All (${pendingReminderCount})`}
+            </Button>
+          )}
         </div>
 
         {bill.payments.map(payment => {

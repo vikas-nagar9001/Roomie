@@ -2280,8 +2280,32 @@ export function registerRoutes(app: Express): Server {
       const existing = await PaymentModel.findById(req.params.id).lean();
       if (!existing) return res.status(404).json({ message: "Payment not found" });
       if (existing.flatId?.toString() !== req.user.flatId?.toString()) return res.sendStatus(403);
+
+      // Pending / partial bill rows must stay editable even when FlatMonth is locked.
+      // Only archived periods or fully settled months should be immutable.
+      let shouldEnforcePaymentLock = true;
+      if (existing.billId) {
+        const [bill, billPayments] = await Promise.all([
+          storage.getBillById(String(existing.billId)),
+          storage.getPaymentsByBillId(String(existing.billId)),
+        ]);
+
+        if (bill?.lifecycleStatus === "archived") {
+          return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
+        }
+
+        const hasOutstanding = billPaymentsHaveOutstandingBalance(
+          (billPayments ?? []) as Array<Record<string, unknown>>,
+        );
+        if (hasOutstanding) {
+          shouldEnforcePaymentLock = false;
+        }
+      }
+
       try {
-        await assertPaymentLedgerOpen(storage, req.user.flatId, existing as any);
+        if (shouldEnforcePaymentLock) {
+          await assertPaymentLedgerOpen(storage, req.user.flatId, existing as any);
+        }
       } catch (guardErr: any) {
         if (ledgerWriteErrorResponse(res, guardErr)) return;
         throw guardErr;
@@ -2372,6 +2396,76 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to send payment reminder:", error);
       res.status(500).json({ message: "Failed to send reminder" });
+    }
+  });
+
+  // Send reminders to all pending members for a bill (one-click bulk remind)
+  app.post("/api/bills/:billId/remind-pending", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+
+    try {
+      const bill = await storage.getBillById(req.params.billId);
+      if (!bill) return res.status(404).json({ message: "Bill not found" });
+      if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
+        return res.sendStatus(403);
+      }
+
+      const payments = await PaymentModel.find({
+        billId: bill._id,
+        flatId: req.user.flatId,
+      }).populate("userId", "name email _id");
+
+      const pendingPayments = payments.filter((payment: any) => {
+        const baseDue = payment.totalDue && payment.totalDue > 0 ? payment.totalDue : payment.amount;
+        const penalty = payment.penaltyWaived ? 0 : Number(payment.penalty) || 0;
+        const totalDue = Number(baseDue) + penalty;
+        const remaining = Math.max(0, totalDue - (Number(payment.paidAmount) || 0));
+        return remaining > 0.01 && payment.status !== "PAID";
+      });
+
+      if (!pendingPayments.length) {
+        return res.status(400).json({ message: "All payments are complete. No reminders needed." });
+      }
+
+      const pushService = new PushNotificationService(req.user.flatId);
+      let sent = 0;
+      let failed = 0;
+
+      for (const payment of pendingPayments) {
+        const baseDue = payment.totalDue && payment.totalDue > 0 ? payment.totalDue : payment.amount;
+        const penalty = payment.penaltyWaived ? 0 : Number(payment.penalty) || 0;
+        const totalDue = Number(baseDue) + penalty;
+        const remaining = Math.max(0, totalDue - (Number(payment.paidAmount) || 0));
+
+        const userObj = payment.userId as any;
+        const userId = (userObj?._id || userObj)?.toString?.();
+        const userName = userObj?.name || "User";
+
+        if (!userId) {
+          failed++;
+          continue;
+        }
+
+        try {
+          await pushService.sendPaymentReminder({ id: userId, name: userName }, totalDue, remaining);
+          sent++;
+        } catch (pushError) {
+          failed++;
+          console.warn("Push notification failed for bulk payment reminder:", pushError);
+        }
+      }
+
+      return res.status(200).json({
+        sent,
+        failed,
+        totalPending: pendingPayments.length,
+      });
+    } catch (error) {
+      console.error("Failed to send bulk payment reminders:", error);
+      return res.status(500).json({ message: "Failed to send reminders" });
     }
   });
 
