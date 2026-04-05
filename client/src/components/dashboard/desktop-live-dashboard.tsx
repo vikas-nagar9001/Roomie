@@ -94,6 +94,8 @@ interface PaymentRecord {
   amount: number;
   paidAmount: number;
   totalDue: number;
+  carryForwardAmount?: number;
+  entryDeduction?: number;
   penalty: number;
   penaltyWaived: boolean;
   paidAt?: string;
@@ -259,8 +261,8 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
 
   const marchBillDetail = marchBillSameAsCurrent ? billDetail : marchBillQ.data;
 
-  /** Stats, donut, members & activity follow latest March bill when it exists; else current month. */
-  const statsBillSummary = latestMarchBill ?? currentBillSummary;
+  /** Stats, donut, members & activity follow current month bill first; fallback only if missing. */
+  const statsBillSummary = currentBillSummary ?? latestMarchBill;
   const statsMonthKey = statsBillSummary
     ? accountingMonthKeyFromBillMonth(statsBillSummary.year, statsBillSummary.month)
     : monthKey;
@@ -356,9 +358,50 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
     [payments],
   );
 
+  const billCarryForwardTotal = useMemo(
+    () => payments.reduce((s, p) => s + (Number(p.carryForwardAmount) || 0), 0),
+    [payments],
+  );
+
+  const billEntryDeductionTotal = useMemo(
+    () => payments.reduce((s, p) => s + (Number(p.entryDeduction) || 0), 0),
+    [payments],
+  );
+
+  const billPenaltyTotal = useMemo(
+    () =>
+      payments.reduce(
+        (s, p) => s + (p.penaltyWaived ? 0 : (Number(p.penalty) || 0)),
+        0,
+      ),
+    [payments],
+  );
+
   const totalExpensesDisplay = statsBillSummary
     ? Number(statsBillSummary.totalAmount) || 0
     : totalEntrySpend;
+
+  const grossBeforeDeductions = useMemo(
+    () =>
+      statsBillSummary
+        ? totalExpensesDisplay + billCarryForwardTotal + billPenaltyTotal
+        : totalEntrySpend + totalPenaltyAmount,
+    [
+      statsBillSummary,
+      totalExpensesDisplay,
+      billCarryForwardTotal,
+      billPenaltyTotal,
+      totalEntrySpend,
+      totalPenaltyAmount,
+    ],
+  );
+
+  const netPayableDisplay = useMemo(() => {
+    if (!statsBillSummary) return Math.max(0, totalEntrySpend + totalPenaltyAmount);
+    return Math.max(0, grossBeforeDeductions - billEntryDeductionTotal);
+  }, [statsBillSummary, totalEntrySpend, totalPenaltyAmount, grossBeforeDeductions, billEntryDeductionTotal]);
+
+  const penaltiesDisplay = statsBillSummary ? billPenaltyTotal : totalPenaltyAmount;
 
   const donutData: { segments: DonutSeg[]; centerTitle: string; centerSub: string; centerValue: string } =
     useMemo(() => {
@@ -366,16 +409,16 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
       const out = totalRemainingOnBill;
 
       if (statsBillSummary && payments.length > 0) {
-        const sum = paid + out;
+        const sum = Math.max(0, netPayableDisplay);
         if (sum < 0.01) {
           return {
             segments: [{ name: "No movement", value: 1, fill: COLORS.neutral }],
             centerTitle: "—",
             centerSub: "Bill",
-            centerValue: fmt(Number(statsBillSummary.totalAmount) || 0),
+            centerValue: fmt(0),
           };
         }
-        const pct = Math.round((paid / sum) * 100);
+        const pct = Math.max(0, Math.min(100, Math.round((paid / sum) * 100)));
         const segs = [
           { name: "Paid", value: paid, fill: COLORS.paid },
           { name: "Outstanding", value: out, fill: COLORS.outstanding },
@@ -423,6 +466,7 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
       payments.length,
       totalPaidOnBill,
       totalRemainingOnBill,
+      netPayableDisplay,
       totalEntrySpend,
       totalPenaltyAmount,
     ]);
@@ -450,6 +494,11 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
         if (uid(p.userId) === id) penSum += Number(p.amount) || 0;
       }
       const pr = payByUser.get(id);
+      if (statsBillSummary && pr) {
+        // For billed month, show applied deduction/penalty from payment row.
+        entrySum = Number(pr.entryDeduction) || 0;
+        penSum = pr.penaltyWaived ? 0 : Number(pr.penalty) || 0;
+      }
       const paid = pr ? Number(pr.paidAmount) || 0 : 0;
       const due = pr ? effectivePaymentDue(pr) : 0;
       const remaining = pr ? Math.max(0, due - paid) : 0;
@@ -488,7 +537,7 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
         balanceTone,
       };
     });
-  }, [activeMembers, monthEntries, monthPenalties, payments]);
+  }, [activeMembers, monthEntries, monthPenalties, payments, statsBillSummary]);
 
   const activityFeed = useMemo(() => {
     const items: FeedItem[] = [];
@@ -625,7 +674,7 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
                 </div>
                 {statsBillSummary && (
                   <p className="text-[10px] text-indigo-200/40 tabular-nums hidden md:block">
-                    Bill {fmt(Number(statsBillSummary.totalAmount) || 0)} · Due {fmt(totalDueOnBill)}
+                    Expense {fmt(totalExpensesDisplay)} · Net payable {fmt(netPayableDisplay)}
                   </p>
                 )}
               </div>
@@ -772,6 +821,14 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
         </Link>
       )}
 
+      <div className="rounded-xl border border-white/[0.08] bg-[#111120]/70 px-4 py-2.5">
+        <p className="text-xs text-indigo-200/70 leading-relaxed">
+          {statsBillSummary
+            ? `Formula: Expense + Carry Forward + Penalty − Entry Deductions = Net Payable (${fmt(netPayableDisplay)})`
+            : `No bill yet: values are based on approved entries and penalties for ${statsPeriodLabel}`}
+        </p>
+      </div>
+
       {/* Bento: metrics + donut */}
       <div className="grid gap-4 xl:grid-cols-12">
         <div className="xl:col-span-8 grid gap-3 sm:grid-cols-2">
@@ -785,24 +842,34 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
           ) : (
             <>
               <SummaryCard
-                label="Total expenses"
+                label="Expense amount"
                 value={fmt(totalExpensesDisplay)}
                 hint={
                   statsBillSummary
                     ? `Bill total · ${statsBillSummary.month} ${statsBillSummary.year}`
                     : "Approved entries — no bill"
                 }
+                explain={
+                  statsBillSummary
+                    ? "Base bill amount before carry forward, penalties, and entry deductions"
+                    : "Sum of approved entry amounts for the selected period"
+                }
                 icon={FiList}
                 accent="from-emerald-500/25 to-transparent"
                 borderAccent="border-emerald-500/20"
               />
               <SummaryCard
-                label="Total payments"
-                value={fmt(totalPaidOnBill)}
+                label="Net payable"
+                value={fmt(netPayableDisplay)}
                 hint={
                   statsBillSummary
-                    ? `Recorded on ${statsBillSummary.month} bill`
-                    : "Create a bill on Payments"
+                    ? `Expenses + carry fwd + penalty − entries`
+                    : "Entries + penalties"
+                }
+                explain={
+                  statsBillSummary
+                    ? `(${fmt(totalExpensesDisplay)} + ${fmt(billCarryForwardTotal)} + ${fmt(billPenaltyTotal)}) − ${fmt(billEntryDeductionTotal)} = ${fmt(netPayableDisplay)}`
+                    : `${fmt(totalEntrySpend)} + ${fmt(totalPenaltyAmount)} = ${fmt(netPayableDisplay)}`
                 }
                 icon={FiCreditCard}
                 accent="from-[#7c3fbf]/35 to-transparent"
@@ -810,8 +877,13 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
               />
               <SummaryCard
                 label="Total penalties"
-                value={fmt(totalPenaltyAmount)}
-                hint={`Ledger · ${statsPeriodLabel}`}
+                value={fmt(penaltiesDisplay)}
+                hint={statsBillSummary ? `Applied on ${statsPeriodLabel} bill` : `Ledger · ${statsPeriodLabel}`}
+                explain={
+                  statsBillSummary
+                    ? "Only active penalties from bill payment rows (waived penalties are excluded)"
+                    : "Penalty ledger total for the selected period"
+                }
                 icon={FiAlertTriangle}
                 accent="from-amber-500/30 to-transparent"
                 borderAccent="border-amber-500/25"
@@ -821,8 +893,13 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
                 value={statsBillSummary ? fmt(totalRemainingOnBill) : "—"}
                 hint={
                   statsBillSummary
-                    ? `Still due on ${statsBillSummary.month} bill`
+                    ? `${fmt(totalPaidOnBill)} paid · ${fmt(netPayableDisplay)} net`
                     : "No bill for this period"
+                }
+                explain={
+                  statsBillSummary
+                    ? `${fmt(netPayableDisplay)} net payable − ${fmt(totalPaidOnBill)} paid = ${fmt(totalRemainingOnBill)} outstanding`
+                    : "Outstanding appears after a bill is created"
                 }
                 icon={FiActivity}
                 accent="from-rose-500/25 to-transparent"
@@ -936,8 +1013,12 @@ export function DesktopLiveDashboard({ user }: { user: User | null | undefined }
                 <thead>
                   <tr className="text-left text-[10px] uppercase tracking-wider text-white/40 border-b border-white/[0.06] bg-black/20">
                     <th className="px-5 py-3.5 font-semibold">Member</th>
-                    <th className="px-3 py-3.5 font-semibold text-right">Entries</th>
-                    <th className="px-3 py-3.5 font-semibold text-right">Penalties</th>
+                    <th className="px-3 py-3.5 font-semibold text-right">
+                      {statsBillSummary ? "Entry ded." : "Entries"}
+                    </th>
+                    <th className="px-3 py-3.5 font-semibold text-right">
+                      {statsBillSummary ? "Penalty" : "Penalties"}
+                    </th>
                     <th className="px-3 py-3.5 font-semibold text-right">Due</th>
                     <th className="px-3 py-3.5 font-semibold text-right">Paid</th>
                     <th className="px-5 py-3.5 font-semibold text-right">Balance</th>
@@ -1088,6 +1169,7 @@ function SummaryCard({
   label,
   value,
   hint,
+  explain,
   icon: Icon,
   accent,
   borderAccent,
@@ -1095,6 +1177,7 @@ function SummaryCard({
   label: string;
   value: string;
   hint: string;
+  explain?: string;
   icon: typeof FiList;
   accent: string;
   borderAccent: string;
@@ -1105,13 +1188,17 @@ function SummaryCard({
         "group relative overflow-hidden rounded-xl border bg-[#13131c] transition-all duration-200 hover:border-white/15 hover:shadow-md hover:shadow-black/30",
         borderAccent,
       )}
+      title={explain || hint}
     >
       <div className={cn("absolute inset-0 bg-gradient-to-br opacity-[0.85] pointer-events-none", accent)} />
       <div className="absolute inset-0 bg-black/35" />
       <div className="absolute inset-0 bg-[url('/subtle-pattern.png')] opacity-[0.035]" />
       <div className="relative px-3.5 pt-3 pb-3 flex flex-col">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-100/75">{label}</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-indigo-100/75">
+            {label}
+            <span className="ml-1 text-indigo-200/45 normal-case">(i)</span>
+          </p>
           <div className="p-1.5 rounded-lg bg-black/40 border border-white/10 text-indigo-100/90">
             <Icon className="w-3.5 h-3.5" />
           </div>

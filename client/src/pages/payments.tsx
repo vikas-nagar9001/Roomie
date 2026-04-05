@@ -163,6 +163,47 @@ const getEffectiveTotalDue = (p: PaymentRecord) => {
   return base + penalty;
 };
 
+function getBillPayableSummary(bill?: BillDetail | null) {
+  if (!bill?.payments?.length) {
+    return {
+      expenseAmount: Number(bill?.totalAmount || 0),
+      carryForward: 0,
+      penalty: 0,
+      entryDeduction: 0,
+      grossBeforeDeductions: Number(bill?.totalAmount || 0),
+      netPayable: Number(bill?.totalAmount || 0),
+      received: 0,
+      pending: Number(bill?.totalAmount || 0),
+    };
+  }
+
+  const expenseAmount = Number(bill.totalAmount || 0);
+  const carryForward = bill.payments.reduce((sum, p) => sum + (Number(p.carryForwardAmount) || 0), 0);
+  const penalty = bill.payments.reduce(
+    (sum, p) => sum + (p.penaltyWaived ? 0 : (Number(p.penalty) || 0)),
+    0,
+  );
+  const entryDeduction = bill.entryDeductionEnabled
+    ? bill.payments.reduce((sum, p) => sum + (Number(p.entryDeduction) || 0), 0)
+    : 0;
+
+  const grossBeforeDeductions = expenseAmount + carryForward + penalty;
+  const netPayable = Math.max(0, grossBeforeDeductions - entryDeduction);
+  const received = bill.payments.reduce((sum, p) => sum + (Number(p.paidAmount) || 0), 0);
+  const pending = Math.max(0, netPayable - received);
+
+  return {
+    expenseAmount,
+    carryForward,
+    penalty,
+    entryDeduction,
+    grossBeforeDeductions,
+    netPayable,
+    received,
+    pending,
+  };
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function PaymentsPage() {
@@ -385,15 +426,12 @@ export default function PaymentsPage() {
     interactionDisabled(selectedBillMonthKey) && !selectedBillHasOutstanding;
 
   const stats = useMemo(() => {
-    if (!billDetail?.payments) return { total: 0, received: 0, pending: 0 };
-    const payments = billDetail.payments;
-    const total = billDetail.totalAmount;
-    const received = payments.reduce((s, p) => s + (p.paidAmount || 0), 0);
-    const pending = payments.reduce((s, p) => {
-      const due = getEffectiveTotalDue(p);
-      return s + Math.max(0, due - (p.paidAmount || 0));
-    }, 0);
-    return { total, received, pending };
+    const summary = getBillPayableSummary(billDetail);
+    return {
+      total: summary.netPayable,
+      received: summary.received,
+      pending: summary.pending,
+    };
   }, [billDetail]);
 
   const billTotal = useMemo(
@@ -744,7 +782,7 @@ export default function PaymentsPage() {
           {billDetail && (
             <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6">
               <StatCard
-                label="Bill Total"
+                label="Net Payable"
                 value={fmt(stats.total)}
                 color="text-white"
                 icon={<IndianRupee className="w-4 h-4 text-[#9f5bf7]" />}
@@ -1973,7 +2011,7 @@ function BillDetailView({
                 </DropdownMenu>
               </div>
               <div className="text-right">
-                <p className="text-white/40 text-xs">Total</p>
+                <p className="text-white/40 text-xs">Expense Amount</p>
                 <p className="text-white font-bold text-2xl">₹{bill.totalAmount.toLocaleString()}</p>
                 {bill.items.every(item => !item.members || item.members.length === 0) && (
                   <p className="text-[#9f5bf7] text-sm mt-0.5">₹{bill.splitAmount.toFixed(2)}/person</p>
@@ -1999,6 +2037,10 @@ function BillDetailView({
 
         {expenseOpen && (
           <div className="p-4">
+            {(() => {
+              const summary = getBillPayableSummary(bill);
+              return (
+                <>
             <div className="space-y-2">
               {bill.items.map((item, i) => (
                 <div key={i} className="flex items-start justify-between py-1 gap-2">
@@ -2024,24 +2066,43 @@ function BillDetailView({
             <Separator className="bg-white/10 my-3" />
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-white text-sm font-semibold">Grand Total</span>
-                <span className="text-white font-bold">₹{bill.totalAmount.toLocaleString()}</span>
+                <span className="text-white text-sm font-semibold">Expense Amount</span>
+                <span className="text-white font-bold">
+                  ₹{summary.expenseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
-              {bill.entryDeductionEnabled && (() => {
-                const totalEntries = bill.payments.reduce((s, p) => s + (p.entryDeduction || 0), 0);
-                return totalEntries > 0 ? (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/50 text-xs">Total entry deductions</span>
-                      <span className="text-green-400 text-sm font-medium">−₹{totalEntries.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-white/70 text-xs font-medium">Net payable (after entries)</span>
-                      <span className="text-white font-semibold">₹{(bill.totalAmount - totalEntries).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    </div>
-                  </>
-                ) : null;
-              })()}
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs">+ Total carry forward</span>
+                <span className="text-orange-400 text-sm font-medium">
+                  +₹{summary.carryForward.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs">+ Total penalty</span>
+                <span className="text-red-400 text-sm font-medium">
+                  +₹{summary.penalty.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-white/50 text-xs">Gross total (before entries)</span>
+                <span className="text-white/80 text-sm font-medium">
+                  ₹{summary.grossBeforeDeductions.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              {bill.entryDeductionEnabled && (
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50 text-xs">− Total entry deductions</span>
+                  <span className="text-green-400 text-sm font-medium">
+                    −₹{summary.entryDeduction.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-white/10 pt-2.5 mt-2">
+                <span className="text-white/80 text-sm font-semibold">Net payable amount</span>
+                <span className="text-white font-bold">
+                  ₹{summary.netPayable.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
               {bill.items.every(item => !item.members || item.members.length === 0) && (
                 <div className="flex items-center justify-between">
                   <span className="text-white/50 text-xs">Per person ({bill.payments.length} members)</span>
@@ -2049,6 +2110,9 @@ function BillDetailView({
                 </div>
               )}
             </div>
+                </>
+              );
+            })()}
           </div>
         )}
       </div>

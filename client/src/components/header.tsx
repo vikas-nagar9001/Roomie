@@ -1,19 +1,5 @@
-import {
-  FiUser,
-  FiBell,
-  FiCheck,
-  FiCheckCircle,
-  FiList,
-  FiCreditCard,
-  FiAlertTriangle,
-  FiLogIn,
-  FiSettings,
-  FiMenu,
-  FiHome,
-  FiClock,
-  FiUsers,
-  FiChevronRight,
-} from "react-icons/fi";
+import { Button } from "@/components/ui/button";
+import { FiUser, FiBell, FiCheck, FiCheckCircle, FiList, FiCreditCard, FiAlertTriangle, FiLogIn, FiSettings, FiClock } from "react-icons/fi";
 import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 const Logo = "/static/images/Roomie.png";
@@ -24,14 +10,6 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetClose,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
 
@@ -54,25 +32,8 @@ function formatPopupTime(date: Date) {
   return format(date, "d MMM · hh:mm a");
 }
 
-const mobileMenuLinks: Array<{
-  href: string;
-  label: string;
-  icon: typeof FiHome;
-  adminOnly?: boolean;
-}> = [
-  { href: "/", label: "Home", icon: FiHome },
-  { href: "/entries", label: "Entries", icon: FiList },
-  { href: "/payments", label: "Payments", icon: FiCreditCard },
-  { href: "/penalties", label: "Penalties", icon: FiAlertTriangle },
-  { href: "/history", label: "History", icon: FiClock },
-  { href: "/notifications", label: "Notifications", icon: FiBell },
-  { href: "/profile", label: "Profile", icon: FiUser },
-  { href: "/manage-users", label: "Manage users", icon: FiUsers, adminOnly: true },
-];
-
 export function Header() {
   const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN" || user?.role === "CO_ADMIN";
   const { data: activities = [] as Activity[] } = useQuery<Activity[]>({
     queryKey: ["/api/user/activities"],
     queryFn: async () => {
@@ -131,54 +92,18 @@ export function Header() {
   return (
     <div className="fixed top-0 left-0 w-full z-50 bg-[#0f0f1f]/95 backdrop-blur-md sm:border-b sm:border-white/[0.05]">
       <div className="flex justify-between items-center px-3 pt-2 pb-1">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Mobile: menu (no logo) */}
-          <Sheet>
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                aria-label="Open menu"
-                className="flex sm:hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border-0 bg-[#1e1630] text-[#c49bff] shadow-[0_4px_0_0_rgba(0,0,0,0.4),0_8px_22px_rgba(124,63,191,0.22),inset_0_1px_0_rgba(255,255,255,0.07)] transition-all active:scale-95 active:shadow-[0_2px_0_0_rgba(0,0,0,0.35)] hover:bg-[#582c84]/35 hover:text-[#e9d5ff] hover:shadow-[0_6px_24px_rgba(124,63,191,0.35)]"
-              >
-                <FiMenu className="h-[22px] w-[22px] stroke-[1.75]" stroke="currentColor" />
-              </button>
-            </SheetTrigger>
-            <SheetContent
-              side="left"
-              className="w-[min(100%,300px)] border-white/10 bg-[#0c0c14] p-0 text-white z-[100]"
-            >
-              <SheetHeader className="border-b border-white/[0.06] px-5 py-4 text-left">
-                <SheetTitle className="text-base font-semibold text-white">Menu</SheetTitle>
-                <p className="text-xs text-white/40 font-normal">Jump anywhere in Roomie</p>
-              </SheetHeader>
-              <nav className="flex flex-col gap-0.5 p-3 pb-8" aria-label="Mobile menu">
-                {mobileMenuLinks
-                  .filter((item) => !item.adminOnly || isAdmin)
-                  .map(({ href, label, icon: Icon }) => (
-                    <SheetClose asChild key={href}>
-                      <Link
-                        href={href}
-                        className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-white/90 transition-colors hover:bg-white/[0.06] active:bg-white/[0.08]"
-                      >
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#7c3fbf]/20 text-[#c49bff] ring-1 ring-[#7c3fbf]/25">
-                          <Icon className="h-5 w-5" />
-                        </span>
-                        <span className="flex-1">{label}</span>
-                        <FiChevronRight className="h-4 w-4 text-white/25" />
-                      </Link>
-                    </SheetClose>
-                  ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+        {/* Left: logo */}
+        <Link to="/" className="flex items-center">
+          <img src={Logo} alt="Logo" className="h-16 w-24" />
+        </Link>
 
-          {/* Desktop: logo */}
-          <Link to="/" className="hidden sm:flex items-center shrink-0">
-            <img src={Logo} alt="Roomie" className="h-16 w-24" />
+        <div className="flex items-center gap-4 sm:gap-6">
+          {/* History link — desktop only */}
+          <Link href="/history" className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white/50 hover:text-[#c49bff] hover:bg-[#582c84]/15 border border-transparent hover:border-[#7c3fbf]/25 transition-all text-xs font-medium">
+            <FiClock className="w-3.5 h-3.5" />
+            History
           </Link>
-        </div>
 
-        <div className="flex items-center gap-3 sm:gap-6">
           {/* Notification Bell — mobile: link to page, desktop: popover */}
           <div className="relative flex items-center justify-center">
             {/* Mobile bell → direct link */}
