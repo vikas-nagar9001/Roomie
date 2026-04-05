@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { useEffect } from "react";
+import { DesktopSidebar } from "@/components/desktop-sidebar";
 
 const getInitials = (name: string | undefined) => {
   if (!name) return "U";
@@ -90,8 +91,9 @@ export function Header() {
   const recent = activities.slice(0, 8);
 
   return (
-    <div className="fixed top-0 left-0 w-full z-50 bg-[#0f0f1f]/95 backdrop-blur-md sm:border-b sm:border-white/[0.05]">
-      <div className="flex justify-between items-center px-3 pt-2 pb-1">
+    <>
+      <div className="fixed top-0 left-0 w-full z-50 bg-[#0f0f1f]/95 backdrop-blur-md sm:border-b sm:border-white/[0.05]">
+        <div className="flex justify-between items-center px-3 pt-2 pb-1">
         {/* Left: logo */}
         <Link to="/" className="flex items-center">
           <img src={Logo} alt="Logo" className="h-16 w-24" />
@@ -263,7 +265,9 @@ export function Header() {
             </div>
           </Link>
         </div>
+        </div>
       </div>
-    </div>
+      <DesktopSidebar />
+    </>
   );
 }

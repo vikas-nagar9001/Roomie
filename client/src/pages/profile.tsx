@@ -462,7 +462,7 @@ const deleteFlatMutation = useMutation({
         <Header />
       </div>
       {/* Main Content */}
-      <main className="container mx-auto px-4 pt-6 md:pt-24 pb-8 space-y-6">
+      <main className="container mx-auto px-4 pt-6 md:pt-24 pb-8 space-y-6 md:pl-[272px]">
         {/* Mobile Profile Header - Only visible on mobile */}
         <div className="md:hidden">
           <MobileProfileHeader />

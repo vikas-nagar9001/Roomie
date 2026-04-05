@@ -247,7 +247,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a1a] via-[#0f0f20] to-[#1a1a2e]">
       <Header />
 
-      <div className="pt-28 sm:pt-28 pb-28 sm:pb-10 px-3 sm:px-6">
+      <div className="pt-28 sm:pt-28 pb-28 sm:pb-10 px-3 sm:px-6 md:pl-[272px]">
         <div className="max-w-3xl mx-auto">
 
           {/* ── Page header ── */}

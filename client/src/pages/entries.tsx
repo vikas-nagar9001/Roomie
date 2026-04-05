@@ -694,7 +694,7 @@ export default function EntriesPage() {
   return (
     <TooltipProvider>
       <Header />
-      <div className="min-h-screen bg-[#0f0f1f] px-2.5 pt-24 pb-28 md:p-8 md:pt-36 md:pb-28">
+      <div className="min-h-screen bg-[#0f0f1f] px-2.5 pt-24 pb-28 md:p-8 md:pt-36 md:pb-28 md:pl-[272px]">
         <div className="max-w-7xl mx-auto">
           <div className="md:hidden mb-5 space-y-3">
             {monthStatus === "unavailable" && (

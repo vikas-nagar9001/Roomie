@@ -577,7 +577,7 @@ export default function HistoryPage() {
         <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-gradient-to-tl from-indigo-500/10 to-purple-500/5 blur-3xl" />
       </div>
 
-      <div className="relative z-10 pt-24 pb-28 sm:pb-10 px-3 sm:px-6 lg:px-8 max-w-xl sm:max-w-4xl md:max-w-7xl mx-auto">
+      <div className="relative z-10 pt-24 pb-28 sm:pb-10 px-3 sm:px-6 lg:px-8 max-w-xl sm:max-w-4xl md:max-w-7xl mx-auto md:pl-[272px]">
 
         <p className="md:hidden text-[11px] text-white/40 mb-4 px-1 leading-relaxed">
           <span className="text-white/55 font-semibold">History</span> — finalized closed months only. The current month stays on{" "}

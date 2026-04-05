@@ -956,7 +956,7 @@ export default function PenaltiesPage() {
     <>
       <TooltipProvider>
         <Header />
-        <div className="min-h-screen p-4 sm:p-8 pb-28 pt-24 sm:pt-36 bg-[#0f0f1f]">
+        <div className="min-h-screen p-4 sm:p-8 pb-28 pt-24 sm:pt-36 bg-[#0f0f1f] md:pl-[272px]">
         <div className="max-w-7xl mx-auto">
           <div className="relative group mb-8">
             {/* Blurred border layer */}

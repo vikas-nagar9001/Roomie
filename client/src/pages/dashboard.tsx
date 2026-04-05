@@ -346,7 +346,7 @@ export default function Dashboard() {
     <>
       <Header />
 
-      <div className="min-h-screen w-full relative flex flex-col bg-[#0f0f1f] pt-[80px]">
+      <div className="min-h-screen w-full relative flex flex-col bg-[#0f0f1f] pt-[80px] md:pl-[272px]">
         {/* Background Effects */}
         <div className="absolute top-0 left-0 w-full h-[50vh] bg-[#0f0f1f] blur-3xl"></div>
         <div className="absolute bottom-0 right-0 w-[70%] h-[40vh] bg-[#582c84]/[0.08] blur-3xl" />

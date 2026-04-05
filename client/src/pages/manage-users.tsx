@@ -34,7 +34,7 @@ export default function ManageUsers() {
   return (
     <>
       <Header />
-      <div className="min-h-screen p-8 pt-36 bg-[#0f0f1f]">
+      <div className="min-h-screen p-8 pt-36 bg-[#0f0f1f] md:pl-[272px]">
         <div className="max-w-7xl mx-auto">
           <div className="relative group mb-8">
             {/* Blurred border layer */}
