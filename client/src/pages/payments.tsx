@@ -158,7 +158,13 @@ const getInitials = (name: string) =>
 const fmt = (n: number) => `₹${(n ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const getEffectiveTotalDue = (p: PaymentRecord) => {
-  const base = p.totalDue > 0 ? p.totalDue : p.amount;
+  const explicitTotalDue = Number(p.totalDue);
+  const base = explicitTotalDue > 0
+    ? explicitTotalDue
+    : Math.max(
+        0,
+        (Number(p.amount) || 0) + (Number(p.carryForwardAmount) || 0) - (Number(p.entryDeduction) || 0),
+      );
   const penalty = p.penaltyWaived ? 0 : (p.penalty ?? 0);
   return base + penalty;
 };

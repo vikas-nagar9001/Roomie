@@ -64,14 +64,32 @@ function dedupeLedgerById<T extends { _id?: unknown }>(rows: T[]): T[] {
 export { snapshotMonthForFlat };
 
 /** Remaining balance for a payment row (matches client getEffectiveTotalDue − paid). */
+function paymentBaseDueAmount(p: {
+  totalDue?: number;
+  amount?: number;
+  carryForwardAmount?: number;
+  entryDeduction?: number;
+}): number {
+  const explicitTotalDue = Number(p.totalDue);
+  if (Number.isFinite(explicitTotalDue) && explicitTotalDue > 0) {
+    return explicitTotalDue;
+  }
+  const amount = Number(p.amount) || 0;
+  const carryForwardAmount = Number(p.carryForwardAmount) || 0;
+  const entryDeduction = Number(p.entryDeduction) || 0;
+  return Math.max(0, parseFloat((amount + carryForwardAmount - entryDeduction).toFixed(2)));
+}
+
 function paymentRemainingAmount(p: {
   totalDue?: number;
   amount?: number;
+  carryForwardAmount?: number;
+  entryDeduction?: number;
   penalty?: number;
   penaltyWaived?: boolean;
   paidAmount?: number;
 }): number {
-  const totalDue = Number(p.totalDue) > 0 ? Number(p.totalDue) : Number(p.amount) || 0;
+  const totalDue = paymentBaseDueAmount(p);
   const penalty = p.penaltyWaived ? 0 : Number(p.penalty) || 0;
   const effective = totalDue + penalty;
   const paid = Number(p.paidAmount) || 0;
@@ -93,10 +111,12 @@ function billPaymentsFullySettled(payments: Array<Record<string, unknown>>): boo
 function effectivePaymentTotalDue(p: {
   totalDue?: number;
   amount?: number;
+  carryForwardAmount?: number;
+  entryDeduction?: number;
   penalty?: number;
   penaltyWaived?: boolean;
 }): number {
-  const base = Number(p.totalDue) > 0 ? Number(p.totalDue) : Number(p.amount) || 0;
+  const base = paymentBaseDueAmount(p);
   const penalty = p.penaltyWaived ? 0 : Number(p.penalty) || 0;
   return parseFloat((base + penalty).toFixed(2));
 }
@@ -1472,7 +1492,7 @@ export function registerRoutes(app: Express): Server {
         const payments = await storage.getPaymentsByBillId(bill._id);
         let paymentStatus: "Paid" | "Pending" = "Paid";
         for (const p of payments) {
-          const baseDue = (p.totalDue != null && p.totalDue > 0) ? p.totalDue : p.amount;
+          const baseDue = paymentBaseDueAmount(p as any);
           const penalty = p.penaltyWaived ? 0 : (Number(p.penalty) || 0);
           const effectiveTotal = baseDue + penalty;
           const paid = Number(p.paidAmount) || 0;
@@ -2290,13 +2310,12 @@ export function registerRoutes(app: Express): Server {
           storage.getPaymentsByBillId(String(existing.billId)),
         ]);
 
-        if (bill?.lifecycleStatus === "archived") {
-          return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
-        }
-
         const hasOutstanding = billPaymentsHaveOutstandingBalance(
           (billPayments ?? []) as Array<Record<string, unknown>>,
         );
+        if (bill?.lifecycleStatus === "archived" && !hasOutstanding) {
+          return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
+        }
         if (hasOutstanding) {
           shouldEnforcePaymentLock = false;
         }
@@ -2317,7 +2336,7 @@ export function registerRoutes(app: Express): Server {
       const penalty = req.body.penalty !== undefined ? parseFloat(req.body.penalty) : (existing.penalty ?? 0);
       const penaltyWaived = req.body.penaltyWaived !== undefined ? !!req.body.penaltyWaived : (existing.penaltyWaived ?? false);
 
-      const baseDue = (existing.totalDue != null && existing.totalDue > 0) ? existing.totalDue : existing.amount;
+      const baseDue = paymentBaseDueAmount(existing as any);
       const effectiveTotal = parseFloat((baseDue + (penaltyWaived ? 0 : penalty)).toFixed(2));
       const isFullyPaid = newPaidAmount >= effectiveTotal;
 
@@ -2372,7 +2391,7 @@ export function registerRoutes(app: Express): Server {
 
       if (!payment) return res.status(404).json({ message: "Payment not found" });
 
-      const baseDue = (payment.totalDue && payment.totalDue > 0) ? payment.totalDue : payment.amount;
+      const baseDue = paymentBaseDueAmount(payment as any);
       const penalty = payment.penaltyWaived ? 0 : (Number(payment.penalty) || 0);
       const totalDue = baseDue + penalty;
       const remaining = Math.max(0, totalDue - (payment.paidAmount || 0));
@@ -2419,7 +2438,7 @@ export function registerRoutes(app: Express): Server {
       }).populate("userId", "name email _id");
 
       const pendingPayments = payments.filter((payment: any) => {
-        const baseDue = payment.totalDue && payment.totalDue > 0 ? payment.totalDue : payment.amount;
+        const baseDue = paymentBaseDueAmount(payment as any);
         const penalty = payment.penaltyWaived ? 0 : Number(payment.penalty) || 0;
         const totalDue = Number(baseDue) + penalty;
         const remaining = Math.max(0, totalDue - (Number(payment.paidAmount) || 0));
@@ -2435,7 +2454,7 @@ export function registerRoutes(app: Express): Server {
       let failed = 0;
 
       for (const payment of pendingPayments) {
-        const baseDue = payment.totalDue && payment.totalDue > 0 ? payment.totalDue : payment.amount;
+        const baseDue = paymentBaseDueAmount(payment as any);
         const penalty = payment.penaltyWaived ? 0 : Number(payment.penalty) || 0;
         const totalDue = Number(baseDue) + penalty;
         const remaining = Math.max(0, totalDue - (Number(payment.paidAmount) || 0));

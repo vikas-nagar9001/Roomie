@@ -940,6 +940,12 @@ export default function EntriesPage() {
                       onCreateOption={(inputValue) => {
                         setNewEntry((prev) => ({ ...prev, name: inputValue.trim() }));
                       }}
+                      onInputChange={(inputValue, actionMeta) => {
+                        if (actionMeta.action === "input-change") {
+                          setNewEntry((prev) => ({ ...prev, name: inputValue }));
+                        }
+                        return inputValue;
+                      }}
                       className="w-full text-sm"
                       menuPortalTarget={typeof document !== "undefined" ? document.body : null}
                       menuPosition="fixed"
@@ -1242,6 +1248,12 @@ export default function EntriesPage() {
                             }}
                             onCreateOption={(inputValue) => {
                               setNewEntry((prev) => ({ ...prev, name: inputValue.trim() }));
+                            }}
+                            onInputChange={(inputValue, actionMeta) => {
+                              if (actionMeta.action === "input-change") {
+                                setNewEntry((prev) => ({ ...prev, name: inputValue }));
+                              }
+                              return inputValue;
                             }}
                             className="w-full"
                             menuPortalTarget={typeof document !== "undefined" ? document.body : null}
