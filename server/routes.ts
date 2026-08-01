@@ -5,6 +5,7 @@ import {
   accountingMonthFromDate,
   accountingMonthFromBillFields,
   parseAccountingMonthKey,
+  compareAccountingMonthKeys,
   isInRollingThreeMonthBillWindow,
 } from "./lib/accounting-month";
 import {
@@ -121,18 +122,11 @@ function effectivePaymentTotalDue(p: {
   return parseFloat((base + penalty).toFixed(2));
 }
 
-function previousCalendarMonthParts(
-  year: number,
-  monthIndex: number,
-): { year: number; monthIndex: number } {
-  if (monthIndex === 0) return { year: year - 1, monthIndex: 11 };
-  return { year, monthIndex: monthIndex - 1 };
-}
-
 /**
- * When a new bill is created, settle the immediately previous calendar month’s bill
+ * When a new bill is created, settle the most recent prior calendar bill
  * (mark payments fully paid) and lock that FlatMonth — carry-forward on the new bill
  * already used each user’s actual remaining balance (including penalties).
+ * Walks back across gaps (e.g. Aug bill after June) so unpaid months don't stay "Pending" forever.
  */
 async function settlePreviousCalendarMonthBillIfExists(
   flatId: string,
@@ -141,19 +135,28 @@ async function settlePreviousCalendarMonthBillIfExists(
   newBillId: unknown,
   closedByUserId?: string,
 ): Promise<void> {
-  const prev = previousCalendarMonthParts(newBillYear, newBillMonthIndex);
-  const prevMonthName = MONTH_LONG_NAMES[prev.monthIndex];
+  const newKey = `${newBillYear}-${String(newBillMonthIndex + 1).padStart(2, "0")}`;
   const fid = new mongoose.Types.ObjectId(flatId as string);
-  const prevBill = await BillModel.findOne({
-    $and: [
-      { flatId: { $in: [flatId, fid] } },
-      { year: prev.year },
-      { month: prevMonthName },
-      { $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] },
-    ],
-  }).lean();
-  if (!prevBill?._id) return;
-  if (String(prevBill._id) === String(newBillId)) return;
+  const bills = await BillModel.find({
+    flatId: { $in: [flatId, fid] },
+    $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+  })
+    .select({ _id: 1, month: 1, year: 1, accountingMonth: 1, dueDate: 1 })
+    .lean();
+
+  type Prior = { bill: { _id: unknown; month?: string; year?: number }; key: string };
+  const prior: Prior[] = [];
+  for (const b of bills) {
+    if (String(b._id) === String(newBillId)) continue;
+    let key = billAccountingMonthKeyForQuery(b as any);
+    if (!key || !parseAccountingMonthKey(key)) continue;
+    if (compareAccountingMonthKeys(key, newKey) >= 0) continue;
+    prior.push({ bill: b as Prior["bill"], key });
+  }
+  if (prior.length === 0) return;
+  prior.sort((a, b) => compareAccountingMonthKeys(b.key, a.key));
+  const prevBill = prior[0].bill;
+  const prevMonthKey = prior[0].key;
 
   const prevPayments = await PaymentModel.find({ billId: prevBill._id }).lean();
   const now = new Date();
@@ -175,7 +178,6 @@ async function settlePreviousCalendarMonthBillIfExists(
       },
     );
   }
-  const prevMonthKey = `${prev.year}-${String(prev.monthIndex + 1).padStart(2, "0")}`;
   const $set: Record<string, unknown> = {
     status: "locked",
     accountingMonth: prevMonthKey,
@@ -1657,9 +1659,14 @@ export function registerRoutes(app: Express): Server {
 
         let carryForwardAmount = 0;
         try {
-          const lastPayment = await storage.getLastPaymentForUser(uid, flatId);
+          // Chronological prior bill (by accounting month), not latest createdAt —
+          // so unpaid remainder from the previous billing period always rolls forward.
+          const lastPayment = await storage.getPriorPaymentForCarryForward(
+            uid,
+            flatId,
+            billAccountingMonthKey,
+          );
           if (lastPayment) {
-            // True unpaid remainder (base + penalty − paid), same as UI — not base-only.
             carryForwardAmount = paymentRemainingAmount(lastPayment as any);
           }
         } catch (e) {

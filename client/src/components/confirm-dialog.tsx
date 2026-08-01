@@ -38,8 +38,10 @@ export function ConfirmDialog({
           <AlertDialogTitle className="text-lg font-semibold text-white">
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-white/70 text-sm leading-relaxed">
-            {description}
+          <AlertDialogDescription asChild>
+            <div className="text-white/70 text-sm leading-relaxed">
+              {description}
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex gap-4 mt-8">

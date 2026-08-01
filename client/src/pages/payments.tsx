@@ -92,7 +92,7 @@ interface PaymentRecord {
     name: string;
     profilePicture?: string;
     email?: string;
-  };
+  } | null;
   amount: number;
   paidAmount: number;
   carryForwardAmount: number;
@@ -1212,14 +1212,14 @@ export default function PaymentsPage() {
                 {/* User card */}
                 <div className="flex items-center gap-3 bg-[#1c1b2d] rounded-lg p-3">
                   <Avatar className="w-10 h-10 border border-[#582c84]/30">
-                    <AvatarImage src={recordPayment.userId.profilePicture} />
+                    <AvatarImage src={recordPayment.userId?.profilePicture} />
                     <AvatarFallback className="bg-[#1a1a2e] text-white text-sm">
-                      {getInitials(recordPayment.userId.name)}
+                      {getInitials(recordPayment.userId?.name ?? "Member")}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-white font-medium">{recordPayment.userId.name}</p>
-                    {recordPayment.userId.email && (
+                    <p className="text-white font-medium">{recordPayment.userId?.name ?? "Removed member"}</p>
+                    {recordPayment.userId?.email && (
                       <p className="text-white/40 text-xs">{recordPayment.userId.email}</p>
                     )}
                   </div>
@@ -2174,7 +2174,8 @@ function BillDetailView({
                 const totalDue = getEffectiveTotalDue(payment);
                 const paid = payment.paidAmount || 0;
                 const remaining = Math.max(0, totalDue - paid);
-                const isCurrentUser = payment.userId._id === currentUserId;
+                const isCurrentUser = String(payment.userId?._id ?? "") === String(currentUserId);
+                const memberName = payment.userId?.name ?? "Removed member";
 
                 return (
                   <tr
@@ -2187,13 +2188,13 @@ function BillDetailView({
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <Avatar className="w-8 h-8 border border-[#582c84]/30 shrink-0">
-                          <AvatarImage src={payment.userId.profilePicture} />
+                          <AvatarImage src={payment.userId?.profilePicture} />
                           <AvatarFallback className="bg-[#1a1a2e] text-white text-xs">
-                            {getInitials(payment.userId.name)}
+                            {getInitials(memberName)}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-white font-medium">
-                          {payment.userId.name}
+                          {memberName}
                           {isCurrentUser && (
                             <span className="ml-1.5 text-[10px] bg-[#582c84]/30 text-[#9f5bf7] px-1.5 py-0.5 rounded-full">
                               You
@@ -2324,7 +2325,8 @@ function BillDetailView({
           const totalDue = getEffectiveTotalDue(payment);
           const paid = payment.paidAmount || 0;
           const remaining = Math.max(0, totalDue - paid);
-          const isCurrentUser = payment.userId._id === currentUserId;
+          const isCurrentUser = String(payment.userId?._id ?? "") === String(currentUserId);
+          const memberName = payment.userId?.name ?? "Removed member";
 
           return (
             <div
@@ -2338,13 +2340,13 @@ function BillDetailView({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="w-9 h-9 border border-[#582c84]/30">
-                    <AvatarImage src={payment.userId.profilePicture} />
+                    <AvatarImage src={payment.userId?.profilePicture} />
                     <AvatarFallback className="bg-[#1a1a2e] text-white text-xs">
-                      {getInitials(payment.userId.name)}
+                      {getInitials(memberName)}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-white font-medium text-sm">{payment.userId.name}</p>
+                    <p className="text-white font-medium text-sm">{memberName}</p>
                     {isCurrentUser && (
                       <p className="text-[#9f5bf7] text-[10px]">You</p>
                     )}

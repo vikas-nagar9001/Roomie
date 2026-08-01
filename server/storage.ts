@@ -388,6 +388,11 @@ export interface IStorage {
   getPaymentsByBillId(billId: string): Promise<any[]>;
   updatePayment(id: string, data: any): Promise<any>;
   getLastPaymentForUser(userId: string, flatId: string): Promise<any>;
+  getPriorPaymentForCarryForward(
+    userId: string,
+    flatId: string,
+    beforeAccountingMonth: string,
+  ): Promise<any | null>;
   adjustPaymentPenalty(userId: string, flatId: string, amountDelta: number, billId?: string): Promise<boolean>;
   getUnappliedEntriesByFlatId(flatId: string): Promise<any[]>;
   markEntriesAppliedToBill(entryIds: string[], billId: string): Promise<void>;
@@ -1316,6 +1321,63 @@ export class MongoStorage implements IStorage {
   }
 
   /**
+   * Prior bill payment used for carry-forward when creating a bill for `beforeAccountingMonth` (YYYY-MM).
+   * Picks the chronologically latest bill *before* that month (not merely latest createdAt),
+   * so pending balances from the previous billing period always roll forward.
+   */
+  async getPriorPaymentForCarryForward(
+    userId: string,
+    flatId: string,
+    beforeAccountingMonth: string,
+  ): Promise<any | null> {
+    const fid = new mongoose.Types.ObjectId(flatId);
+    const uid = new mongoose.Types.ObjectId(userId);
+    const bills = await BillModel.find({
+      flatId: { $in: [flatId, fid] },
+      $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+    })
+      .select({ _id: 1, month: 1, year: 1, accountingMonth: 1, dueDate: 1 })
+      .lean();
+
+    type Prior = { billId: mongoose.Types.ObjectId; key: string };
+    const prior: Prior[] = [];
+    for (const b of bills) {
+      let key =
+        typeof (b as { accountingMonth?: string }).accountingMonth === "string"
+          ? String((b as { accountingMonth?: string }).accountingMonth).trim()
+          : "";
+      if (!key || !parseAccountingMonthKey(key)) {
+        try {
+          key = accountingMonthFromBillFields(
+            String((b as { month: string }).month),
+            Number((b as { year: number }).year),
+          );
+        } catch {
+          const due = new Date((b as { dueDate?: Date }).dueDate || 0);
+          if (isNaN(due.getTime())) continue;
+          key = accountingMonthFromDate(due);
+        }
+      }
+      if (compareAccountingMonthKeys(key, beforeAccountingMonth) >= 0) continue;
+      prior.push({ billId: b._id as mongoose.Types.ObjectId, key });
+    }
+
+    prior.sort((a, b) => compareAccountingMonthKeys(b.key, a.key));
+
+    for (const row of prior) {
+      const payment = await PaymentModel.findOne({
+        billId: row.billId,
+        userId: { $in: [userId, uid] },
+        $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
+      }).lean();
+      if (payment) {
+        return this.convertId(payment as any);
+      }
+    }
+    return null;
+  }
+
+  /**
    * Adjusts the penalty field on the user's latest payment record and recalculates status.
    * amountDelta > 0 = add penalty, < 0 = remove/reduce penalty
    */
@@ -1549,13 +1611,16 @@ export class MongoStorage implements IStorage {
 
     try {
       const user = await UserModel.findById(id).session(session);
-      if (!user) return false;
+      if (!user) {
+        await session.abortTransaction();
+        return false;
+      }
 
-      const cleanupStats = {
-        entries: 0,
-        penalties: 0,
-        payments: 0,
-        activities: 0
+      const userOid = new mongoose.Types.ObjectId(id);
+      // Active (open-month) rows only — archived ledger + MonthlyHistory stay for History UI.
+      const activeLedgerFilter = {
+        userId: { $in: [id, userOid] },
+        lifecycleStatus: { $ne: "archived" },
       };
 
       // Delete profile picture
@@ -1570,50 +1635,60 @@ export class MongoStorage implements IStorage {
         }
       }
 
-      // Delete only active (non-archived) ledger rows — closed months stay in DB until month-rollover purge,
-      // and MonthlyHistory snapshots keep totals after user removal.
-      const { deletedCount: entriesDeleted } = await EntryModel.deleteMany({
-        userId: id,
-        lifecycleStatus: { $ne: "archived" },
+      await EntryModel.deleteMany(activeLedgerFilter).session(session);
+
+      // Penalties assigned TO this user (not ones they created for others)
+      await PenaltyModel.deleteMany(activeLedgerFilter).session(session);
+
+      // Active-month payments only — archived bill payments remain for payment history
+      await PaymentModel.deleteMany(activeLedgerFilter).session(session);
+
+      // Personal activity feed (not MonthlyHistory)
+      await ActivityModel.deleteMany({
+        userId: { $in: [id, userOid] },
       }).session(session);
-      cleanupStats.entries = entriesDeleted;
 
-      // Delete user's own penalties (penalties assigned TO this user)
-      // Do NOT delete penalties created BY this user for others
-      const { deletedCount: penaltiesDeleted } = await PenaltyModel.deleteMany({
-        userId: id,
-        lifecycleStatus: { $ne: "archived" },
+      // Drop from bill member splits (string or ObjectId refs)
+      const billsWithMember = await BillModel.find({
+        "items.members": { $in: [id, userOid] },
       }).session(session);
-      cleanupStats.penalties = penaltiesDeleted;
-
-      // Delete user's payments
-      const { deletedCount: paymentsDeleted } = await PaymentModel.deleteMany({ userId: id }).session(session);
-      cleanupStats.payments = paymentsDeleted;
-
-      // Delete user's activities
-      const { deletedCount: activitiesDeleted } = await ActivityModel.deleteMany({ userId: id }).session(session);
-      cleanupStats.activities = activitiesDeleted;
-
-    // destroy user sessions
-      await this.destroySessionsByUserId(id);
+      for (const bill of billsWithMember) {
+        let changed = false;
+        for (const item of bill.items || []) {
+          const members = (item.members || []) as mongoose.Types.ObjectId[];
+          const next = members.filter((m) => String(m) !== String(id));
+          if (next.length !== members.length) {
+            item.members = next as any;
+            changed = true;
+          }
+        }
+        if (changed) await bill.save({ session });
+      }
 
       // Remove from penalty settings
       await PenaltySettingsModel.updateMany(
-        { selectedUsers: id },
-        { $pull: { selectedUsers: id } }
+        { selectedUsers: { $in: [id, userOid] } },
+        { $pull: { selectedUsers: { $in: [id, userOid] } } },
       ).session(session);
 
-     
-      // Delete user
       const result = await UserModel.findByIdAndDelete(id).session(session);
 
-      // Validate cleanup
+      // Only fail if active-month rows or the user doc still remain.
+      // Archived entries/penalties/payments and MonthlyHistory must stay.
       const validation = await this.validateUserDeletion(id, session);
       if (!validation.success) {
         throw new Error(`User deletion validation failed: ${validation.errors.join(', ')}`);
       }
 
       await session.commitTransaction();
+
+      // Sessions live outside the txn — never roll back a successful delete for this.
+      try {
+        await this.destroySessionsByUserId(id);
+      } catch (sessionErr) {
+        console.error("Session cleanup after user delete failed:", sessionErr);
+      }
+
       return !!result;
 
     } catch (error) {
@@ -1621,45 +1696,41 @@ export class MongoStorage implements IStorage {
       await session.abortTransaction();
       return false;
     } finally {
-      session.endSession(); // ensures cleanup
+      session.endSession();
     }
   }
 
 
   private async validateUserDeletion(userId: string, session: mongoose.ClientSession) {
     const errors: string[] = [];
+    const userOid = new mongoose.Types.ObjectId(userId);
+    const userMatch = { userId: { $in: [userId, userOid] } };
+    // History keeps archived ledger rows — only active-month leftovers are a problem.
+    const activeMatch = { ...userMatch, lifecycleStatus: { $ne: "archived" } };
 
-    // Check for any remaining entries
-    const remainingEntries = await EntryModel.countDocuments({ userId }).session(session);
+    const remainingEntries = await EntryModel.countDocuments(activeMatch).session(session);
     if (remainingEntries > 0) {
-      errors.push(`Found ${remainingEntries} remaining entries`);
+      errors.push(`Found ${remainingEntries} remaining active entries`);
     }
 
-    // Check for any remaining payments
-    const remainingPayments = await PaymentModel.countDocuments({ userId }).session(session);
+    const remainingPayments = await PaymentModel.countDocuments(activeMatch).session(session);
     if (remainingPayments > 0) {
-      errors.push(`Found ${remainingPayments} remaining payments`);
+      errors.push(`Found ${remainingPayments} remaining active payments`);
     }
 
-    // Check for any remaining penalties
-    const remainingPenalties = await PenaltyModel.countDocuments({ userId }).session(session);
+    const remainingPenalties = await PenaltyModel.countDocuments(activeMatch).session(session);
     if (remainingPenalties > 0) {
-      errors.push(`Found ${remainingPenalties} remaining penalties`);
-    }
-    // Fetch and print all remaining activities for the user
-    const remainingActivities = await ActivityModel.find({ userId }).session(session);
-
-    if (remainingActivities.length > 0) {
-      errors.push(`Found ${remainingActivities.length} remaining activities`);
+      errors.push(`Found ${remainingPenalties} remaining active penalties`);
     }
 
+    const remainingActivities = await ActivityModel.countDocuments(userMatch).session(session);
+    if (remainingActivities > 0) {
+      errors.push(`Found ${remainingActivities} remaining activities`);
+    }
 
-    // Check if user still exists in any bills
-    const billsWithUser = await BillModel.countDocuments({
-      users: userId
-    }).session(session);
-    if (billsWithUser > 0) {
-      errors.push(`Found ${billsWithUser} bills still referencing user`);
+    const userStillExists = await UserModel.countDocuments({ _id: userOid }).session(session);
+    if (userStillExists > 0) {
+      errors.push("User document still exists");
     }
 
     return {
