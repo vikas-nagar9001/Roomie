@@ -228,6 +228,23 @@ export default function PaymentsPage() {
     return () => forceHideLoader();
   }, []);
 
+  // ─── One-time migration: backfill userName snapshots on existing payments ───
+  // Runs silently in background for admins only; idempotent — safe to call every mount.
+  useEffect(() => {
+    if (!isAdmin) return;
+    const migrationKey = "roomie_payment_snapshot_migrated_v1";
+    if (sessionStorage.getItem(migrationKey)) return; // Already ran this session
+    sessionStorage.setItem(migrationKey, "1");
+    fetch("/api/migrate/payment-user-snapshots", { method: "POST" })
+      .then(r => r.json())
+      .then(data => {
+        if (data?.updated > 0) {
+          console.log(`[Migration] Backfilled userName on ${data.updated} payments.`);
+        }
+      })
+      .catch(err => console.warn("[Migration] payment-user-snapshots skipped:", err));
+  }, [isAdmin]);
+
   // ─── State ──────────────────────────────────────────────────────────────────
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [isCreateBillOpen, setIsCreateBillOpen] = useState(false);
@@ -2174,7 +2191,7 @@ function BillDetailView({
                 const totalDue = getEffectiveTotalDue(payment);
                 const paid = payment.paidAmount || 0;
                 const remaining = Math.max(0, totalDue - paid);
-                const isCurrentUser = payment.userId._id === currentUserId;
+                const isCurrentUser = payment.userId?._id === currentUserId;
 
                 return (
                   <tr
@@ -2187,13 +2204,13 @@ function BillDetailView({
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2.5">
                         <Avatar className="w-8 h-8 border border-[#582c84]/30 shrink-0">
-                          <AvatarImage src={payment.userId.profilePicture} />
+                          <AvatarImage src={payment.userId?.profilePicture} />
                           <AvatarFallback className="bg-[#1a1a2e] text-white text-xs">
-                            {getInitials(payment.userId.name)}
+                            {getInitials(payment.userId?.name || '')}
                           </AvatarFallback>
                         </Avatar>
                         <span className="text-white font-medium">
-                          {payment.userId.name}
+                          {payment.userId?.name || 'Unknown User'}
                           {isCurrentUser && (
                             <span className="ml-1.5 text-[10px] bg-[#582c84]/30 text-[#9f5bf7] px-1.5 py-0.5 rounded-full">
                               You
@@ -2324,7 +2341,7 @@ function BillDetailView({
           const totalDue = getEffectiveTotalDue(payment);
           const paid = payment.paidAmount || 0;
           const remaining = Math.max(0, totalDue - paid);
-          const isCurrentUser = payment.userId._id === currentUserId;
+          const isCurrentUser = payment.userId?._id === currentUserId;
 
           return (
             <div
@@ -2338,13 +2355,13 @@ function BillDetailView({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <Avatar className="w-9 h-9 border border-[#582c84]/30">
-                    <AvatarImage src={payment.userId.profilePicture} />
+                    <AvatarImage src={payment.userId?.profilePicture} />
                     <AvatarFallback className="bg-[#1a1a2e] text-white text-xs">
-                      {getInitials(payment.userId.name)}
+                      {getInitials(payment.userId?.name || '')}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="text-white font-medium text-sm">{payment.userId.name}</p>
+                    <p className="text-white font-medium text-sm">{payment.userId?.name || 'Unknown User'}</p>
                     {isCurrentUser && (
                       <p className="text-[#9f5bf7] text-[10px]">You</p>
                     )}

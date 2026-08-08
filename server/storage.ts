@@ -227,6 +227,10 @@ const paymentSchema = new mongoose.Schema({
    * Lets locked/paid months still show how much rolled into the next bill.
    */
   carriedUnpaidToNextMonth: { type: Number },
+  /** Snapshot of user's name at payment creation time — preserved even if user is later deleted. */
+  userName: { type: String },
+  /** Snapshot of user's profile picture at payment creation time — preserved even if user is later deleted. */
+  userProfilePicture: { type: String },
   createdAt: { type: Date, default: Date.now },
   ...ledgerPeriodSchemaFields(),
 });
@@ -1234,9 +1238,18 @@ export class MongoStorage implements IStorage {
       .sort({ createdAt: 1 });
     return payments.map(payment => {
       const obj = payment.toObject();
+      const populated = obj.userId ? this.convertId(obj.userId as any) : null;
+      // If user was deleted (populate returns null), reconstruct a minimal user object
+      // from the snapshot fields saved at payment creation time.
+      const resolvedUser = populated ?? {
+        _id: null,
+        name: (obj as any).userName || 'Unknown User',
+        profilePicture: (obj as any).userProfilePicture || null,
+        email: null,
+      };
       return {
         ...this.convertId(obj),
-        userId: obj.userId ? this.convertId(obj.userId as any) : null
+        userId: resolvedUser,
       };
     });
   }
@@ -1520,9 +1533,17 @@ export class MongoStorage implements IStorage {
       .sort({ createdAt: -1 });
     return payments.map(payment => {
       const obj = payment.toObject();
+      const populated = obj.userId ? this.convertId(obj.userId) : null;
+      // If user was deleted (populate returns null), reconstruct from snapshot fields.
+      const resolvedUser = populated ?? {
+        _id: null,
+        name: (obj as any).userName || 'Unknown User',
+        profilePicture: (obj as any).userProfilePicture || null,
+        email: null,
+      };
       return {
         ...this.convertId(obj),
-        userId: obj.userId ? this.convertId(obj.userId) : null
+        userId: resolvedUser,
       };
     });
   }

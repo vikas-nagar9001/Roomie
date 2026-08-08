@@ -1686,6 +1686,8 @@ export function registerRoutes(app: Express): Server {
           penalty: initialPenalty,
           status: effectiveTotal === 0 ? "PAID" : "PENDING",
           dueDate: due,
+          userName: (user as any).name || '',
+          userProfilePicture: (user as any).profilePicture || '',
         });
         payments.push(payment);
 
@@ -1855,7 +1857,9 @@ export function registerRoutes(app: Express): Server {
             totalDue,
             status,
             dueDate: bill.dueDate,
-            paidAt: status === "PAID" ? new Date() : undefined
+            paidAt: status === "PAID" ? new Date() : undefined,
+            userName: (user as any).name || '',
+            userProfilePicture: (user as any).profilePicture || '',
           });
           paymentsCount++;
         }
@@ -3073,6 +3077,45 @@ export function registerRoutes(app: Express): Server {
     } catch (error) {
       console.error("Failed to send flat announcement:", error);
       res.status(500).json({ message: "Failed to send announcement" });
+    }
+  });
+
+  // ─── Migration: Backfill userName snapshot on existing payments ──────────────
+  // POST /api/migrate/payment-user-snapshots  (admin only)
+  // Finds all payments missing userName, looks up the User, and saves the name.
+  // Safe to run multiple times (idempotent). Run once after deploying this change.
+  app.post("/api/migrate/payment-user-snapshots", async (req, res) => {
+    if (!req.user) return res.sendStatus(401);
+    if (req.user.role !== "ADMIN" && req.user.role !== "CO_ADMIN") {
+      return res.sendStatus(403);
+    }
+    try {
+      const mongoose = (await import("mongoose")).default;
+      const UserModel = mongoose.model("User");
+      const flatId = req.user.flatId;
+
+      // Find payments for this flat with no userName snapshot yet
+      const payments = await PaymentModel.find({
+        flatId: { $in: [flatId, new mongoose.Types.ObjectId(flatId)] },
+        $or: [{ userName: { $exists: false } }, { userName: "" }, { userName: null }],
+      }).lean();
+
+      let updated = 0;
+      let skipped = 0;
+      for (const p of payments as any[]) {
+        if (!p.userId) { skipped++; continue; }
+        const user = await UserModel.findById(p.userId).lean() as any;
+        if (!user) { skipped++; continue; }
+        await PaymentModel.updateOne(
+          { _id: p._id },
+          { $set: { userName: user.name || '', userProfilePicture: user.profilePicture || '' } }
+        );
+        updated++;
+      }
+      res.json({ message: "Migration complete", updated, skipped, total: payments.length });
+    } catch (err: any) {
+      console.error("Payment user snapshot migration failed:", err);
+      res.status(500).json({ message: err?.message || "Migration failed" });
     }
   });
 
