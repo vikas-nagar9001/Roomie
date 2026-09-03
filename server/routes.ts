@@ -2091,13 +2091,18 @@ export function registerRoutes(app: Express): Server {
       const outstanding = billPaymentsHaveOutstandingBalance(payments);
 
       try {
-        if (outstanding) {
-          if (bill.lifecycleStatus === "archived") {
-            throw createMonthLockedError(ARCHIVED_LEDGER_MESSAGE);
+        // Admins can edit pending/partial bills even in archived/closed periods.
+        // Fully-settled (paid) bills are read-only for everyone.
+        const isAdminOverride = (req.user.role === "ADMIN" || req.user.role === "CO_ADMIN") && outstanding;
+        if (!isAdminOverride) {
+          if (outstanding) {
+            if (bill.lifecycleStatus === "archived") {
+              throw createMonthLockedError(ARCHIVED_LEDGER_MESSAGE);
+            }
+            // Pending / partial: allow save even if FlatMonth says locked
+          } else {
+            await assertBillLedgerOpen(storage, req.user.flatId, bill);
           }
-          // Pending / partial: allow save even if FlatMonth says locked (e.g. next month already opened).
-        } else {
-          await assertBillLedgerOpen(storage, req.user.flatId, bill);
         }
       } catch (guardErr: any) {
         if (ledgerWriteErrorResponse(res, guardErr)) return;
@@ -2272,15 +2277,19 @@ export function registerRoutes(app: Express): Server {
       if (bill.flatId?.toString() !== req.user.flatId?.toString()) {
         return res.sendStatus(403);
       }
-      if (bill.lifecycleStatus === "archived") {
-        return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
-      }
+      // Admins can delete pending bills even in archived periods.
+      // Fully-settled (paid) bills cannot be deleted by anyone.
+      const isAdminOverride = (req.user.role === "ADMIN" || req.user.role === "CO_ADMIN");
       const payments = await storage.getPaymentsByBillId(req.params.billId);
-      if (billPaymentsFullySettled(payments)) {
+      const isFullySettled = billPaymentsFullySettled(payments);
+
+      if (isFullySettled) {
         return res.status(403).json({
-          message:
-            "This bill is fully paid and cannot be deleted. Only pending or partially unpaid bills can be removed.",
+          message: "This bill is fully paid and cannot be deleted. Only pending or partially unpaid bills can be removed.",
         });
+      }
+      if (bill.lifecycleStatus === "archived" && !isAdminOverride) {
+        return res.status(403).json({ message: ARCHIVED_LEDGER_MESSAGE });
       }
       // Pending / partial: allow delete even when the accounting month is locked in FlatMonth.
       const ok = await storage.deleteBill(req.params.billId);

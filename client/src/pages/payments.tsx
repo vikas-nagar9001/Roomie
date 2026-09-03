@@ -1557,8 +1557,10 @@ function BillDetailView({
     [bill.payments],
   );
 
-  const actionsLocked = monthLockWouldBlock && !billHasOutstanding;
-  const showLockedBanner = monthRowLooksLocked && !billHasOutstanding;
+  // Admins can edit/delete pending bills even in closed periods.
+  // Fully-settled (paid) bills are read-only for everyone.
+  const actionsLocked = isAdmin ? (!billHasOutstanding) : (monthLockWouldBlock && !billHasOutstanding);
+  const showLockedBanner = monthRowLooksLocked && !billHasOutstanding && !isAdmin;
 
   const [expenseOpen, setExpenseOpen] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
